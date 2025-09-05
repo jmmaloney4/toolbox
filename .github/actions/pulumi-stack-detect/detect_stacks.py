@@ -20,26 +20,44 @@ def find_pulumi_stacks(working_dir: Path) -> List[Dict[str, str]]:
     """Find all Pulumi stack files and extract project/stack information."""
     stacks = []
     
-    # Find all Pulumi.*.yaml files
-    for pulumi_file in working_dir.rglob("Pulumi.*.yaml"):
-        # Extract stack name from filename
-        match = re.match(r"Pulumi\.(.+)\.yaml$", pulumi_file.name)
-        if not match or match.group(1) == "yaml":
-            continue
-            
-        stack_name = match.group(1)
-        
-        # Determine project path relative to working directory
-        project_dir = pulumi_file.parent.relative_to(working_dir)
-        project_path = "." if project_dir == Path(".") else str(project_dir)
-        
-        stacks.append({
-            "project": project_path,
-            "stack": stack_name
-        })
-        
-        print(f"Found stack: {stack_name} in project: {project_path}")
+    print(f"Searching for Pulumi stack files in: {working_dir.absolute()}")
     
+    # Find all Pulumi.*.yaml and Pulumi.*.yml files
+    for pattern in ["Pulumi.*.yaml", "Pulumi.*.yml"]:
+        print(f"Searching for pattern: {pattern}")
+        found_files = list(working_dir.rglob(pattern))
+        print(f"Found {len(found_files)} files matching {pattern}")
+        
+        for pulumi_file in found_files:
+            print(f"Processing file: {pulumi_file}")
+            
+            # Extract stack name from filename
+            match = re.match(r"Pulumi\.(.+)\.ya?ml$", pulumi_file.name)
+            if not match:
+                print(f"  Skipping {pulumi_file.name}: doesn't match pattern")
+                continue
+            if match.group(1) in ("yaml", "yml"):
+                print(f"  Skipping {pulumi_file.name}: invalid stack name")
+                continue
+                
+            stack_name = match.group(1)
+            
+            # Determine project path relative to working directory
+            project_dir = pulumi_file.parent.relative_to(working_dir)
+            project_path = "." if project_dir == Path(".") else str(project_dir)
+            
+            # Avoid duplicates (in case both .yaml and .yml exist for same stack)
+            stack_entry = {
+                "project": project_path,
+                "stack": stack_name
+            }
+            if stack_entry not in stacks:
+                stacks.append(stack_entry)
+                print(f"Found stack: {stack_name} in project: {project_path}")
+            else:
+                print(f"Duplicate stack entry, skipping: {stack_name} in {project_path}")
+    
+    print(f"Total unique stacks found: {len(stacks)}")
     return stacks
 
 
@@ -132,14 +150,8 @@ def main():
     if args.detection_command:
         print("Using custom detection command...")
         stacks = run_custom_command(args.detection_command)
-    elif args.use_nix and subprocess.run(["which", "just"], capture_output=True).returncode == 0:
-        print("Using 'just detect-stacks' command...")
-        stacks = run_just_detect_stacks(args.use_nix)
-        if not stacks:
-            print("No stacks from 'just detect-stacks', falling back to file detection...")
-            stacks = find_pulumi_stacks(Path("."))
     else:
-        print("Using fallback file detection...")
+        print("Using Python filesystem detection...")
         stacks = find_pulumi_stacks(Path("."))
     
     print(f"Raw detected matrix: {json.dumps(stacks, indent=2)}")

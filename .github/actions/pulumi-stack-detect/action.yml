@@ -124,7 +124,7 @@ runs:
         else
           echo "❌ **No Pulumi stacks found**"
           echo ""
-          echo "**Search method:** ${{ inputs.use-nix == 'true' && 'Nix + just detect-stacks' || 'Direct file search' }}"
+          echo "**Search method:** Python filesystem detection"
           echo "**Working directory:** \`$(pwd)\`"
           echo ""
           echo "Make sure you have:"
