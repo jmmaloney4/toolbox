@@ -15,7 +15,6 @@ This directory contains composable Renovate presets that can be shared across pr
 
 - **`nix.json`** - Nix-specific configuration with regex managers
 - **`pulumi.json`** - Pulumi-specific configuration and version management
-- **`atlas.json`** - Simplified configuration for Atlas-like projects
 
 ## Usage
 
@@ -76,14 +75,6 @@ The presets are designed to be composable. Common combinations:
 }
 ```
 
-### Simple Atlas-style Project
-```json
-{
-  "extends": [
-    "github>jmmaloney4/workflows//renovate:atlas"
-  ]
-}
-```
 
 ## Valid Configuration File Locations
 
