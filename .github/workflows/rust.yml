@@ -75,6 +75,10 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    - name: Setup Nix (if enabled)
+      if: inputs.use-nix
+      uses: jmmaloney4/workflows/.github/actions/nix-setup@main
+
     - name: Setup Rust with caching
       id: rust-setup
       uses: jmmaloney4/workflows/.github/actions/rust-cache-setup@main
@@ -101,6 +105,10 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+
+    - name: Setup Nix (if enabled)
+      if: inputs.use-nix
+      uses: jmmaloney4/workflows/.github/actions/nix-setup@main
 
     - name: Setup Rust with caching
       uses: jmmaloney4/workflows/.github/actions/rust-cache-setup@main
@@ -162,6 +170,10 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+
+    - name: Setup Nix (if enabled)
+      if: inputs.use-nix
+      uses: jmmaloney4/workflows/.github/actions/nix-setup@main
 
     - name: Setup Rust with caching
       uses: jmmaloney4/workflows/.github/actions/rust-cache-setup@main

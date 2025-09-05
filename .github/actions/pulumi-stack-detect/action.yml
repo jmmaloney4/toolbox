@@ -48,8 +48,6 @@ outputs:
 runs:
   using: 'composite'
   steps:
-  - name: Setup Nix
-    uses: jmmaloney4/workflows/.github/actions/nix-setup@main
 
   - name: Detect Pulumi stacks
     id: detect

@@ -66,17 +66,12 @@ outputs:
 runs:
   using: 'composite'
   steps:
-  - name: Setup Nix (if enabled)
-    if: ${{ inputs.use-nix == 'true' }}
-    uses: jmmaloney4/workflows/.github/actions/nix-setup@main
 
   - name: Setup Rust toolchain (if not using Nix)
     if: ${{ inputs.use-nix != 'true' }}
-    uses: actions-rs/toolchain@v1
+    uses: dtolnay/rust-toolchain@master
     with:
-      profile: minimal
       toolchain: ${{ inputs.rust-toolchain }}
-      override: true
       components: ${{ inputs.components }}
       targets: ${{ inputs.targets }}
 
@@ -111,8 +106,13 @@ runs:
         group="cargo-${job_name}"
       fi
       
-      # Build full cache key
-      key="${group}-${cargo_lock_hash}"
+      # Build full cache key with Nix/non-Nix differentiation
+      nix_suffix=""
+      if [ "${{ inputs.use-nix }}" == "true" ]; then
+        nix_suffix="-nix"
+      fi
+      
+      key="${group}${nix_suffix}-${cargo_lock_hash}"
       
       # Add suffix if provided
       if [ -n "${{ inputs.cache-key-suffix }}" ]; then
@@ -127,11 +127,11 @@ runs:
       echo "group=$group" >> "$GITHUB_OUTPUT"
 
   - name: Setup Cargo cache
-    if: ${{ inputs.enable-cache == 'true' && inputs.use-nix != 'true' }}
+    if: ${{ inputs.enable-cache == 'true' }}
     uses: Leafwing-Studios/cargo-cache@v2
     with:
       sweep-cache: ${{ inputs.cache-sweep }}
-      cache-group: ${{ steps.cache-key.outputs.key }}
+      cache-group: ${{ steps.cache-key.outputs.group }}
 
   - name: Output setup summary
     shell: bash
