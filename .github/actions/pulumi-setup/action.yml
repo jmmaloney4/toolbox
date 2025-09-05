@@ -126,7 +126,7 @@ runs:
       set -euo pipefail
       
       # Write outputs from inside the devshell to avoid capturing banner noise
-      nix develop --keep GITHUB_OUTPUT -c bash -lc '
+      nix develop -c bash -lc '
         set -euo pipefail
         version=$(pulumi version)
         backend=$(pulumi whoami --url 2>/dev/null || echo "none")

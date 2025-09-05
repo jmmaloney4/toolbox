@@ -66,7 +66,7 @@ runs:
     shell: bash
     run: |
       # Compute and write outputs inside the devshell to avoid shellHook banners
-      nix develop --keep GITHUB_OUTPUT ${{ inputs.flake-ref }} -c bash -lc '
+      nix develop ${{ inputs.flake-ref }} -c bash -lc '
         set -euo pipefail
         version=$(rustc --version | awk "{print \$2}")
         echo "version=$version" >> "$GITHUB_OUTPUT"
