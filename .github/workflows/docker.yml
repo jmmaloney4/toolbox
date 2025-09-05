@@ -20,7 +20,7 @@
 #       platforms: "linux/amd64,linux/arm64"
 #       max-parallel: 3
 #     secrets:
-#       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#       REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 # ```
 
 name: "🐳 Docker"
@@ -79,8 +79,8 @@ on:
         type: string
         default: "."
     secrets:
-      GITHUB_TOKEN:
-        description: "GitHub token for registry authentication"
+      REGISTRY_TOKEN:
+        description: "Token for registry authentication (pass ${{ secrets.GITHUB_TOKEN }})"
         required: true
     outputs:
       built-images:
@@ -148,7 +148,7 @@ jobs:
         platforms: ${{ inputs.platforms }}
         push: ${{ inputs.push }}
         tag-strategy: ${{ inputs.tag-strategy }}
-        github-token: ${{ secrets.GITHUB_TOKEN }}
+        github-token: ${{ secrets.REGISTRY_TOKEN }}
 
     - name: Collect build results
       id: collect-results
