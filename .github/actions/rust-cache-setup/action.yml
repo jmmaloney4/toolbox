@@ -5,14 +5,20 @@
 #
 # Usage:
 # ```yaml
+# # With Nix (toolchain from flake.nix):
 # - uses: jmmaloney4/workflows/.github/actions/rust-cache-setup@main
-#   id: rust-setup
+#   id: rust-setup-nix
 #   with:
-#     rust-toolchain: "stable"
+#     use-nix: true
+#     cache-key-suffix: "custom"
+# 
+# # Without Nix (specify toolchain):
+# - uses: jmmaloney4/workflows/.github/actions/rust-cache-setup@main
+#   id: rust-setup-std
+#   with:
 #     use-nix: false
-#     cache-key-suffix: ""
-# - name: Use cache key
-#   run: echo '${{ steps.rust-setup.outputs.cache-key }}'
+#     rust-toolchain: "stable"
+#     components: "clippy,rustfmt"
 # ```
 
 name: 'Rust Cache Setup'
@@ -20,7 +26,7 @@ description: 'Setup Rust toolchain with optimal Cargo caching configuration'
 
 inputs:
   rust-toolchain:
-    description: 'Rust toolchain version (stable, beta, nightly, or specific version)'
+    description: 'Rust toolchain version (stable, beta, nightly, or specific version) - only used when use-nix is false'
     required: false
     default: 'stable'
   use-nix:

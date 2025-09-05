@@ -9,11 +9,16 @@
 #   rust:
 #     uses: jmmaloney4/workflows/.github/workflows/rust.yml@main
 #     with:
-#       rust-toolchain: "stable"
-#       use-nix: true
+#       use-nix: true  # Toolchain defined in flake.nix
 #       test-runner: "nextest"
 #       clippy-args: "--all-targets --all-features"
 #       runs-on: "ubuntu-latest"
+#   rust-legacy:
+#     uses: jmmaloney4/workflows/.github/workflows/rust.yml@main
+#     with:
+#       use-nix: false
+#       rust-toolchain: "stable"  # Only used when use-nix is false
+#       test-runner: "cargo-test"
 # ```
 
 name: "🦀 Rust"
@@ -22,7 +27,7 @@ on:
   workflow_call:
     inputs:
       rust-toolchain:
-        description: "Rust toolchain version (stable, beta, nightly, or specific version)"
+        description: "Rust toolchain version (stable, beta, nightly, or specific version) - ignored when use-nix is true"
         required: false
         type: string
         default: "stable"
