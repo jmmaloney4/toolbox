@@ -159,6 +159,23 @@ jobs:
           pulumi preview --stack "${{ matrix.stack }}" --non-interactive
         fi
 
+    - name: Mark successful preview
+      if: ${{ steps.preview.outcome == 'success' }}
+      run: |
+        mkdir -p ok
+        safe_name="${{ matrix.project }}"
+        safe_name="${safe_name//\//__}"
+        jq -n --arg project "${{ matrix.project }}" --arg stack "${{ matrix.stack }}" \
+          '{project:$project, stack:$stack}' > "ok/${safe_name}-${{ matrix.stack }}.json"
+
+    - name: Upload preview success markers
+      if: ${{ success() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: preview-ok-${{ matrix.stack }}-${{ hashFiles('ok/*.json') }}
+        path: ok/*.json
+        if-no-files-found: ignore
+
     - name: Upload preview artifacts
       if: ${{ matrix.stack == inputs.environment || inputs.environment == 'both' }}
       uses: actions/upload-artifact@v4
@@ -169,17 +186,33 @@ jobs:
           ${{ matrix.project }}/previews/*
         if-no-files-found: ignore
 
+  collect-stage-targets:
+    name: "📦 Collect successful stage previews"
+    needs: [pulumi-preview]
+    runs-on: ${{ inputs.runs-on }}
+    outputs:
+      matrix: ${{ steps.collect.outputs.matrix }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Collect successful previews
+      id: collect
+      uses: jmmaloney4/workflows/.github/actions/pulumi-collect@main
+      with:
+        kind: stage
+
   pulumi-up-stage:
     name: "🚀 Deploy to stage (${{ matrix.stack }})"
-    needs: [detect-pulumi-stacks]
-    if: ${{ always() && ((inputs.deploy-on-main && github.ref == 'refs/heads/main' && (inputs.environment == 'stage' || inputs.environment == 'both')) || inputs.environment == 'stage') }}
+    needs: [collect-stage-targets]
+    if: ${{ inputs.deploy-on-main && github.ref == 'refs/heads/main' && join(fromJson(needs.collect-stage-targets.outputs.matrix)) != '' }}
     runs-on: ${{ inputs.runs-on }}
     outputs:
       deployed: ${{ steps.collect-deployed.outputs.stacks }}
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ inputs.auto-detect-stacks && fromJson(needs.detect-pulumi-stacks.outputs.matrix || '[]') || fromJson(inputs.stack-matrix || '[]') }}
+        include: ${{ fromJson(needs.collect-stage-targets.outputs.matrix) }}
     concurrency:
       group: pulumi-${{ matrix.project }}-${{ matrix.stack }}
       cancel-in-progress: false
@@ -224,17 +257,34 @@ jobs:
           '{project: $project, stack: $stack, environment: $environment, success: true}')
         echo "stacks=[$deployed]" >> "$GITHUB_OUTPUT"
 
+  collect-prod-targets:
+    name: "📦 Collect successful prod previews"
+    needs: [pulumi-preview]
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    runs-on: ${{ inputs.runs-on }}
+    outputs:
+      matrix: ${{ steps.collect.outputs.matrix }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Collect successful previews
+      id: collect
+      uses: jmmaloney4/workflows/.github/actions/pulumi-collect@main
+      with:
+        kind: prod
+
   pulumi-up-prod:
     name: "🚀 Deploy to prod (${{ matrix.stack }})"
-    needs: [detect-pulumi-stacks]
-    if: ${{ always() && ((inputs.deploy-on-tags && startsWith(github.ref, 'refs/tags/v') && (inputs.environment == 'prod' || inputs.environment == 'both')) || inputs.environment == 'prod') }}
+    needs: [collect-prod-targets]
+    if: ${{ startsWith(github.ref, 'refs/tags/v') && join(fromJson(needs.collect-prod-targets.outputs.matrix)) != '' }}
     runs-on: ${{ inputs.runs-on }}
     outputs:
       deployed: ${{ steps.collect-deployed.outputs.stacks }}
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ inputs.auto-detect-stacks && fromJson(needs.detect-pulumi-stacks.outputs.matrix || '[]') || fromJson(inputs.stack-matrix || '[]') }}
+        include: ${{ fromJson(needs.collect-prod-targets.outputs.matrix) }}
     concurrency:
       group: pulumi-${{ matrix.project }}-${{ matrix.stack }}
       cancel-in-progress: false
