@@ -106,7 +106,25 @@ jobs:
       cache-version: "v1"
 ```
 
-**6) Pulumi infrastructure deployment**
+**6) Nix flake update automation**
+Caller repo: `.github/workflows/nix-flake-update.yml`
+
+```yaml
+name: Nix Flake Update
+on:
+  workflow_dispatch:
+  schedule:
+  - cron: '0 0 1 * *'  # Monthly on the 1st
+
+jobs:
+  nix-flake-update:
+    uses: jmmaloney4/workflows/.github/workflows/nix-flake-update.yml@v1
+    with:
+      runs-on: "ubuntu-latest"
+      pr-assignees: "your-username"
+```
+
+**7) Pulumi infrastructure deployment**
 Caller repo: `.github/workflows/pulumi.yml`
 
 ```yaml
@@ -127,7 +145,7 @@ jobs:
       GCP_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GCP_SA_EMAIL }}
 ```
 
-**7) Docker monorepo builds**
+**8) Docker monorepo builds**
 Caller repo: `.github/workflows/docker.yml`
 
 ```yaml
@@ -370,6 +388,7 @@ They're perfect for repeated procedures: toolchain setup, caching, linting, smal
 * `deploy.yml` — Environment-aware deploy with optional approvals; takes an `image-tag` and `app-name`.
 * `rust.yml` — Comprehensive Rust CI pipeline with cargo check, test, and clippy; supports Nix environments and nextest.
 * `nix.yml` — Intelligent Nix flake build pipeline with cache warming and matrix builds for uncached derivations.
+* `nix-flake-update.yml` — Automated Nix flake.lock updates with pull request creation and configurable scheduling.
 * `pulumi.yml` — Complete Pulumi infrastructure deployment pipeline supporting stage/prod environments with auto-stack detection.
 * `docker.yml` — Monorepo Docker build pipeline with automatic Dockerfile discovery and complete path-based image naming.
 

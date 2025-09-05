@@ -1,0 +1,80 @@
+# Nix Flake Update Workflow
+#
+# Automatically updates flake.lock and creates a pull request with the changes.
+# Runs on a schedule and can also be triggered manually.
+#
+# Usage:
+# ```yaml
+# jobs:
+#   nix-flake-update:
+#     uses: jmmaloney4/workflows/.github/workflows/nix-flake-update.yml@main
+#     with:
+#       runs-on: "ubuntu-latest"
+#       branch: "nix-flake-update"
+#       commit-msg: "nix flake update"
+#       pr-title: "nix flake update"
+#       pr-assignees: "jmmaloney4"
+# ```
+
+name: "❄️ nix flake update"
+
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        description: "Runner to use for the job"
+        required: false
+        type: string
+        default: "ubuntu-latest"
+      branch:
+        description: "Branch name for the update"
+        required: false
+        type: string
+        default: "nix-flake-update"
+      commit-msg:
+        description: "Commit message for the update"
+        required: false
+        type: string
+        default: "nix flake update"
+      pr-title:
+        description: "Pull request title"
+        required: false
+        type: string
+        default: "nix flake update"
+      pr-assignees:
+        description: "Comma-separated list of assignees for the PR"
+        required: false
+        type: string
+        default: ""
+      enable-flakehub-cache:
+        description: "Enable FlakeHub cache for inputs"
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  nix-flake-update:
+    name: "🔄 Update flake.lock"
+    runs-on: ${{ inputs.runs-on }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+    
+    - name: Setup Nix
+      uses: jmmaloney4/workflows/.github/actions/nix-setup@main
+      with:
+        enable-flakehub-cache: ${{ inputs.enable-flakehub-cache }}
+    
+    - name: Update flake.lock
+      uses: DeterminateSystems/update-flake-lock@main
+      with:
+        branch: ${{ inputs.branch }}
+        commit-msg: ${{ inputs.commit-msg }}
+        pr-title: ${{ inputs.pr-title }}
+        pr-assignees: ${{ inputs.pr-assignees }}
+        token: ${{ secrets.GITHUB_TOKEN }}
