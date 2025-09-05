@@ -5,7 +5,7 @@
 #
 # Usage:
 # ```yaml
-# - uses: jmmaloney4/workflows/.github/actions/pulumi-setup@v1
+# - uses: jmmaloney4/workflows/.github/actions/pulumi-setup@main
 #   with:
 #     use-nix: true
 #     login-backend: gs://my-pulumi-state
@@ -77,7 +77,7 @@ runs:
   steps:
   - name: Setup Nix (if enabled)
     if: ${{ inputs.use-nix == 'true' }}
-    uses: jmmaloney4/workflows/.github/actions/nix-setup@v1
+    uses: jmmaloney4/workflows/.github/actions/nix-setup@main
 
   - name: Setup Node.js (if not using Nix)
     if: ${{ inputs.use-nix != 'true' }}

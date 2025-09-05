@@ -13,7 +13,7 @@
 # ```yaml
 # jobs:
 #   docker:
-#     uses: jmmaloney4/workflows/.github/workflows/docker.yml@v1
+#     uses: jmmaloney4/workflows/.github/workflows/docker.yml@main
 #     with:
 #       dockerfile-pattern: "**/Dockerfile"
 #       registry: "ghcr.io"
@@ -113,7 +113,7 @@ jobs:
 
     - name: Discover Dockerfiles
       id: discover
-      uses: jmmaloney4/workflows/.github/actions/docker-discover@v1
+      uses: jmmaloney4/workflows/.github/actions/docker-discover@main
       with:
         dockerfile-pattern: ${{ inputs.dockerfile-pattern }}
         exclude-paths: ${{ inputs.exclude-paths }}
@@ -139,7 +139,7 @@ jobs:
 
     - name: Build and push Docker image
       id: docker-build
-      uses: jmmaloney4/workflows/.github/actions/docker-build@v1
+      uses: jmmaloney4/workflows/.github/actions/docker-build@main
       with:
         image-name: ${{ matrix.image_name }}
         dockerfile-path: ${{ matrix.dockerfile }}

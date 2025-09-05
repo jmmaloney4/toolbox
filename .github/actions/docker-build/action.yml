@@ -5,7 +5,7 @@
 #
 # Usage:
 # ```yaml
-# - uses: jmmaloney4/workflows/.github/actions/docker-build@v1
+# - uses: jmmaloney4/workflows/.github/actions/docker-build@main
 #   with:
 #     image-name: my-app
 #     dockerfile-path: ./Dockerfile

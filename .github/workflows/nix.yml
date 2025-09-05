@@ -7,7 +7,7 @@
 # ```yaml
 # jobs:
 #   nix:
-#     uses: jmmaloney4/workflows/.github/workflows/nix.yml@v1
+#     uses: jmmaloney4/workflows/.github/workflows/nix.yml@main
 #     with:
 #       runs-on: "ubuntu-latest"
 #       max-parallel: 2
@@ -67,7 +67,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Setup Nix
-      uses: jmmaloney4/workflows/.github/actions/nix-setup@v1
+      uses: jmmaloney4/workflows/.github/actions/nix-setup@main
       with:
         enable-flakehub-cache: ${{ inputs.flake-inputs-cache }}
 
@@ -125,7 +125,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Setup Nix
-      uses: jmmaloney4/workflows/.github/actions/nix-setup@v1
+      uses: jmmaloney4/workflows/.github/actions/nix-setup@main
       with:
         enable-flakehub-cache: ${{ inputs.flake-inputs-cache }}
 
@@ -141,7 +141,7 @@ jobs:
 
     - name: Detect flake outputs
       id: compute
-      uses: jmmaloney4/workflows/.github/actions/nix-flake-detect@v1
+      uses: jmmaloney4/workflows/.github/actions/nix-flake-detect@main
       with:
         probe-timeout: ${{ inputs.probe-timeout }}
         cache-key: ${{ needs.warm-cache.outputs.cache_key }}
@@ -163,7 +163,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Setup Nix
-      uses: jmmaloney4/workflows/.github/actions/nix-setup@v1
+      uses: jmmaloney4/workflows/.github/actions/nix-setup@main
       with:
         enable-flakehub-cache: ${{ inputs.flake-inputs-cache }}
 

@@ -5,7 +5,7 @@
 #
 # Usage:
 # ```yaml
-# - uses: jmmaloney4/workflows/.github/actions/pulumi-stack-detect@v1
+# - uses: jmmaloney4/workflows/.github/actions/pulumi-stack-detect@main
 #   id: detect
 #   with:
 #     use-nix: true
@@ -55,7 +55,7 @@ runs:
   steps:
   - name: Setup environment for Nix
     if: ${{ inputs.use-nix == 'true' }}
-    uses: jmmaloney4/workflows/.github/actions/nix-setup@v1
+    uses: jmmaloney4/workflows/.github/actions/nix-setup@main
 
   - name: Setup Node.js for non-Nix
     if: ${{ inputs.use-nix != 'true' }}

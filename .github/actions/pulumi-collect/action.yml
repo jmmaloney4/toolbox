@@ -6,7 +6,7 @@
 #
 # Usage:
 # ```yaml
-# - uses: jmmaloney4/workflows/.github/actions/pulumi-collect@v1
+# - uses: jmmaloney4/workflows/.github/actions/pulumi-collect@main
 #   id: collect
 #   with:
 #     kind: stage

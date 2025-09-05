@@ -5,7 +5,7 @@
 #
 # Usage:
 # ```yaml
-# - uses: jmmaloney4/workflows/.github/actions/nix-flake-detect@v1
+# - uses: jmmaloney4/workflows/.github/actions/nix-flake-detect@main
 #   id: detect
 #   with:
 #     probe-timeout: 180

@@ -7,7 +7,7 @@
 # ```yaml
 # jobs:
 #   rust:
-#     uses: jmmaloney4/workflows/.github/workflows/rust.yml@v1
+#     uses: jmmaloney4/workflows/.github/workflows/rust.yml@main
 #     with:
 #       rust-toolchain: "stable"
 #       use-nix: true
@@ -77,7 +77,7 @@ jobs:
 
     - name: Setup Rust with caching
       id: rust-setup
-      uses: jmmaloney4/workflows/.github/actions/rust-cache-setup@v1
+      uses: jmmaloney4/workflows/.github/actions/rust-cache-setup@main
       with:
         rust-toolchain: ${{ inputs.rust-toolchain }}
         use-nix: ${{ inputs.use-nix }}
@@ -103,7 +103,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Setup Rust with caching
-      uses: jmmaloney4/workflows/.github/actions/rust-cache-setup@v1
+      uses: jmmaloney4/workflows/.github/actions/rust-cache-setup@main
       with:
         rust-toolchain: ${{ inputs.rust-toolchain }}
         use-nix: ${{ inputs.use-nix }}
@@ -164,7 +164,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Setup Rust with caching
-      uses: jmmaloney4/workflows/.github/actions/rust-cache-setup@v1
+      uses: jmmaloney4/workflows/.github/actions/rust-cache-setup@main
       with:
         rust-toolchain: ${{ inputs.rust-toolchain }}
         use-nix: ${{ inputs.use-nix }}

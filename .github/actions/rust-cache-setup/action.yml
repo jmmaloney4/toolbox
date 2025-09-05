@@ -5,7 +5,7 @@
 #
 # Usage:
 # ```yaml
-# - uses: jmmaloney4/workflows/.github/actions/rust-cache-setup@v1
+# - uses: jmmaloney4/workflows/.github/actions/rust-cache-setup@main
 #   id: rust-setup
 #   with:
 #     rust-toolchain: "stable"
@@ -68,11 +68,11 @@ runs:
   steps:
   - name: Setup Nix (if enabled)
     if: ${{ inputs.use-nix == 'true' }}
-    uses: jmmaloney4/workflows/.github/actions/nix-setup@v1
+    uses: jmmaloney4/workflows/.github/actions/nix-setup@main
 
   - name: Setup Rust toolchain (if not using Nix)
     if: ${{ inputs.use-nix != 'true' }}
-    uses: actions-rs/toolchain@v1
+    uses: actions-rs/toolchain@main
     with:
       profile: minimal
       toolchain: ${{ inputs.rust-toolchain }}
