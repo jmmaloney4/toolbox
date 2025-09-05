@@ -82,115 +82,18 @@ runs:
     run: |
       set -euo pipefail
       
-      echo "=== Pulumi Stack Detection ==="
-      echo "Use Nix: ${{ inputs.use-nix }}"
-      echo "Working directory: $(pwd)"
-      echo "Custom command: ${{ inputs.detection-command }}"
+      # Run the Python detection script
+      python3 "${{ github.action_path }}/detect_stacks.py" \
+        --working-directory "." \
+        ${{ inputs.use-nix == 'true' && '--use-nix' || '' }} \
+        ${{ inputs.detection-command != '' && format('--detection-command "{0}"', inputs.detection-command) || '' }} \
+        ${{ inputs.include-stacks != '' && format('--include-stacks "{0}"', inputs.include-stacks) || '' }} \
+        ${{ inputs.exclude-stacks != '' && format('--exclude-stacks "{0}"', inputs.exclude-stacks) || '' }}
       
-      matrix="[]"
-      
-      if [ -n "${{ inputs.detection-command }}" ]; then
-        echo "Using custom detection command..."
-        matrix=$(eval "${{ inputs.detection-command }}")
-        
-      elif [ "${{ inputs.use-nix }}" == "true" ]; then
-        echo "Detecting stacks with Nix environment..."
-        
-        if command -v just >/dev/null 2>&1; then
-          echo "Using 'just detect-stacks' command..."
-          matrix=$(nix develop --command just detect-stacks | tail -n 1)
-        else
-          echo "No 'just' command found, using fallback detection..."
-          matrix=$(find . -name "Pulumi.*.yaml" -exec basename {} \; | sed 's/Pulumi\.\(.*\)\.yaml/\1/' | jq -R . | jq -s 'map({project: ".", stack: .})')
-        fi
-        
-      else
-        echo "Detecting stacks without Nix..."
-        
-        # Simple stack detection by looking for Pulumi files
-        stacks=()
-        for file in $(find . -name "Pulumi.*.yaml"); do
-          if [ -f "$file" ]; then
-            stack=$(basename "$file" | sed 's/Pulumi\.\(.*\)\.yaml/\1/')
-            # Skip if it's just 'yaml' (malformed filename)
-            if [ "$stack" != "yaml" ] && [ -n "$stack" ]; then
-              project_dir="$(dirname "$file")"
-              # Convert ./dir to dir, keep . as .
-              if [ "$project_dir" = "." ]; then
-                project="."
-              else
-                project="${project_dir#./}"
-              fi
-              
-              echo "Found stack: $stack in project: $project"
-              stacks+=("{\"project\": \"$project\", \"stack\": \"$stack\"}")
-            fi
-          fi
-        done
-        
-        if [ ${#stacks[@]} -eq 0 ]; then
-          matrix="[]"
-        else
-          matrix="[$(IFS=,; echo "${stacks[*]}")]"
-        fi
-      fi
-      
-      echo "Raw detected matrix: $matrix"
-      
-      # Validate and parse the matrix
-      if ! echo "$matrix" | jq . >/dev/null 2>&1; then
-        echo "::error::Invalid JSON matrix produced: $matrix"
-        matrix="[]"
-      fi
-      
-      # Apply include/exclude filters
-      if [ -n "${{ inputs.include-stacks }}" ]; then
-        echo "Applying include filter: ${{ inputs.include-stacks }}"
-        IFS=',' read -ra INCLUDE_LIST <<< "${{ inputs.include-stacks }}"
-        include_filter=""
-        for stack in "${INCLUDE_LIST[@]}"; do
-          stack=$(echo "$stack" | xargs) # trim whitespace
-          if [ -n "$stack" ]; then
-            if [ -z "$include_filter" ]; then
-              include_filter=".stack == \"$stack\""
-            else
-              include_filter="$include_filter or .stack == \"$stack\""
-            fi
-          fi
-        done
-        
-        if [ -n "$include_filter" ]; then
-          matrix=$(echo "$matrix" | jq --argjson matrix . "map(select($include_filter))")
-        fi
-      fi
-      
-      if [ -n "${{ inputs.exclude-stacks }}" ]; then
-        echo "Applying exclude filter: ${{ inputs.exclude-stacks }}"
-        IFS=',' read -ra EXCLUDE_LIST <<< "${{ inputs.exclude-stacks }}"
-        for stack in "${EXCLUDE_LIST[@]}"; do
-          stack=$(echo "$stack" | xargs) # trim whitespace
-          if [ -n "$stack" ]; then
-            matrix=$(echo "$matrix" | jq --arg stack "$stack" 'map(select(.stack != $stack))')
-          fi
-        done
-      fi
-      
-      # Compute final outputs
-      count=$(echo "$matrix" | jq 'length')
-      if [ "$count" -gt 0 ]; then
-        has_stacks="true"
-      else
-        has_stacks="false"
-      fi
-      
-      echo "Final matrix: $matrix"
-      echo "Count: $count"
-      echo "Has stacks: $has_stacks"
-      
-      # Set outputs
-      echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
-      echo "count=$count" >> "$GITHUB_OUTPUT"
-      echo "has_stacks=$has_stacks" >> "$GITHUB_OUTPUT"
+      # Read the outputs that were set by the Python script
+      matrix=$(grep "^matrix=" "$GITHUB_OUTPUT" | cut -d= -f2- | tail -1)
+      count=$(grep "^count=" "$GITHUB_OUTPUT" | cut -d= -f2- | tail -1)
+      has_stacks=$(grep "^has_stacks=" "$GITHUB_OUTPUT" | cut -d= -f2- | tail -1)
       
       # Write summary
       {

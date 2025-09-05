@@ -1,0 +1,183 @@
+#!/usr/bin/env python3
+"""
+Pulumi Stack Detection Script
+
+Detects Pulumi stacks in a repository and generates a deployment matrix.
+Supports filtering by include/exclude patterns.
+"""
+
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+from pathlib import Path
+from typing import List, Dict, Any
+
+
+def find_pulumi_stacks(working_dir: Path) -> List[Dict[str, str]]:
+    """Find all Pulumi stack files and extract project/stack information."""
+    stacks = []
+    
+    # Find all Pulumi.*.yaml files
+    for pulumi_file in working_dir.rglob("Pulumi.*.yaml"):
+        # Extract stack name from filename
+        match = re.match(r"Pulumi\.(.+)\.yaml$", pulumi_file.name)
+        if not match or match.group(1) == "yaml":
+            continue
+            
+        stack_name = match.group(1)
+        
+        # Determine project path relative to working directory
+        project_dir = pulumi_file.parent.relative_to(working_dir)
+        project_path = "." if project_dir == Path(".") else str(project_dir)
+        
+        stacks.append({
+            "project": project_path,
+            "stack": stack_name
+        })
+        
+        print(f"Found stack: {stack_name} in project: {project_path}")
+    
+    return stacks
+
+
+def run_just_detect_stacks(use_nix: bool) -> List[Dict[str, str]]:
+    """Run 'just detect-stacks' command to get stack information."""
+    try:
+        if use_nix:
+            result = subprocess.run(
+                ["nix", "develop", "--command", "just", "detect-stacks"],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+        else:
+            result = subprocess.run(
+                ["just", "detect-stacks"],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+        
+        # Parse the last line as JSON
+        lines = result.stdout.strip().split('\n')
+        if lines:
+            json_output = lines[-1]
+            return json.loads(json_output)
+        return []
+        
+    except (subprocess.CalledProcessError, json.JSONDecodeError, FileNotFoundError) as e:
+        print(f"Failed to run 'just detect-stacks': {e}")
+        return []
+
+
+def run_custom_command(command: str) -> List[Dict[str, str]]:
+    """Run a custom detection command."""
+    try:
+        result = subprocess.run(
+            command,
+            shell=True,
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        return json.loads(result.stdout.strip())
+    except (subprocess.CalledProcessError, json.JSONDecodeError) as e:
+        print(f"Failed to run custom command '{command}': {e}")
+        return []
+
+
+def filter_stacks(stacks: List[Dict[str, str]], include: List[str], exclude: List[str]) -> List[Dict[str, str]]:
+    """Filter stacks by include/exclude patterns."""
+    filtered = stacks
+    
+    # Apply include filter
+    if include:
+        include_set = {s.strip() for s in include if s.strip()}
+        filtered = [s for s in filtered if s["stack"] in include_set]
+        print(f"Applied include filter: {include_set}")
+    
+    # Apply exclude filter
+    if exclude:
+        exclude_set = {s.strip() for s in exclude if s.strip()}
+        filtered = [s for s in filtered if s["stack"] not in exclude_set]
+        print(f"Applied exclude filter: {exclude_set}")
+    
+    return filtered
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Detect Pulumi stacks and generate deployment matrix")
+    parser.add_argument("--working-directory", "-d", type=Path, default=Path("."), help="Working directory to search")
+    parser.add_argument("--use-nix", action="store_true", help="Use Nix development environment")
+    parser.add_argument("--detection-command", help="Custom command to detect stacks")
+    parser.add_argument("--include-stacks", help="Comma-separated list of stacks to include")
+    parser.add_argument("--exclude-stacks", help="Comma-separated list of stacks to exclude")
+    
+    args = parser.parse_args()
+    
+    print("=== Pulumi Stack Detection ===")
+    print(f"Use Nix: {args.use_nix}")
+    print(f"Working directory: {args.working_directory.absolute()}")
+    print(f"Custom command: {args.detection_command or 'None'}")
+    
+    # Change to working directory
+    os.chdir(args.working_directory)
+    
+    stacks = []
+    
+    # Detect stacks using various methods
+    if args.detection_command:
+        print("Using custom detection command...")
+        stacks = run_custom_command(args.detection_command)
+    elif args.use_nix and subprocess.run(["which", "just"], capture_output=True).returncode == 0:
+        print("Using 'just detect-stacks' command...")
+        stacks = run_just_detect_stacks(args.use_nix)
+        if not stacks:
+            print("No stacks from 'just detect-stacks', falling back to file detection...")
+            stacks = find_pulumi_stacks(Path("."))
+    else:
+        print("Using fallback file detection...")
+        stacks = find_pulumi_stacks(Path("."))
+    
+    print(f"Raw detected matrix: {json.dumps(stacks, indent=2)}")
+    
+    # Apply filters
+    include_list = []
+    exclude_list = []
+    
+    if args.include_stacks:
+        include_list = [s.strip() for s in args.include_stacks.split(",") if s.strip()]
+    
+    if args.exclude_stacks:
+        exclude_list = [s.strip() for s in args.exclude_stacks.split(",") if s.strip()]
+    
+    if include_list or exclude_list:
+        stacks = filter_stacks(stacks, include_list, exclude_list)
+    
+    # Output results
+    matrix_json = json.dumps(stacks, separators=(',', ':'))
+    count = len(stacks)
+    has_stacks = count > 0
+    
+    print(f"Final matrix: {matrix_json}")
+    print(f"Count: {count}")
+    print(f"Has stacks: {has_stacks}")
+    
+    # Set GitHub Actions outputs if in CI
+    if "GITHUB_OUTPUT" in os.environ:
+        with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+            f.write(f"matrix={matrix_json}\n")
+            f.write(f"count={count}\n")
+            f.write(f"has_stacks={has_stacks}\n")
+    
+    # Also output to stdout for shell capture
+    print(f"::set-output name=matrix::{matrix_json}")
+    print(f"::set-output name=count::{count}")
+    print(f"::set-output name=has_stacks::{has_stacks}")
+
+
+if __name__ == "__main__":
+    main()
