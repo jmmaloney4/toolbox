@@ -173,10 +173,6 @@ def main():
             f.write(f"count={count}\n")
             f.write(f"has_stacks={has_stacks}\n")
     
-    # Also output to stdout for shell capture
-    print(f"::set-output name=matrix::{matrix_json}")
-    print(f"::set-output name=count::{count}")
-    print(f"::set-output name=has_stacks::{has_stacks}")
 
 
 if __name__ == "__main__":
