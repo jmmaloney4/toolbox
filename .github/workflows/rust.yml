@@ -127,14 +127,14 @@ jobs:
       shell: bash
       run: |
         set -euo pipefail
-        nix develop -c cargo nextest run --profile ci --hide-progress-bar
+        nix develop -c cargo nextest run --config-file nextest.toml --profile ci --hide-progress-bar --test-threads 4
 
     - name: Run tests with nextest (standard)
       if: ${{ inputs.test-runner == 'nextest' && !inputs.use-nix }}
       shell: bash
       run: |
         set -euo pipefail
-        cargo nextest run --profile ci --hide-progress-bar
+        cargo nextest run --config-file nextest.toml --profile ci --hide-progress-bar --test-threads 4
 
     - name: Run tests with cargo test (Nix)
       if: ${{ inputs.test-runner == 'cargo-test' && inputs.use-nix }}
@@ -151,7 +151,7 @@ jobs:
       uses: dorny/test-reporter@v2
       with:
         name: Rust tests
-        path: target/nextest/*/junit.xml
+        path: target/nextest/ci/junit.xml
         reporter: java-junit
 
   cargo-clippy:

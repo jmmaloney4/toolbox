@@ -184,13 +184,8 @@ jobs:
         attr='${{ matrix.flake_attr }}'
         echo "Building via nix-fast-build: $attr"
         
-        # Install nix-fast-build if not available
-        if ! command -v nix-fast-build >/dev/null 2>&1; then
-          nix profile install nixpkgs#nix-fast-build
-        fi
-        
-        # Build only missing (uncached) derivations
-        nix-fast-build --skip-cached --no-nom --no-link --flake "$attr"
+        # Use nix shell to run nix-fast-build (matches reference pattern)
+        nix shell nixpkgs#nix-fast-build -c nix-fast-build --skip-cached --no-nom --no-link --flake "$attr"
 
     - name: Collect build outputs
       id: collect-outputs
