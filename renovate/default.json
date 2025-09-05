@@ -6,8 +6,9 @@
   "extends": [
     "config:best-practices",
     ":semanticCommits",
-    "helpers:pinGitHubActionDigests",
-    ":enableVulnerabilityAlertsWithLabel(security)"
+    "helpers:pinGitHubActionDigestsToSemver",
+    ":enableVulnerabilityAlertsWithLabel(security)",
+    ":pinAllExceptPeerDependencies"
   ],
   "schedule": [
     "before 4:00 am"
@@ -24,9 +25,7 @@
     "dependencies"
   ],
   "rangeStrategy": "pin",
-  "assignees": [
-    "jmmaloney4"
-  ],
+  "pinDigests": true,
   "labels": [
     "dependencies",
     "renovate"
