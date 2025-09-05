@@ -61,7 +61,7 @@ runs:
       # Run the Python detection script
       python3 "${{ github.action_path }}/detect_stacks.py" \
         --working-directory "." \
-        ${{ inputs.use-nix == 'true' && '--use-nix' || '' }} \
+        --use-nix \
         ${{ inputs.detection-command != '' && format('--detection-command "{0}"', inputs.detection-command) || '' }} \
         ${{ inputs.include-stacks != '' && format('--include-stacks "{0}"', inputs.include-stacks) || '' }} \
         ${{ inputs.exclude-stacks != '' && format('--exclude-stacks "{0}"', inputs.exclude-stacks) || '' }}
@@ -106,9 +106,7 @@ runs:
           echo "Make sure you have:"
           echo "- Pulumi project files (\`Pulumi.yaml\`)"
           echo "- Stack configuration files (\`Pulumi.<stack>.yaml\`)"
-          if [ "${{ inputs.use-nix }}" == "true" ]; then
-            echo "- A working \`just detect-stacks\` command (optional)"
-          fi
+          echo "- A working \`just detect-stacks\` command (optional)"
         fi
         echo ""
         echo "_Detection completed at $(date -u '+%Y-%m-%d %H:%M:%S UTC')_"

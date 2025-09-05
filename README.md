@@ -84,7 +84,6 @@ jobs:
   rust:
     uses: jmmaloney4/workflows/.github/workflows/rust.yml@v1
     with:
-      use-nix: true
       test-runner: "nextest"
       clippy-args: "--all-targets --all-features"
 ```
@@ -226,7 +225,6 @@ jobs:
 ```yaml
 - uses: jmmaloney4/workflows/.github/actions/pulumi-setup@v1
   with:
-    use-nix: true
     login-backend: "gs://my-pulumi-state"
     enable-gcp-auth: true
   env:
@@ -268,7 +266,6 @@ jobs:
 - uses: jmmaloney4/workflows/.github/actions/pulumi-stack-detect@v1
   id: stacks
   with:
-    use-nix: true
     include-stacks: "stage,prod"
 - name: Deploy stacks
   run: echo "Deploying ${{ steps.stacks.outputs.count }} stacks"

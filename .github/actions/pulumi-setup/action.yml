@@ -83,46 +83,23 @@ runs:
     run: |
       set -euo pipefail
       
-      if ${{ inputs.use-nix == 'true' }}; then
-        # Use Nix development shell for dependency installation
-        if [ -f "package.json" ]; then
-          echo "Installing npm/pnpm dependencies via Nix..."
-          if command -v pnpm >/dev/null 2>&1 || nix develop -c sh -c 'command -v pnpm' >/dev/null 2>&1; then
-            nix develop -c pnpm install
-          else
-            nix develop -c npm install
-          fi
-        elif [ -f "requirements.txt" ]; then
-          echo "Installing Python dependencies via Nix..."
-          nix develop -c pip install -r requirements.txt
-        elif [ -f "Pipfile" ]; then
-          echo "Installing Python dependencies via pipenv..."
-          nix develop -c pipenv install
-        elif [ -f "poetry.lock" ]; then
-          echo "Installing Python dependencies via poetry..."
-          nix develop -c poetry install
+      # Use Nix development shell for dependency installation
+      if [ -f "package.json" ]; then
+        echo "Installing npm/pnpm dependencies via Nix..."
+        if command -v pnpm >/dev/null 2>&1 || nix develop -c sh -c 'command -v pnpm' >/dev/null 2>&1; then
+          nix develop -c pnpm install
+        else
+          nix develop -c npm install
         fi
-      else
-        # Standard dependency installation
-        if [ -f "package.json" ]; then
-          echo "Installing npm dependencies..."
-          if command -v pnpm >/dev/null 2>&1; then
-            pnpm install
-          elif command -v yarn >/dev/null 2>&1; then
-            yarn install
-          else
-            npm install
-          fi
-        elif [ -f "requirements.txt" ]; then
-          echo "Installing Python dependencies..."
-          pip install -r requirements.txt
-        elif [ -f "Pipfile" ]; then
-          echo "Installing Python dependencies via pipenv..."
-          pipenv install
-        elif [ -f "poetry.lock" ]; then
-          echo "Installing Python dependencies via poetry..."
-          poetry install
-        fi
+      elif [ -f "requirements.txt" ]; then
+        echo "Installing Python dependencies via Nix..."
+        nix develop -c pip install -r requirements.txt
+      elif [ -f "Pipfile" ]; then
+        echo "Installing Python dependencies via pipenv..."
+        nix develop -c pipenv install
+      elif [ -f "poetry.lock" ]; then
+        echo "Installing Python dependencies via poetry..."
+        nix develop -c poetry install
       fi
 
   - name: Login to Pulumi backend
@@ -133,18 +110,10 @@ runs:
       
       if [ -n "${{ inputs.login-backend }}" ]; then
         echo "Logging in to Pulumi backend: ${{ inputs.login-backend }}"
-        if ${{ inputs.use-nix == 'true' }}; then
-          nix develop -c pulumi login "${{ inputs.login-backend }}"
-        else
-          pulumi login "${{ inputs.login-backend }}"
-        fi
+        nix develop -c pulumi login "${{ inputs.login-backend }}"
       elif [ -n "${PULUMI_ACCESS_TOKEN:-}" ]; then
         echo "Using Pulumi Cloud with access token"
-        if ${{ inputs.use-nix == 'true' }}; then
-          nix develop -c pulumi login
-        else
-          pulumi login
-        fi
+        nix develop -c pulumi login
       else
         echo "::warning::No Pulumi backend or access token configured"
       fi
@@ -156,13 +125,8 @@ runs:
     run: |
       set -euo pipefail
       
-      if ${{ inputs.use-nix == 'true' }}; then
-        version=$(nix develop -c pulumi version)
-        backend=$(nix develop -c pulumi whoami --url 2>/dev/null || echo "none")
-      else
-        version=$(pulumi version)
-        backend=$(pulumi whoami --url 2>/dev/null || echo "none")
-      fi
+      version=$(nix develop -c pulumi version)
+      backend=$(nix develop -c pulumi whoami --url 2>/dev/null || echo "none")
       
       echo "version=$version" >> "$GITHUB_OUTPUT"
       echo "backend=$backend" >> "$GITHUB_OUTPUT"
@@ -173,7 +137,7 @@ runs:
         echo ""
         echo "- **Version:** $version"
         echo "- **Backend:** $backend"
-        echo "- **Using Nix:** ${{ inputs.use-nix }}"
+        echo "- **Using Nix:** true"
         echo "- **Working Directory:** ${{ inputs.working-directory }}"
         if [ "${{ inputs.enable-gcp-auth }}" == "true" ]; then
           echo "- **GCP Auth:** ✅ Enabled"
