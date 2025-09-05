@@ -249,6 +249,44 @@ jobs:
     echo '${{ steps.discover.outputs.matrix }}' | jq '.'
 ```
 
+**8) Nix flake detection for custom builds**
+
+```yaml
+- uses: jmmaloney4/workflows/.github/actions/nix-flake-detect@v1
+  id: nix-detect
+  with:
+    probe-timeout: 180
+    cache-key: ${{ needs.cache-warm.outputs.cache_key }}
+- name: Build uncached outputs
+  run: |
+    echo "Building ${{ steps.nix-detect.outputs.matrix-include }}"
+```
+
+**9) Pulumi stack detection**
+
+```yaml
+- uses: jmmaloney4/workflows/.github/actions/pulumi-stack-detect@v1
+  id: stacks
+  with:
+    use-nix: true
+    include-stacks: "stage,prod"
+- name: Deploy stacks
+  run: echo "Deploying ${{ steps.stacks.outputs.count }} stacks"
+```
+
+**10) Rust setup with caching**
+
+```yaml
+- uses: jmmaloney4/workflows/.github/actions/rust-cache-setup@v1
+  id: rust
+  with:
+    rust-toolchain: "stable"
+    use-nix: false
+    components: "clippy,rustfmt"
+- name: Build with optimized cache
+  run: cargo build --release
+```
+
 > Pin versions (`@v1`, `@v1.2.0`, or a commit SHA) to avoid surprises. When you're ready to adopt changes, bump the tag in callers.
 
 ---
@@ -347,8 +385,11 @@ They're perfect for repeated procedures: toolchain setup, caching, linting, smal
 * `docker-build` — Enhanced Docker build/push with multi-arch support, flexible tagging strategies, and comprehensive metadata.
 * `docker-discover` — Discovers Dockerfiles in monorepos and generates build matrices with complete path-based naming.
 * `nix-setup` — Optimized Nix setup with FlakeHub cache, Magic Nix Cache, and CI-friendly configuration.
+* `nix-flake-detect` — Detects Nix flake outputs and generates build matrices for uncached derivations using nix-eval-jobs.
 * `pulumi-setup` — Complete Pulumi setup with multi-cloud authentication, dependency installation, and Nix support.
+* `pulumi-stack-detect` — Discovers Pulumi stacks and generates deployment matrices with Nix and standard detection support.
 * `pulumi-collect` — Collects Pulumi preview results and builds deployment matrices for stage/prod environments.
+* `rust-cache-setup` — Sets up Rust toolchain with optimal Cargo caching for both standard and Nix environments.
 
 > If you need a variant (e.g., Rust, Go, or a different test runner), open an issue or PR—prefer **inputs** over forks when practical.
 

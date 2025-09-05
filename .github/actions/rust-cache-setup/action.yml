@@ -1,0 +1,193 @@
+# Rust Cache Setup Action
+#
+# Sets up Rust toolchain and configures optimal caching for Cargo builds.
+# Supports both standard Rust installation and Nix development environments.
+#
+# Usage:
+# ```yaml
+# - uses: jmmaloney4/workflows/.github/actions/rust-cache-setup@v1
+#   id: rust-setup
+#   with:
+#     rust-toolchain: "stable"
+#     use-nix: false
+#     cache-key-suffix: ""
+# - name: Use cache key
+#   run: echo '${{ steps.rust-setup.outputs.cache-key }}'
+# ```
+
+name: 'Rust Cache Setup'
+description: 'Setup Rust toolchain with optimal Cargo caching configuration'
+
+inputs:
+  rust-toolchain:
+    description: 'Rust toolchain version (stable, beta, nightly, or specific version)'
+    required: false
+    default: 'stable'
+  use-nix:
+    description: 'Use Nix development environment instead of installing Rust'
+    required: false
+    default: 'false'
+  cache-key-suffix:
+    description: 'Additional suffix for cache keys'
+    required: false
+    default: ''
+  cache-group:
+    description: 'Cache group name (defaults to job-specific naming)'
+    required: false
+    default: ''
+  components:
+    description: 'Additional Rust components to install (comma-separated)'
+    required: false
+    default: ''
+  targets:
+    description: 'Additional Rust targets to install (comma-separated)'
+    required: false
+    default: ''
+  enable-cache:
+    description: 'Enable Cargo caching'
+    required: false
+    default: 'true'
+  cache-sweep:
+    description: 'Enable cache sweeping to remove old cached items'
+    required: false
+    default: 'true'
+
+outputs:
+  cache-key:
+    description: 'Generated cache key for Cargo cache'
+    value: ${{ steps.cache-key.outputs.key }}
+  toolchain-version:
+    description: 'Actual Rust toolchain version installed'
+    value: ${{ steps.toolchain-info.outputs.version }}
+  cache-group:
+    description: 'Cache group used for this setup'
+    value: ${{ steps.cache-key.outputs.group }}
+
+runs:
+  using: 'composite'
+  steps:
+  - name: Setup Nix (if enabled)
+    if: ${{ inputs.use-nix == 'true' }}
+    uses: jmmaloney4/workflows/.github/actions/nix-setup@v1
+
+  - name: Setup Rust toolchain (if not using Nix)
+    if: ${{ inputs.use-nix != 'true' }}
+    uses: actions-rs/toolchain@v1
+    with:
+      profile: minimal
+      toolchain: ${{ inputs.rust-toolchain }}
+      override: true
+      components: ${{ inputs.components }}
+      targets: ${{ inputs.targets }}
+
+  - name: Get toolchain information
+    id: toolchain-info
+    shell: bash
+    run: |
+      if [ "${{ inputs.use-nix }}" == "true" ]; then
+        version=$(nix develop -c rustc --version | cut -d' ' -f2)
+        echo "Rust version (via Nix): $version"
+      else
+        version=$(rustc --version | cut -d' ' -f2)
+        echo "Rust version: $version"
+      fi
+      echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  - name: Compute cache key
+    id: cache-key
+    shell: bash
+    run: |
+      set -euo pipefail
+      
+      # Generate base cache key from Cargo.lock
+      cargo_lock_hash="${{ hashFiles('**/Cargo.lock') }}"
+      
+      # Determine cache group
+      if [ -n "${{ inputs.cache-group }}" ]; then
+        group="${{ inputs.cache-group }}"
+      else
+        # Default group based on job context
+        job_name="${{ github.job }}"
+        group="cargo-${job_name}"
+      fi
+      
+      # Build full cache key
+      key="${group}-${cargo_lock_hash}"
+      
+      # Add suffix if provided
+      if [ -n "${{ inputs.cache-key-suffix }}" ]; then
+        key="${key}-${{ inputs.cache-key-suffix }}"
+      fi
+      
+      echo "Generated cache key: $key"
+      echo "Cache group: $group"
+      echo "Cargo.lock hash: $cargo_lock_hash"
+      
+      echo "key=$key" >> "$GITHUB_OUTPUT"
+      echo "group=$group" >> "$GITHUB_OUTPUT"
+
+  - name: Setup Cargo cache
+    if: ${{ inputs.enable-cache == 'true' && inputs.use-nix != 'true' }}
+    uses: Leafwing-Studios/cargo-cache@v2
+    with:
+      sweep-cache: ${{ inputs.cache-sweep }}
+      cache-group: ${{ steps.cache-key.outputs.key }}
+
+  - name: Output setup summary
+    shell: bash
+    run: |
+      {
+        echo "### 🦀 Rust Cache Setup Complete"
+        echo ""
+        echo "- **Toolchain:** ${{ inputs.rust-toolchain }}"
+        echo "- **Version:** ${{ steps.toolchain-info.outputs.version }}"
+        echo "- **Using Nix:** ${{ inputs.use-nix }}"
+        echo "- **Cache enabled:** ${{ inputs.enable-cache }}"
+        if [ "${{ inputs.enable-cache }}" == "true" ]; then
+          echo "- **Cache key:** \`${{ steps.cache-key.outputs.key }}\`"
+          echo "- **Cache group:** \`${{ steps.cache-key.outputs.group }}\`"
+        fi
+        if [ -n "${{ inputs.components }}" ]; then
+          echo "- **Components:** ${{ inputs.components }}"
+        fi
+        if [ -n "${{ inputs.targets }}" ]; then
+          echo "- **Targets:** ${{ inputs.targets }}"
+        fi
+      } >> "$GITHUB_STEP_SUMMARY"
+
+  - name: Verify Rust installation
+    shell: bash
+    run: |
+      echo "=== Rust Installation Verification ==="
+      
+      if [ "${{ inputs.use-nix }}" == "true" ]; then
+        echo "Using Nix development environment:"
+        nix develop -c rustc --version
+        nix develop -c cargo --version
+        
+        # Check if clippy is available
+        if nix develop -c clippy-driver --version >/dev/null 2>&1; then
+          echo "Clippy: available"
+        else
+          echo "Clippy: not available"
+        fi
+      else
+        echo "Direct Rust installation:"
+        rustc --version
+        cargo --version
+        
+        # Check components
+        if command -v clippy-driver >/dev/null 2>&1; then
+          clippy-driver --version
+        else
+          echo "Clippy: not installed"
+        fi
+        
+        if command -v rustfmt >/dev/null 2>&1; then
+          rustfmt --version
+        else
+          echo "Rustfmt: not installed"
+        fi
+      fi
+      
+      echo "✅ Rust setup verification complete"

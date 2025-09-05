@@ -70,36 +70,19 @@ jobs:
     name: "🔬 cargo check"
     runs-on: ${{ inputs.runs-on }}
     outputs:
-      cache-key: ${{ steps.cache-key.outputs.key }}
+      cache-key: ${{ steps.rust-setup.outputs.cache-key }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Setup Nix (if enabled)
-      if: inputs.use-nix
-      uses: jmmaloney4/workflows/.github/actions/nix-setup@v1
-
-    - name: Setup Rust toolchain (if not using Nix)
-      if: ${{ !inputs.use-nix }}
-      uses: actions-rs/toolchain@v1
+    - name: Setup Rust with caching
+      id: rust-setup
+      uses: jmmaloney4/workflows/.github/actions/rust-cache-setup@v1
       with:
-        profile: minimal
-        toolchain: ${{ inputs.rust-toolchain }}
-        override: true
-
-    - name: Compute cache key
-      id: cache-key
-      shell: bash
-      run: |
-        key="cargo-check-${{ hashFiles('**/Cargo.lock') }}${{ inputs.cache-key-suffix }}"
-        echo "key=$key" >> "$GITHUB_OUTPUT"
-
-    - name: Cache Cargo dependencies
-      if: ${{ !inputs.use-nix }}
-      uses: Leafwing-Studios/cargo-cache@v2
-      with:
-        sweep-cache: true
-        cache-group: ${{ steps.cache-key.outputs.key }}
+        rust-toolchain: ${{ inputs.rust-toolchain }}
+        use-nix: ${{ inputs.use-nix }}
+        cache-key-suffix: ${{ inputs.cache-key-suffix }}
+        cache-group: "cargo-check"
 
     - name: Cargo check (Nix)
       if: inputs.use-nix
@@ -119,17 +102,13 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Setup Nix (if enabled)
-      if: inputs.use-nix
-      uses: jmmaloney4/workflows/.github/actions/nix-setup@v1
-
-    - name: Setup Rust toolchain (if not using Nix)
-      if: ${{ !inputs.use-nix }}
-      uses: actions-rs/toolchain@v1
+    - name: Setup Rust with caching
+      uses: jmmaloney4/workflows/.github/actions/rust-cache-setup@v1
       with:
-        profile: minimal
-        toolchain: ${{ inputs.rust-toolchain }}
-        override: true
+        rust-toolchain: ${{ inputs.rust-toolchain }}
+        use-nix: ${{ inputs.use-nix }}
+        cache-key-suffix: ${{ inputs.cache-key-suffix }}
+        cache-group: "cargo-test"
 
     - name: Restore cargo-check cache
       if: ${{ !inputs.use-nix }}
@@ -137,13 +116,6 @@ jobs:
       with:
         cache-group: ${{ needs.cargo-check.outputs.cache-key }}
         save-if: false
-
-    - name: Setup test cache
-      if: ${{ !inputs.use-nix }}
-      uses: Leafwing-Studios/cargo-cache@v2
-      with:
-        sweep-cache: true
-        cache-group: "cargo-test-${{ hashFiles('**/Cargo.lock') }}${{ inputs.cache-key-suffix }}"
 
     - name: Install nextest (if using nextest)
       if: ${{ inputs.test-runner == 'nextest' && !inputs.use-nix }}
@@ -191,29 +163,18 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Setup Nix (if enabled)
-      if: inputs.use-nix
-      uses: jmmaloney4/workflows/.github/actions/nix-setup@v1
-
-    - name: Setup Rust toolchain (if not using Nix)
-      if: ${{ !inputs.use-nix }}
-      uses: actions-rs/toolchain@v1
+    - name: Setup Rust with caching
+      uses: jmmaloney4/workflows/.github/actions/rust-cache-setup@v1
       with:
-        profile: minimal
-        toolchain: ${{ inputs.rust-toolchain }}
-        override: true
-        components: clippy
+        rust-toolchain: ${{ inputs.rust-toolchain }}
+        use-nix: ${{ inputs.use-nix }}
+        cache-key-suffix: ${{ inputs.cache-key-suffix }}
+        cache-group: "cargo-clippy"
+        components: ${{ inputs.use-nix == 'false' && 'clippy' || '' }}
 
     - name: Setup cargo-action-fmt (if not using Nix)
       if: ${{ !inputs.use-nix }}
       uses: olix0r/cargo-action-fmt/setup@v2
-
-    - name: Cache Cargo dependencies for clippy
-      if: ${{ !inputs.use-nix }}
-      uses: Leafwing-Studios/cargo-cache@v2
-      with:
-        sweep-cache: true
-        cache-group: "cargo-clippy-${{ hashFiles('**/Cargo.lock') }}${{ inputs.cache-key-suffix }}"
 
     - name: Cargo clippy (Nix)
       if: inputs.use-nix

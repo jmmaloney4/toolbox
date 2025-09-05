@@ -1,0 +1,236 @@
+# Pulumi Stack Detect Action
+#
+# Automatically detects Pulumi stacks in a repository and generates a build matrix.
+# Supports both Nix-based projects (with `just detect-stacks`) and standard detection.
+#
+# Usage:
+# ```yaml
+# - uses: jmmaloney4/workflows/.github/actions/pulumi-stack-detect@v1
+#   id: detect
+#   with:
+#     use-nix: true
+#     working-directory: "."
+# - name: Use matrix
+#   run: echo '${{ steps.detect.outputs.matrix }}'
+# ```
+
+name: 'Pulumi Stack Detect'
+description: 'Detect Pulumi stacks and generate deployment matrix'
+
+inputs:
+  use-nix:
+    description: 'Use Nix development environment for detection'
+    required: false
+    default: 'true'
+  working-directory:
+    description: 'Working directory to search for Pulumi stacks'
+    required: false
+    default: '.'
+  detection-command:
+    description: 'Custom command to detect stacks (overrides default detection)'
+    required: false
+    default: ''
+  include-stacks:
+    description: 'Comma-separated list of stack names to include (empty = all)'
+    required: false
+    default: ''
+  exclude-stacks:
+    description: 'Comma-separated list of stack names to exclude'
+    required: false
+    default: ''
+
+outputs:
+  matrix:
+    description: 'JSON matrix of {project, stack} objects'
+    value: ${{ steps.detect.outputs.matrix }}
+  count:
+    description: 'Number of stacks found'
+    value: ${{ steps.detect.outputs.count }}
+  has-stacks:
+    description: 'Whether any stacks were found'
+    value: ${{ steps.detect.outputs.has_stacks }}
+
+runs:
+  using: 'composite'
+  steps:
+  - name: Setup environment for Nix
+    if: ${{ inputs.use-nix == 'true' }}
+    uses: jmmaloney4/workflows/.github/actions/nix-setup@v1
+
+  - name: Setup Node.js for non-Nix
+    if: ${{ inputs.use-nix != 'true' }}
+    uses: actions/setup-node@v4
+    with:
+      node-version: '18'
+
+  - name: Install dependencies for non-Nix
+    if: ${{ inputs.use-nix != 'true' }}
+    shell: bash
+    working-directory: ${{ inputs.working-directory }}
+    run: |
+      if [ -f "package.json" ]; then
+        echo "Installing npm dependencies..."
+        npm install
+      else
+        echo "No package.json found, skipping npm install"
+      fi
+
+  - name: Detect Pulumi stacks
+    id: detect
+    shell: bash
+    working-directory: ${{ inputs.working-directory }}
+    run: |
+      set -euo pipefail
+      
+      echo "=== Pulumi Stack Detection ==="
+      echo "Use Nix: ${{ inputs.use-nix }}"
+      echo "Working directory: $(pwd)"
+      echo "Custom command: ${{ inputs.detection-command }}"
+      
+      matrix="[]"
+      
+      if [ -n "${{ inputs.detection-command }}" ]; then
+        echo "Using custom detection command..."
+        matrix=$(eval "${{ inputs.detection-command }}")
+        
+      elif [ "${{ inputs.use-nix }}" == "true" ]; then
+        echo "Detecting stacks with Nix environment..."
+        
+        if command -v just >/dev/null 2>&1; then
+          echo "Using 'just detect-stacks' command..."
+          matrix=$(nix develop --command just detect-stacks | tail -n 1)
+        else
+          echo "No 'just' command found, using fallback detection..."
+          matrix=$(find . -name "Pulumi.*.yaml" -exec basename {} \; | sed 's/Pulumi\.\(.*\)\.yaml/\1/' | jq -R . | jq -s 'map({project: ".", stack: .})')
+        fi
+        
+      else
+        echo "Detecting stacks without Nix..."
+        
+        # Simple stack detection by looking for Pulumi files
+        stacks=()
+        for file in $(find . -name "Pulumi.*.yaml"); do
+          if [ -f "$file" ]; then
+            stack=$(basename "$file" | sed 's/Pulumi\.\(.*\)\.yaml/\1/')
+            # Skip if it's just 'yaml' (malformed filename)
+            if [ "$stack" != "yaml" ] && [ -n "$stack" ]; then
+              project_dir="$(dirname "$file")"
+              # Convert ./dir to dir, keep . as .
+              if [ "$project_dir" = "." ]; then
+                project="."
+              else
+                project="${project_dir#./}"
+              fi
+              
+              echo "Found stack: $stack in project: $project"
+              stacks+=("{\"project\": \"$project\", \"stack\": \"$stack\"}")
+            fi
+          fi
+        done
+        
+        if [ ${#stacks[@]} -eq 0 ]; then
+          matrix="[]"
+        else
+          matrix="[$(IFS=,; echo "${stacks[*]}")]"
+        fi
+      fi
+      
+      echo "Raw detected matrix: $matrix"
+      
+      # Validate and parse the matrix
+      if ! echo "$matrix" | jq . >/dev/null 2>&1; then
+        echo "::error::Invalid JSON matrix produced: $matrix"
+        matrix="[]"
+      fi
+      
+      # Apply include/exclude filters
+      if [ -n "${{ inputs.include-stacks }}" ]; then
+        echo "Applying include filter: ${{ inputs.include-stacks }}"
+        IFS=',' read -ra INCLUDE_LIST <<< "${{ inputs.include-stacks }}"
+        include_filter=""
+        for stack in "${INCLUDE_LIST[@]}"; do
+          stack=$(echo "$stack" | xargs) # trim whitespace
+          if [ -n "$stack" ]; then
+            if [ -z "$include_filter" ]; then
+              include_filter=".stack == \"$stack\""
+            else
+              include_filter="$include_filter or .stack == \"$stack\""
+            fi
+          fi
+        done
+        
+        if [ -n "$include_filter" ]; then
+          matrix=$(echo "$matrix" | jq --argjson matrix . "map(select($include_filter))")
+        fi
+      fi
+      
+      if [ -n "${{ inputs.exclude-stacks }}" ]; then
+        echo "Applying exclude filter: ${{ inputs.exclude-stacks }}"
+        IFS=',' read -ra EXCLUDE_LIST <<< "${{ inputs.exclude-stacks }}"
+        for stack in "${EXCLUDE_LIST[@]}"; do
+          stack=$(echo "$stack" | xargs) # trim whitespace
+          if [ -n "$stack" ]; then
+            matrix=$(echo "$matrix" | jq --arg stack "$stack" 'map(select(.stack != $stack))')
+          fi
+        done
+      fi
+      
+      # Compute final outputs
+      count=$(echo "$matrix" | jq 'length')
+      if [ "$count" -gt 0 ]; then
+        has_stacks="true"
+      else
+        has_stacks="false"
+      fi
+      
+      echo "Final matrix: $matrix"
+      echo "Count: $count"
+      echo "Has stacks: $has_stacks"
+      
+      # Set outputs
+      echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+      echo "count=$count" >> "$GITHUB_OUTPUT"
+      echo "has_stacks=$has_stacks" >> "$GITHUB_OUTPUT"
+      
+      # Write summary
+      {
+        echo "### 🧩 Pulumi Stack Detection Results"
+        echo ""
+        if [ "$has_stacks" == "true" ]; then
+          echo "**Found $count Pulumi stack(s):**"
+          echo ""
+          echo "| Project | Stack | Environment |"
+          echo "|---------|-------|-------------|"
+          
+          # Use jq to format the table
+          echo "$matrix" | jq -r '.[] | "| `" + .project + "` | `" + .stack + "` | " + .stack + " |"'
+          
+          echo ""
+          echo "🚀 **Ready for deployment pipeline**"
+          
+          if [ -n "${{ inputs.include-stacks }}" ]; then
+            echo ""
+            echo "**Note:** Filtered by include list: \`${{ inputs.include-stacks }}\`"
+          fi
+          
+          if [ -n "${{ inputs.exclude-stacks }}" ]; then
+            echo ""
+            echo "**Note:** Filtered by exclude list: \`${{ inputs.exclude-stacks }}\`"
+          fi
+          
+        else
+          echo "❌ **No Pulumi stacks found**"
+          echo ""
+          echo "**Search method:** ${{ inputs.use-nix == 'true' && 'Nix + just detect-stacks' || 'Direct file search' }}"
+          echo "**Working directory:** \`$(pwd)\`"
+          echo ""
+          echo "Make sure you have:"
+          echo "- Pulumi project files (\`Pulumi.yaml\`)"
+          echo "- Stack configuration files (\`Pulumi.<stack>.yaml\`)"
+          if [ "${{ inputs.use-nix }}" == "true" ]; then
+            echo "- A working \`just detect-stacks\` command (optional)"
+          fi
+        fi
+        echo ""
+        echo "_Detection completed at $(date -u '+%Y-%m-%d %H:%M:%S UTC')_"
+      } >> "$GITHUB_STEP_SUMMARY"

@@ -101,61 +101,16 @@ jobs:
     if: ${{ inputs.auto-detect-stacks }}
     runs-on: ${{ inputs.runs-on }}
     outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      matrix: ${{ steps.detect.outputs.matrix }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Setup environment
-      if: ${{ inputs.use-nix }}
-      uses: jmmaloney4/workflows/.github/actions/nix-setup@v1
-
-    - name: Setup Node.js (if not using Nix)
-      if: ${{ !inputs.use-nix }}
-      uses: actions/setup-node@v4
+    - name: Detect Pulumi stacks
+      id: detect
+      uses: jmmaloney4/workflows/.github/actions/pulumi-stack-detect@v1
       with:
-        node-version: '18'
-
-    - name: Install dependencies (if not using Nix)
-      if: ${{ !inputs.use-nix }}
-      run: |
-        if [ -f "package.json" ]; then
-          npm install
-        fi
-
-    - name: Detect stacks with Nix
-      if: ${{ inputs.use-nix }}
-      id: set-matrix
-      shell: bash
-      run: |
-        if command -v just >/dev/null; then
-          matrix=$(nix develop --command just detect-stacks | tail -n 1)
-        else
-          # Fallback: simple detection
-          matrix=$(find . -name "Pulumi.*.yaml" -exec basename {} \; | sed 's/Pulumi\.\(.*\)\.yaml/\1/' | jq -R . | jq -s 'map({project: ".", stack: .})')
-        fi
-        echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
-
-    - name: Detect stacks without Nix
-      if: ${{ !inputs.use-nix }}
-      id: set-matrix-no-nix
-      shell: bash
-      run: |
-        # Simple stack detection by looking for Pulumi files
-        stacks=()
-        for file in $(find . -name "Pulumi.*.yaml"); do
-          stack=$(basename "$file" | sed 's/Pulumi\.\(.*\)\.yaml/\1/')
-          if [ "$stack" != "yaml" ]; then
-            stacks+=("{\"project\": \"$(dirname "$file")\", \"stack\": \"$stack\"}")
-          fi
-        done
-        
-        if [ ${#stacks[@]} -eq 0 ]; then
-          matrix="[]"
-        else
-          matrix="[$(IFS=,; echo "${stacks[*]}")]"
-        fi
-        echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+        use-nix: ${{ inputs.use-nix }}
 
   pulumi-preview:
     name: "🔍 Pulumi preview (${{ matrix.stack }})"
