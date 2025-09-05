@@ -6,7 +6,6 @@
     "schedule": [
       "before 4:00 am on the first day of the month"
     ],
-    "automerge": true,
-    "platformAutomerge": true
+    "automerge": true
   }
 }

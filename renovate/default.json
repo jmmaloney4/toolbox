@@ -17,7 +17,7 @@
   "rebaseWhen": "behind-base-branch",
   "automergeType": "pr",
   "automergeStrategy": "merge",
-  "platformAutomerge": true,
+  "platformAutomerge": false,
   "dependencyDashboard": true,
   "dependencyDashboardTitle": "Renovate Dashboard 🤖",
   "dependencyDashboardLabels": [
