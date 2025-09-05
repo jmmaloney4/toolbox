@@ -65,9 +65,13 @@ runs:
     id: toolchain-info
     shell: bash
     run: |
-      version=$(nix develop ${{ inputs.flake-ref }} -c rustc --version | cut -d' ' -f2)
-      echo "Rust version (via Nix): $version"
-      echo "version=$version" >> "$GITHUB_OUTPUT"
+      # Compute and write outputs inside the devshell to avoid shellHook banners
+      nix develop --keep GITHUB_OUTPUT ${{ inputs.flake-ref }} -c bash -lc '
+        set -euo pipefail
+        version=$(rustc --version | awk "{print \$2}")
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+        echo "Rust version (via Nix): $version"
+      '
 
   - name: Compute cache key
     id: cache-key

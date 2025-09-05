@@ -125,11 +125,20 @@ runs:
     run: |
       set -euo pipefail
       
-      version=$(nix develop -c pulumi version)
-      backend=$(nix develop -c pulumi whoami --url 2>/dev/null || echo "none")
-      
-      echo "version=$version" >> "$GITHUB_OUTPUT"
-      echo "backend=$backend" >> "$GITHUB_OUTPUT"
+      # Write outputs from inside the devshell to avoid capturing banner noise
+      nix develop --keep GITHUB_OUTPUT -c bash -lc '
+        set -euo pipefail
+        version=$(pulumi version)
+        backend=$(pulumi whoami --url 2>/dev/null || echo "none")
+        {
+          echo "version=$version"
+          echo "backend=$backend"
+        } >> "$GITHUB_OUTPUT"
+      '
+
+      # Read back values for summary rendering
+      version=$(grep -E '^version=' "$GITHUB_OUTPUT" | tail -1 | cut -d= -f2-)
+      backend=$(grep -E '^backend=' "$GITHUB_OUTPUT" | tail -1 | cut -d= -f2-)
       
       # Output info to summary
       {
