@@ -1,0 +1,37 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Pulumi-specific Renovate configuration",
+  "includePaths": [
+    "**/Pulumi.yaml",
+    "**/Pulumi.*.yaml"
+  ],
+  "regexManagers": [
+    {
+      "fileMatch": [
+        "(^|.*\\/)?Pulumi(\\..+)?\\.yaml$"
+      ],
+      "matchStrings": [
+        "(?<versionKey>[A-Za-z0-9_:-]*Version):\\s*(?<currentValue>\\d+\\.\\d+\\.\\d+)\\s*#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)\\s+registryUrl=(?<registryUrl>\\S+)"
+      ],
+      "datasourceTemplate": "{{{datasource}}}",
+      "depNameTemplate": "{{{depName}}}",
+      "registryUrlTemplate": "{{{registryUrl}}}",
+      "versioningTemplate": "semver",
+      "autoReplaceStringTemplate": "{{{versionKey}}}: {{{newValue}}} # renovate: datasource={{{datasource}}} depName={{{depName}}} registryUrl={{{registryUrl}}}"
+    }
+  ],
+  "packageRules": [
+    {
+      "groupName": "Pulumi Dependencies",
+      "automerge": true,
+      "rangeStrategy": "pin",
+      "schedule": [
+        "before 4:00 am"
+      ],
+      "matchPackageNames": [
+        "/@pulumi/*/",
+        "/pulumi*/"
+      ]
+    }
+  ]
+}

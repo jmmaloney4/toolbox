@@ -1,0 +1,46 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Default Renovate configuration with common settings",
+  "enabled": true,
+  "timezone": "America/Chicago",
+  "extends": [
+    "config:recommended",
+    ":semanticCommits",
+    "helpers:pinGitHubActionDigests",
+    ":enableVulnerabilityAlertsWithLabel(security)"
+  ],
+  "schedule": [
+    "before 4:00 am"
+  ],
+  "prHourlyLimit": 10,
+  "prConcurrentLimit": 5,
+  "rebaseWhen": "behind-base-branch",
+  "automergeType": "pr",
+  "automergeStrategy": "merge",
+  "platformAutomerge": true,
+  "dependencyDashboard": true,
+  "dependencyDashboardTitle": "Renovate Dashboard 🤖",
+  "dependencyDashboardLabels": [
+    "dependencies"
+  ],
+  "rangeStrategy": "pin",
+  "assignees": [
+    "jmmaloney4"
+  ],
+  "labels": [
+    "dependencies",
+    "renovate"
+  ],
+  "commitMessagePrefix": "deps: ",
+  "commitMessageAction": "update",
+  "prHeader": "This PR contains dependency updates managed by Renovate.",
+  "prFooter": "---\n\n🤖 This PR was generated automatically by Renovate.\n\nSee [dashboard]({{platform}}/{{repository}}/issues?q=is%3Aissue+is%3Aopen+label%3Arenovate) for all Renovate PRs.",
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "automerge": true,
+    "labels": [
+      "security",
+      "vulnerability"
+    ]
+  }
+}

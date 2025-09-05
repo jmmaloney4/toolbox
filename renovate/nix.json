@@ -1,0 +1,93 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Nix-specific Renovate configuration with regex managers",
+  "nix": {
+    "enabled": true
+  },
+  "includePaths": [
+    "flake.lock",
+    "nix/**/*.nix"
+  ],
+  "regexManagers": [
+    {
+      "description": "Update fetchPypi packages in Nix files",
+      "fileMatch": [
+        "nix/**/*.nix"
+      ],
+      "matchStrings": [
+        "pname\\s*=\\s*\"(?<depName>[^\"]+)\";\\s*\\n\\s*version\\s*=\\s*\"(?<currentValue>[^\"]+)\";[\\s\\S]*?sha256\\s*=\\s*\"(?<currentDigest>[a-f0-9]{64})\";"
+      ],
+      "datasourceTemplate": "pypi"
+    },
+    {
+      "description": "Update fetchFromGitHub packages in Nix files",
+      "fileMatch": [
+        "nix/**/*.nix"
+      ],
+      "matchStrings": [
+        "pname\\s*=\\s*\"(?<depName>[^\"]+)\";\\s*\\n\\s*version\\s*=\\s*\"(?<currentValue>[^\"]+)\";[\\s\\S]*?fetchFromGitHub\\s*\\{[\\s\\S]*?owner\\s*=\\s*\"(?<owner>[^\"]+)\";[\\s\\S]*?repo\\s*=\\s*\"(?<repo>[^\"]+)\";[\\s\\S]*?hash\\s*=\\s*\"(?<currentDigest>[^\"]+)\";"
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "{{{owner}}}/{{{repo}}}"
+    },
+    {
+      "description": "Reset cargoHash when fetchFromGitHub source changes",
+      "fileMatch": [
+        "nix/**/*.nix"
+      ],
+      "matchStrings": [
+        "pname\\s*=\\s*\"(?<depName>[^\"]+)\";\\s*\\n\\s*version\\s*=\\s*\"(?<currentValue>[^\"]+)\";[\\s\\S]*?fetchFromGitHub\\s*\\{[\\s\\S]*?owner\\s*=\\s*\"(?<owner>[^\"]+)\";[\\s\\S]*?repo\\s*=\\s*\"(?<repo>[^\"]+)\";[\\s\\S]*?cargoHash\\s*=\\s*\"[^\"]+\";"
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "{{{owner}}}/{{{repo}}}",
+      "autoReplaceStringTemplate": "cargoHash = \"\";"
+    }
+  ],
+  "packageRules": [
+    {
+      "groupName": "Nix Dependencies",
+      "matchManagers": [
+        "nix"
+      ],
+      "automerge": true,
+      "schedule": [
+        "before 4:00 am on Saturday and Sunday"
+      ],
+      "rangeStrategy": "pin"
+    },
+    {
+      "groupName": "Nix PyPI Dependencies",
+      "matchFileNames": [
+        "nix/**/*.nix"
+      ],
+      "matchDatasources": [
+        "pypi"
+      ],
+      "automerge": true,
+      "schedule": [
+        "before 4:00 am on Saturday and Sunday"
+      ],
+      "rangeStrategy": "pin",
+      "labels": [
+        "nix-pypi"
+      ]
+    },
+    {
+      "groupName": "Nix GitHub Dependencies",
+      "matchFileNames": [
+        "nix/**/*.nix"
+      ],
+      "matchDatasources": [
+        "github-releases"
+      ],
+      "automerge": true,
+      "schedule": [
+        "before 4:00 am on Saturday and Sunday"
+      ],
+      "rangeStrategy": "pin",
+      "labels": [
+        "nix-github"
+      ]
+    }
+  ]
+}

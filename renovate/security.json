@@ -1,0 +1,39 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Security-focused package rules and vulnerability handling",
+  "packageRules": [
+    {
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "matchCurrentVersion": "!/^0/",
+      "groupName": "Security patches",
+      "automerge": true,
+      "labels": [
+        "security"
+      ],
+      "prPriority": 10
+    },
+    {
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "automerge": false,
+      "labels": [
+        "major-update"
+      ],
+      "reviewers": [
+        "jmmaloney4"
+      ],
+      "prPriority": -10
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "automerge": true,
+    "labels": [
+      "security",
+      "vulnerability"
+    ]
+  }
+}

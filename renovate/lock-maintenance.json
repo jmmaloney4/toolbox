@@ -1,0 +1,12 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Lock file maintenance configuration",
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": [
+      "before 4:00 am on the first day of the month"
+    ],
+    "automerge": true,
+    "platformAutomerge": true
+  }
+}
