@@ -1,0 +1,333 @@
+# Nix Flake Build Pipeline
+#
+# A comprehensive Nix flake build pipeline with intelligent caching, 
+# cache warming, and matrix builds for uncached derivations.
+#
+# Usage:
+# ```yaml
+# jobs:
+#   nix:
+#     uses: jmmaloney4/workflows/.github/workflows/nix.yml@v1
+#     with:
+#       runs-on: "ubuntu-latest"
+#       max-parallel: 2
+#       probe-timeout: 180
+#       cache-version: "v1"
+# ```
+
+name: "❄️ Nix"
+
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        description: "Runner to use for jobs"
+        required: false
+        type: string
+        default: "ubuntu-latest"
+      max-parallel:
+        description: "Maximum parallel builds in matrix"
+        required: false
+        type: number
+        default: 1
+      probe-timeout:
+        description: "Timeout in seconds for cache probing"
+        required: false
+        type: number
+        default: 180
+      cache-version:
+        description: "Cache version identifier"
+        required: false
+        type: string
+        default: "v1"
+      flake-inputs-cache:
+        description: "Enable FlakeHub cache for inputs"
+        required: false
+        type: boolean
+        default: true
+    outputs:
+      built-outputs:
+        description: "JSON array of successfully built outputs"
+        value: ${{ jobs.build.outputs.built-outputs }}
+      cache-key:
+        description: "Nix evaluation cache key used"
+        value: ${{ jobs.warm-cache.outputs.cache_key }}
+
+permissions:
+  contents: read
+
+jobs:
+  warm-cache:
+    name: "🔥 Warm Nix eval cache"
+    runs-on: ${{ inputs.runs-on }}
+    outputs:
+      cache_key: ${{ steps.compute-key.outputs.cache_key }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Nix
+      uses: jmmaloney4/workflows/.github/actions/nix-setup@v1
+      with:
+        enable-flakehub-cache: ${{ inputs.flake-inputs-cache }}
+
+    - name: Compute cache key
+      id: compute-key
+      shell: bash
+      run: |
+        set -euo pipefail
+        # Use Nix system (e.g., aarch64-darwin, x86_64-linux) instead of runner OS
+        system="$(nix eval --impure --raw --expr 'builtins.currentSystem')"
+        echo "Nix system: $system"
+        lock_hash="${{ hashFiles('flake.lock') }}"
+        echo "cache_key=nix-eval-${system}-${lock_hash}-${{ inputs.cache-version }}" >> "$GITHUB_OUTPUT"
+
+    - name: Restore eval/source caches
+      id: evalcache-restore
+      uses: actions/cache/restore@v4
+      with:
+        path: |
+          ~/.cache/nix/eval-cache-v5
+          ~/.cache/nix/fetcher-cache-v1.sqlite
+          ~/.cache/nix/git
+          ~/.cache/nix/tarballs
+        key: ${{ steps.compute-key.outputs.cache_key }}
+
+    - name: Warm Nix eval caches
+      if: steps.evalcache-restore.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        nix eval --impure --raw --expr 'builtins.currentSystem' >/dev/null
+        nix flake show --json >/dev/null
+
+    - name: Save eval/source caches
+      if: steps.evalcache-restore.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          ~/.cache/nix/eval-cache-v5
+          ~/.cache/nix/fetcher-cache-v1.sqlite
+          ~/.cache/nix/git
+          ~/.cache/nix/tarballs
+        key: ${{ steps.compute-key.outputs.cache_key }}
+
+  detect:
+    name: "☃️ Detect flake outputs"
+    needs: [warm-cache]
+    runs-on: ${{ inputs.runs-on }}
+    outputs:
+      matrix_include: ${{ steps.compute.outputs.matrix_include }}
+      has_work: ${{ steps.compute.outputs.has_work }}
+      all_outputs: ${{ steps.compute.outputs.all_outputs }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Nix
+      uses: jmmaloney4/workflows/.github/actions/nix-setup@v1
+      with:
+        enable-flakehub-cache: ${{ inputs.flake-inputs-cache }}
+
+    - name: Restore eval/source caches
+      uses: actions/cache/restore@v4
+      with:
+        path: |
+          ~/.cache/nix/eval-cache-v5
+          ~/.cache/nix/fetcher-cache-v1.sqlite
+          ~/.cache/nix/git
+          ~/.cache/nix/tarballs
+        key: ${{ needs.warm-cache.outputs.cache_key }}
+
+    - name: Compute build-needed matrix via nix-eval-jobs
+      id: compute
+      shell: bash
+      env:
+        PROBE_TIMEOUT_SECONDS: ${{ inputs.probe-timeout }}
+      run: |
+        set -euo pipefail
+
+        # Detect current Nix system
+        system="$(nix eval --impure --raw --expr 'builtins.currentSystem')"
+        echo "System: $system"
+
+        # Cache flake metadata once
+        flake_meta_json_tmp="$(mktemp)"
+        nix flake show --json > "$flake_meta_json_tmp"
+
+        # Helper: stream all attributes for a category/system as JSON with cache status
+        all_for() {
+          local category="$1"
+          local system_="$2"
+          local target=".#${category}.${system_}"
+
+          echo "nix-eval-jobs: $target" >&2
+
+          # Only evaluate categories that exist for this system
+          local cat_exists sys_exists
+          cat_exists=$(nix eval --impure --raw --expr "let fl = builtins.getFlake (toString ./.); in if (builtins.hasAttr \"${category}\" fl) then \"1\" else \"0\"")
+          if [ "$cat_exists" != "1" ]; then
+            return 0
+          fi
+          sys_exists=$(nix eval --impure --raw --expr "let fl = builtins.getFlake (toString ./.); in if (builtins.hasAttr \"${system_}\" fl.${category}) then \"1\" else \"0\"")
+          if [ "$sys_exists" != "1" ]; then
+            return 0
+          fi
+
+          # Query cache status; use timeout to avoid hanging
+          if ! out=$(timeout "${PROBE_TIMEOUT_SECONDS}s" nix run nixpkgs#nix-eval-jobs -- --check-cache-status --flake "$target" 2>/dev/null || echo ""); then
+            echo "::warning title=Cache check failed::nix-eval-jobs failed for $target, assuming not cached" >&2
+            # Fallback: assume not cached if we can't check
+            nix eval --json --expr "
+              let
+                flake = builtins.getFlake (toString ./.);
+                attrs = flake.${category}.${system_};
+              in
+                builtins.mapAttrs (name: drv: {
+                  category = \"${category}\";
+                  system = \"${system_}\";
+                  name = name;
+                  flake_attr = \".#${category}.${system_}.\" + name;
+                  cached = false;
+                  store_path = if builtins.isDerivation drv then drv.outPath or \"unknown\" else \"not-a-derivation\";
+                }) attrs
+            " | nix run nixpkgs#jq -- -c '.[]'
+            return 0
+          fi
+
+          # Get store paths for all attributes
+          local store_paths_json
+          store_paths_json=$(nix eval --json --expr "
+            let
+              flake = builtins.getFlake (toString ./.);
+              attrs = flake.${category}.${system_};
+            in
+              builtins.mapAttrs (name: drv:
+                if builtins.isDerivation drv then drv.outPath or \"unknown\"
+                else \"not-a-derivation\"
+              ) attrs
+          " 2>/dev/null || echo '{}')
+
+          # Emit JSON lines with cache status
+          printf '%s' "$out" \
+            | nix run nixpkgs#jq -- -rc \
+                --arg category "$category" \
+                --arg system "$system_" \
+                --argjson store_paths "$store_paths_json" '
+                  {
+                    category: $category,
+                    system: $system,
+                    name: (.attr // "default"),
+                    flake_attr: (".#" + $category + "." + $system + "." + (.attr // "default")),
+                    cached: ((.cacheStatus=="cached") or (.cached==true) or (.isCached==true)),
+                    store_path: ($store_paths[.attr // "default"] // "unknown")
+                  }
+                '
+        }
+
+        # Collect all outputs into a temp file
+        tmp_all="$(mktemp)"
+        nix run nixpkgs#jq -- -r 'keys[]' "$flake_meta_json_tmp" \
+          | while IFS= read -r category; do
+              all_for "$category" "$system"
+            done > "$tmp_all"
+
+        # Build arrays
+        all_outputs=$(nix run nixpkgs#jq -- -sc '[.[]]' "$tmp_all")
+        include_array=$(nix run nixpkgs#jq -- -sc 'map(select(.cached==false) | {category, system, name, flake_attr})' "$tmp_all")
+        has_work=$(nix run nixpkgs#jq -- -rc 'if (length>0) then "true" else "false" end' <<<"$include_array")
+
+        echo "All detected outputs: $all_outputs"
+        echo "Computed include (uncached only): $include_array"
+        echo "Has work: $has_work"
+
+        # Set outputs
+        {
+          echo "matrix_include<<EOF"
+          echo "$include_array"
+          echo "EOF"
+          echo "all_outputs<<EOF"
+          echo "$all_outputs"
+          echo "EOF"
+          echo "has_work=$has_work"
+        } >> "$GITHUB_OUTPUT"
+
+        # Cleanup
+        rm -f "$tmp_all" "$flake_meta_json_tmp"
+
+        # Write summary
+        {
+          echo "### 🔍 Detected Nix flake outputs"
+          if [ -n "$all_outputs" ] && [ "$all_outputs" != "null" ] && [ "$all_outputs" != "[]" ]; then
+            nix run nixpkgs#jq -- -rc '
+              ["| Category | System | Name | Attr | Store Path | Cached |",
+               "|---|---|---|---|---|---|"]
+              + ( .
+                  | map("| " + .category + " | " + .system + " | **" + .name + "** | `" + .flake_attr + "` | `" + (.store_path | split("/") | last) + "` | " + (if .cached then "📦 yes" else "🏗️ no" end) + " |")
+                )
+              | .[]
+            ' <<<"$all_outputs"
+          else
+            echo "No outputs detected for this system."
+          fi
+          echo
+        } >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    name: "👷‍♂️ ${{ matrix.category }}.${{ matrix.system }}.${{ matrix.name }}"
+    needs: [detect, warm-cache]
+    runs-on: ${{ inputs.runs-on }}
+    if: ${{ needs.detect.outputs.has_work == 'true' }}
+    outputs:
+      built-outputs: ${{ steps.collect-outputs.outputs.built }}
+    strategy:
+      fail-fast: false
+      max-parallel: ${{ inputs.max-parallel }}
+      matrix:
+        include: ${{ fromJson(needs.detect.outputs.matrix_include) }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Nix
+      uses: jmmaloney4/workflows/.github/actions/nix-setup@v1
+      with:
+        enable-flakehub-cache: ${{ inputs.flake-inputs-cache }}
+
+    - name: Restore eval/source caches
+      uses: actions/cache/restore@v4
+      with:
+        path: |
+          ~/.cache/nix/eval-cache-v5
+          ~/.cache/nix/fetcher-cache-v1.sqlite
+          ~/.cache/nix/git
+          ~/.cache/nix/tarballs
+        key: ${{ needs.warm-cache.outputs.cache_key }}
+
+    - name: "🚀 Build with nix-fast-build"
+      shell: bash
+      run: |
+        set -euo pipefail
+        attr='${{ matrix.flake_attr }}'
+        echo "Building via nix-fast-build: $attr"
+        
+        # Install nix-fast-build if not available
+        if ! command -v nix-fast-build >/dev/null 2>&1; then
+          nix profile install nixpkgs#nix-fast-build
+        fi
+        
+        # Build only missing (uncached) derivations
+        nix-fast-build --skip-cached --no-nom --no-link --flake "$attr"
+
+    - name: Collect build outputs
+      id: collect-outputs
+      shell: bash
+      run: |
+        # Create a simple success marker for this build
+        output_info=$(jq -nc \
+          --arg category "${{ matrix.category }}" \
+          --arg system "${{ matrix.system }}" \
+          --arg name "${{ matrix.name }}" \
+          --arg flake_attr "${{ matrix.flake_attr }}" \
+          '{category: $category, system: $system, name: $name, flake_attr: $flake_attr, success: true}')
+        echo "built=$output_info" >> "$GITHUB_OUTPUT"

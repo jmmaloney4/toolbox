@@ -1,0 +1,325 @@
+# Pulumi Infrastructure Deployment Pipeline
+#
+# A comprehensive Pulumi deployment pipeline that supports preview, deployment
+# across multiple environments (stage/prod), and automatic stack detection.
+#
+# Usage:
+# ```yaml
+# jobs:
+#   pulumi:
+#     uses: jmmaloney4/workflows/.github/workflows/pulumi.yml@v1
+#     with:
+#       environment: "stage"
+#       auto-detect-stacks: true
+#       gcp-project-id: "my-project"
+#       pulumi-backend: "gs://my-pulumi-state"
+#     secrets:
+#       GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+#       GCP_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+# ```
+
+name: "☁️ Pulumi"
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: "Environment to deploy to (stage, prod, or both)"
+        required: false
+        type: string
+        default: "stage"
+      auto-detect-stacks:
+        description: "Auto-detect Pulumi stacks from repository"
+        required: false
+        type: boolean
+        default: true
+      stack-matrix:
+        description: "JSON array of {project, stack} objects (overrides auto-detection)"
+        required: false
+        type: string
+        default: "[]"
+      pulumi-backend:
+        description: "Pulumi backend URL"
+        required: false
+        type: string
+        default: ""
+      runs-on:
+        description: "Runner to use for jobs"
+        required: false
+        type: string
+        default: "ubuntu-latest"
+      gcp-project-id:
+        description: "GCP project ID (if using GCP)"
+        required: false
+        type: string
+        default: ""
+      deploy-on-main:
+        description: "Auto-deploy stage environment on main branch"
+        required: false
+        type: boolean
+        default: true
+      deploy-on-tags:
+        description: "Auto-deploy prod environment on version tags"
+        required: false
+        type: boolean
+        default: true
+      preview-on-pr:
+        description: "Run preview on pull requests"
+        required: false
+        type: boolean
+        default: true
+      use-nix:
+        description: "Use Nix development environment"
+        required: false
+        type: boolean
+        default: true
+    secrets:
+      GCP_WORKLOAD_IDENTITY_PROVIDER:
+        description: "GCP Workload Identity Provider"
+        required: false
+      GCP_SERVICE_ACCOUNT_EMAIL:
+        description: "GCP Service Account Email"
+        required: false
+      PULUMI_ACCESS_TOKEN:
+        description: "Pulumi Cloud access token (alternative to backend)"
+        required: false
+    outputs:
+      deployed-stacks:
+        description: "JSON array of successfully deployed stacks"
+        value: ${{ jobs.pulumi-up-stage.outputs.deployed || jobs.pulumi-up-prod.outputs.deployed || '[]' }}
+
+permissions:
+  contents: read
+  id-token: write
+  issues: write
+  pull-requests: write
+  deployments: write
+
+jobs:
+  detect-pulumi-stacks:
+    name: "🧩 Detect Pulumi stacks"
+    if: ${{ inputs.auto-detect-stacks }}
+    runs-on: ${{ inputs.runs-on }}
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup environment
+      if: ${{ inputs.use-nix }}
+      uses: jmmaloney4/workflows/.github/actions/nix-setup@v1
+
+    - name: Setup Node.js (if not using Nix)
+      if: ${{ !inputs.use-nix }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Install dependencies (if not using Nix)
+      if: ${{ !inputs.use-nix }}
+      run: |
+        if [ -f "package.json" ]; then
+          npm install
+        fi
+
+    - name: Detect stacks with Nix
+      if: ${{ inputs.use-nix }}
+      id: set-matrix
+      shell: bash
+      run: |
+        if command -v just >/dev/null; then
+          matrix=$(nix develop --command just detect-stacks | tail -n 1)
+        else
+          # Fallback: simple detection
+          matrix=$(find . -name "Pulumi.*.yaml" -exec basename {} \; | sed 's/Pulumi\.\(.*\)\.yaml/\1/' | jq -R . | jq -s 'map({project: ".", stack: .})')
+        fi
+        echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+    - name: Detect stacks without Nix
+      if: ${{ !inputs.use-nix }}
+      id: set-matrix-no-nix
+      shell: bash
+      run: |
+        # Simple stack detection by looking for Pulumi files
+        stacks=()
+        for file in $(find . -name "Pulumi.*.yaml"); do
+          stack=$(basename "$file" | sed 's/Pulumi\.\(.*\)\.yaml/\1/')
+          if [ "$stack" != "yaml" ]; then
+            stacks+=("{\"project\": \"$(dirname "$file")\", \"stack\": \"$stack\"}")
+          fi
+        done
+        
+        if [ ${#stacks[@]} -eq 0 ]; then
+          matrix="[]"
+        else
+          matrix="[$(IFS=,; echo "${stacks[*]}")]"
+        fi
+        echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  pulumi-preview:
+    name: "🔍 Pulumi preview (${{ matrix.stack }})"
+    needs: [detect-pulumi-stacks]
+    if: ${{ (inputs.preview-on-pr && github.event_name == 'pull_request') || always() }}
+    runs-on: ${{ inputs.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ inputs.auto-detect-stacks && fromJson(needs.detect-pulumi-stacks.outputs.matrix) || fromJson(inputs.stack-matrix) }}
+    env:
+      GOOGLE_PROJECT: ${{ inputs.gcp-project-id }}
+      GOOGLE_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+      PULUMI_CONFIG_PASSPHRASE: ""
+      USE_GKE_GCLOUD_AUTH_PLUGIN: "True"
+      PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Pulumi environment
+      uses: jmmaloney4/workflows/.github/actions/pulumi-setup@v1
+      with:
+        use-nix: ${{ inputs.use-nix }}
+        login-backend: ${{ inputs.pulumi-backend }}
+
+    - name: Derive artifact-safe name
+      id: names
+      shell: bash
+      run: |
+        safe_name="${{ matrix.project }}"
+        safe_name="${safe_name//\//__}"
+        echo "safe_name=$safe_name" >> "$GITHUB_OUTPUT"
+
+    - name: Pulumi preview
+      id: preview
+      continue-on-error: true
+      shell: bash
+      run: |
+        cd "${{ matrix.project }}"
+        
+        if ${{ inputs.use-nix }}; then
+          nix develop --command pulumi preview --stack "${{ matrix.stack }}" --non-interactive
+        else
+          pulumi preview --stack "${{ matrix.stack }}" --non-interactive
+        fi
+
+    - name: Upload preview artifacts
+      if: ${{ matrix.stack == inputs.environment || inputs.environment == 'both' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: preview-${{ steps.names.outputs.safe_name }}-${{ matrix.stack }}
+        path: |
+          ${{ matrix.project }}/*.json
+          ${{ matrix.project }}/previews/*
+        if-no-files-found: ignore
+
+  pulumi-up-stage:
+    name: "🚀 Deploy to stage (${{ matrix.stack }})"
+    needs: [detect-pulumi-stacks]
+    if: ${{ (inputs.deploy-on-main && github.ref == 'refs/heads/main' && (inputs.environment == 'stage' || inputs.environment == 'both')) || inputs.environment == 'stage' }}
+    runs-on: ${{ inputs.runs-on }}
+    outputs:
+      deployed: ${{ steps.collect-deployed.outputs.stacks }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ inputs.auto-detect-stacks && fromJson(needs.detect-pulumi-stacks.outputs.matrix) || fromJson(inputs.stack-matrix) }}
+    concurrency:
+      group: pulumi-${{ matrix.project }}-${{ matrix.stack }}
+      cancel-in-progress: false
+    environment:
+      name: stage-${{ matrix.project }}-${{ matrix.stack }}
+    env:
+      GOOGLE_PROJECT: ${{ inputs.gcp-project-id }}
+      GOOGLE_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+      PULUMI_CONFIG_PASSPHRASE: ""
+      USE_GKE_GCLOUD_AUTH_PLUGIN: "True"
+      PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Pulumi environment
+      uses: jmmaloney4/workflows/.github/actions/pulumi-setup@v1
+      with:
+        use-nix: ${{ inputs.use-nix }}
+        login-backend: ${{ inputs.pulumi-backend }}
+
+    - name: Pulumi up
+      shell: bash
+      run: |
+        cd "${{ matrix.project }}"
+        
+        if ${{ inputs.use-nix }}; then
+          nix develop --command pulumi up --stack "${{ matrix.stack }}" --yes --non-interactive
+        else
+          pulumi up --stack "${{ matrix.stack }}" --yes --non-interactive
+        fi
+
+    - name: Collect deployed stacks
+      id: collect-deployed
+      shell: bash
+      run: |
+        deployed=$(jq -nc \
+          --arg project "${{ matrix.project }}" \
+          --arg stack "${{ matrix.stack }}" \
+          --arg environment "stage" \
+          '{project: $project, stack: $stack, environment: $environment, success: true}')
+        echo "stacks=[$deployed]" >> "$GITHUB_OUTPUT"
+
+  pulumi-up-prod:
+    name: "🚀 Deploy to prod (${{ matrix.stack }})"
+    needs: [detect-pulumi-stacks]
+    if: ${{ (inputs.deploy-on-tags && startsWith(github.ref, 'refs/tags/v') && (inputs.environment == 'prod' || inputs.environment == 'both')) || inputs.environment == 'prod' }}
+    runs-on: ${{ inputs.runs-on }}
+    outputs:
+      deployed: ${{ steps.collect-deployed.outputs.stacks }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ inputs.auto-detect-stacks && fromJson(needs.detect-pulumi-stacks.outputs.matrix) || fromJson(inputs.stack-matrix) }}
+    concurrency:
+      group: pulumi-${{ matrix.project }}-${{ matrix.stack }}
+      cancel-in-progress: false
+    environment:
+      name: prod-${{ matrix.project }}-${{ matrix.stack }}
+    env:
+      GOOGLE_PROJECT: ${{ inputs.gcp-project-id }}
+      GOOGLE_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+      PULUMI_CONFIG_PASSPHRASE: ""
+      USE_GKE_GCLOUD_AUTH_PLUGIN: "True"
+      PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Pulumi environment
+      uses: jmmaloney4/workflows/.github/actions/pulumi-setup@v1
+      with:
+        use-nix: ${{ inputs.use-nix }}
+        login-backend: ${{ inputs.pulumi-backend }}
+
+    - name: Pulumi up
+      shell: bash
+      run: |
+        cd "${{ matrix.project }}"
+        
+        if ${{ inputs.use-nix }}; then
+          nix develop --command pulumi up --stack "${{ matrix.stack }}" --yes --non-interactive
+        else
+          pulumi up --stack "${{ matrix.stack }}" --yes --non-interactive
+        fi
+
+    - name: Collect deployed stacks
+      id: collect-deployed
+      shell: bash
+      run: |
+        deployed=$(jq -nc \
+          --arg project "${{ matrix.project }}" \
+          --arg stack "${{ matrix.stack }}" \
+          --arg environment "prod" \
+          '{project: $project, stack: $stack, environment: $environment, success: true}')
+        echo "stacks=[$deployed]" >> "$GITHUB_OUTPUT"

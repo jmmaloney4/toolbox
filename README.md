@@ -70,6 +70,64 @@ jobs:
       CLOUD_AUTH: ${{ secrets.CLOUD_AUTH }}
 ```
 
+**4) Rust CI pipeline**
+Caller repo: `.github/workflows/rust.yml`
+
+```yaml
+name: Rust CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  rust:
+    uses: jmmaloney4/workflows/.github/workflows/rust.yml@v1
+    with:
+      use-nix: true
+      test-runner: "nextest"
+      clippy-args: "--all-targets --all-features"
+```
+
+**5) Nix flake builds**
+Caller repo: `.github/workflows/nix.yml`
+
+```yaml
+name: Nix Build
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  nix:
+    uses: jmmaloney4/workflows/.github/workflows/nix.yml@v1
+    with:
+      max-parallel: 2
+      cache-version: "v1"
+```
+
+**6) Pulumi infrastructure deployment**
+Caller repo: `.github/workflows/pulumi.yml`
+
+```yaml
+name: Pulumi Deploy
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  pulumi:
+    uses: jmmaloney4/workflows/.github/workflows/pulumi.yml@v1
+    with:
+      environment: "stage"
+      gcp-project-id: "my-project"
+    secrets:
+      GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WIP }}
+      GCP_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GCP_SA_EMAIL }}
+```
+
 > Tip: If your repo needs the same pipeline with small tweaks, prefer adding **inputs** to the reusable workflow here, rather than copying the whole thing.
 
 ---
@@ -120,18 +178,52 @@ jobs:
     CR_PAT: ${{ secrets.GITHUB_TOKEN }} # or a PAT with packages:write
 ```
 
-> Pin **versions** (`@v1`, `@v1.2.0`, or a commit SHA) to avoid surprises. When you’re ready to adopt changes, bump the tag in callers.
+**4) Docker build + push**
+
+```yaml
+- uses: jmmaloney4/workflows/.github/actions/docker-build@v1
+  with:
+    image-name: "my-app"
+    dockerfile-path: "./Dockerfile"
+    docker-context: "./"
+    platforms: "linux/amd64,linux/arm64"
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+```
+
+**5) Nix environment setup**
+
+```yaml
+- uses: jmmaloney4/workflows/.github/actions/nix-setup@v1
+  with:
+    enable-flakehub-cache: true
+    enable-magic-nix-cache: true
+```
+
+**6) Pulumi setup with authentication**
+
+```yaml
+- uses: jmmaloney4/workflows/.github/actions/pulumi-setup@v1
+  with:
+    use-nix: true
+    login-backend: "gs://my-pulumi-state"
+    enable-gcp-auth: true
+  env:
+    GOOGLE_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WIP }}
+    GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ vars.GCP_SA_EMAIL }}
+```
+
+> Pin **versions** (`@v1`, `@v1.2.0`, or a commit SHA) to avoid surprises. When you're ready to adopt changes, bump the tag in callers.
 
 ---
 
 ## Explainer: Reusable workflows vs Composite actions (when and why)
 
-**Summary for skimmers:**
+**Summary:**
 
-* **Reusable workflows** = **pipeline reuse** (**multiple jobs**, **services**, **approvals**, **permissions**, **artifacts**, **matrices**).
-* **Composite actions** = **step reuse** inside a single job (**glue CLI + other actions**, quick & portable).
-* Use **reusable workflows** for cross-repo, policy-enforced CI/CD; use **composite actions** for shareable building blocks inside jobs.
-* Prefer **inputs**, **outputs**, and **least-privilege permissions**; pin to **tags/SHAs**; publish **semver** releases.
+* Reusable workflows = pipeline reuse (multiple jobs, services, approvals, permissions, artifacts, matrices).
+* Composite actions = step reuse inside a single job (glue CLI + other actions, quick & portable).
+* Use reusable workflows for cross-repo, policy-enforced CI/CD; use composite actions for shareable building blocks inside jobs.
+* Prefer inputs, outputs, and least-privilege permissions; pin to tags/SHAs; publish semver releases.
 
 ### Reusable workflows (deep dive)
 
@@ -144,19 +236,19 @@ jobs:
     uses: jmmaloney4/workflows/.github/workflows/<name>.yml@v1
 ```
 
-They’re enabled by an `on: workflow_call:` block and can declare **inputs**, **secrets**, and **outputs**. They can define **multiple jobs**, use `needs:` for orchestration, run **services** (e.g., Postgres/Redis), enforce **environment approvals**, configure **permissions**, **concurrency**, **matrices**, and pass **artifacts** between jobs.
+They're enabled by an `on: workflow_call:` block and can declare inputs, secrets, and outputs. They can define multiple jobs, use `needs:` for orchestration, run services (e.g., Postgres/Redis), enforce environment approvals, configure permissions, concurrency, matrices, and pass artifacts between jobs.
 
 **When to use**
 
-* You want an org-standard **CI or release pipeline** across many repos.
-* You need **multi-job** orchestration or **services**.
-* You want **approvals** (e.g., prod deploy) and centralized **permissions**.
-* You need to **return outputs** (e.g., a build SHA) to the caller.
+* You want an org-standard CI or release pipeline across many repos.
+* You need multi-job orchestration or services.
+* You want approvals (e.g., prod deploy) and centralized permissions.
+* You need to return outputs (e.g., a build SHA) to the caller.
 
 **Strengths**
 
 * Strong policy & structure, fewer footguns.
-* Easy to roll out **org-wide changes** by updating one place.
+* Easy to roll out org-wide changes by updating one place.
 * Clear versioning with tags.
 
 **Trade-offs**
@@ -167,31 +259,31 @@ They’re enabled by an `on: workflow_call:` block and can declare **inputs**, *
 ### Composite actions (deep dive)
 
 **What they are**
-A bundle of **steps** (mix of `run:` and `uses:`) that runs inside a **single job** on the caller’s runner:
+A bundle of steps (mix of `run:` and `uses:`) that runs inside a single job on the caller's runner:
 
 ```yaml
 - uses: jmmaloney4/workflows/.github/actions/<name>@v1
   with: { ... }
 ```
 
-They’re perfect for repeated **procedures**: toolchain setup, caching, linting, small builds, and CLI-driven deploy fragments.
+They're perfect for repeated procedures: toolchain setup, caching, linting, small builds, and CLI-driven deploy fragments.
 
 **When to use**
 
-* You repeat the **same steps** across jobs/repos.
-* You want a clean interface via **inputs/outputs**.
+* You repeat the same steps across jobs/repos.
+* You want a clean interface via inputs/outputs.
 * You don’t need services, matrices, or multiple jobs.
 
 **Strengths**
 
 * Lightweight and fast to adopt.
 * Composable inside any job.
-* Great for language/tool **setup** & **checks**.
+* Great for language/tool setup & checks.
 
 **Trade-offs**
 
 * No jobs, services, or environment approvals.
-* Job-level things (permissions, concurrency) are controlled by the **caller**, not the action.
+* Job-level things (permissions, concurrency) are controlled by the caller, not the action.
 
 ---
 
@@ -204,6 +296,9 @@ They’re perfect for repeated **procedures**: toolchain setup, caching, linting
 * `ci.yml` — Build/test pipeline with optional E2E; supports Node projects; emits build metadata.
 * `release.yml` — Tag, build, generate notes/SBOM (if applicable), create GitHub Release, attach artifacts.
 * `deploy.yml` — Environment-aware deploy with optional approvals; takes an `image-tag` and `app-name`.
+* `rust.yml` — Comprehensive Rust CI pipeline with cargo check, test, and clippy; supports Nix environments and nextest.
+* `nix.yml` — Intelligent Nix flake build pipeline with cache warming and matrix builds for uncached derivations.
+* `pulumi.yml` — Complete Pulumi infrastructure deployment pipeline supporting stage/prod environments with auto-stack detection.
 
 ### Composite actions (building blocks)
 
@@ -211,6 +306,10 @@ They’re perfect for repeated **procedures**: toolchain setup, caching, linting
 * `python-checks` — Setup Python, install dev deps, run lint/tests.
 * `docker-push` — Login and push an image to a registry (GHCR by default).
 * `version-bump` — Compute next semver from conventional commits and write it to a file/output.
+* `docker-build` — Enhanced Docker build/push with multi-arch support, flexible tagging strategies, and comprehensive metadata.
+* `nix-setup` — Optimized Nix setup with FlakeHub cache, Magic Nix Cache, and CI-friendly configuration.
+* `pulumi-setup` — Complete Pulumi setup with multi-cloud authentication, dependency installation, and Nix support.
+* `pulumi-collect` — Collects Pulumi preview results and builds deployment matrices for stage/prod environments.
 
 > If you need a variant (e.g., Rust, Go, or a different test runner), open an issue or PR—prefer **inputs** over forks when practical.
 
@@ -218,38 +317,37 @@ They’re perfect for repeated **procedures**: toolchain setup, caching, linting
 
 ## Conventions & best practices
 
-* **Pin versions** of workflows/actions you consume: `@v1` or a **commit SHA**.
-* **Semver**:
-
+* Pin versions of workflows/actions you consume: `@v1` or a commit SHA.
+* Semver:
   * `v1` = stable major (backward-compatible changes).
   * `v2` = breaking changes.
-* **Permissions**: workflows set least-privilege defaults; callers can **tighten** further.
-* **Secrets**: pass explicitly in `secrets:` (or `inherit` if appropriate).
-* **Caching**: standardized keys to speed up builds; purge with a new key if needed.
-* **Outputs**: composites and workflows expose outputs so you can chain steps/jobs.
-* **Docs**: each workflow/action has a short header explaining inputs/outputs and side effects.
+* Permissions: workflows set least-privilege defaults; callers can tighten further.
+* Secrets: pass explicitly in `secrets:` (or `inherit` if appropriate).
+* Caching: standardized keys to speed up builds; purge with a new key if needed.
+* Outputs: composites and workflows expose outputs so you can chain steps/jobs.
+* Docs: each workflow/action has a short header explaining inputs/outputs and side effects.
 
 ---
 
 ## Contributing
 
-* Propose changes via PR. Keep interfaces **small and explicit** (inputs/outputs).
-* For breaking changes, bump **major** and update the README examples.
-* Add/extend **inputs** instead of forking a second “almost-the-same” variant.
-* Include a minimal **example** in the PR description so callers can adopt easily.
+* Propose changes via PR. Keep interfaces small and explicit (inputs/outputs).
+* For breaking changes, bump major and update the README examples.
+* Add/extend inputs instead of forking a second "almost-the-same" variant.
+* Include a minimal example in the PR description so callers can adopt easily.
 
 ---
 
 ## FAQ
 
-* **Should I use a composite action or a reusable workflow?**
-  If you need **multiple jobs/services** or **approvals**, choose a **reusable workflow**. If you just need a **reusable step bundle**, choose a **composite action**.
+* Should I use a composite action or a reusable workflow?
+  If you need multiple jobs/services or approvals, choose a reusable workflow. If you just need a reusable step bundle, choose a composite action.
 
-* **How do I roll out a fix to all repos?**
-  Update here, cut a new tag (e.g., `v1.3.0`), then bump consumers. For urgent fixes, you can temporarily pin to a **commit SHA**.
+* How do I roll out a fix to all repos?
+  Update here, cut a new tag (e.g., `v1.3.0`), then bump consumers. For urgent fixes, you can temporarily pin to a commit SHA.
 
-* **Can I use composites from inside a reusable workflow?**
-  Yes—that’s a great pattern: put your **procedural** logic in composites and orchestrate them from **reusable workflows**.
+* Can I use composites from inside a reusable workflow?
+  Yes—that's a great pattern: put your procedural logic in composites and orchestrate them from reusable workflows.
 
 ---
 

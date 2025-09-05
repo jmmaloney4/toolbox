@@ -1,0 +1,230 @@
+# Rust CI/CD Pipeline
+# 
+# A comprehensive Rust CI pipeline with cargo check, test, and clippy.
+# Supports Nix-based development environments and configurable test runners.
+#
+# Usage:
+# ```yaml
+# jobs:
+#   rust:
+#     uses: jmmaloney4/workflows/.github/workflows/rust.yml@v1
+#     with:
+#       rust-toolchain: "stable"
+#       use-nix: true
+#       test-runner: "nextest"
+#       clippy-args: "--all-targets --all-features"
+#       runs-on: "ubuntu-latest"
+# ```
+
+name: "🦀 Rust"
+
+on:
+  workflow_call:
+    inputs:
+      rust-toolchain:
+        description: "Rust toolchain version (stable, beta, nightly, or specific version)"
+        required: false
+        type: string
+        default: "stable"
+      use-nix:
+        description: "Use Nix development environment"
+        required: false
+        type: boolean
+        default: false
+      test-runner:
+        description: "Test runner to use (cargo-test or nextest)"
+        required: false
+        type: string
+        default: "cargo-test"
+      clippy-args:
+        description: "Additional arguments for clippy"
+        required: false
+        type: string
+        default: "--all-targets"
+      runs-on:
+        description: "Runner to use for jobs"
+        required: false
+        type: string
+        default: "ubuntu-latest"
+      cache-key-suffix:
+        description: "Additional suffix for cache keys"
+        required: false
+        type: string
+        default: ""
+      skip-clippy:
+        description: "Skip clippy checks"
+        required: false
+        type: boolean
+        default: false
+    outputs:
+      cache-key:
+        description: "Cache key used for Cargo cache"
+        value: ${{ jobs.cargo-check.outputs.cache-key }}
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  cargo-check:
+    name: "🔬 cargo check"
+    runs-on: ${{ inputs.runs-on }}
+    outputs:
+      cache-key: ${{ steps.cache-key.outputs.key }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Nix (if enabled)
+      if: inputs.use-nix
+      uses: jmmaloney4/workflows/.github/actions/nix-setup@v1
+
+    - name: Setup Rust toolchain (if not using Nix)
+      if: ${{ !inputs.use-nix }}
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: ${{ inputs.rust-toolchain }}
+        override: true
+
+    - name: Compute cache key
+      id: cache-key
+      shell: bash
+      run: |
+        key="cargo-check-${{ hashFiles('**/Cargo.lock') }}${{ inputs.cache-key-suffix }}"
+        echo "key=$key" >> "$GITHUB_OUTPUT"
+
+    - name: Cache Cargo dependencies
+      if: ${{ !inputs.use-nix }}
+      uses: Leafwing-Studios/cargo-cache@v2
+      with:
+        sweep-cache: true
+        cache-group: ${{ steps.cache-key.outputs.key }}
+
+    - name: Cargo check (Nix)
+      if: inputs.use-nix
+      shell: bash
+      run: nix develop -c cargo check
+
+    - name: Cargo check (standard)
+      if: ${{ !inputs.use-nix }}
+      shell: bash
+      run: cargo check
+
+  cargo-test:
+    name: "🧪 cargo test"
+    needs: cargo-check
+    runs-on: ${{ inputs.runs-on }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Nix (if enabled)
+      if: inputs.use-nix
+      uses: jmmaloney4/workflows/.github/actions/nix-setup@v1
+
+    - name: Setup Rust toolchain (if not using Nix)
+      if: ${{ !inputs.use-nix }}
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: ${{ inputs.rust-toolchain }}
+        override: true
+
+    - name: Restore cargo-check cache
+      if: ${{ !inputs.use-nix }}
+      uses: Leafwing-Studios/cargo-cache@v2
+      with:
+        cache-group: ${{ needs.cargo-check.outputs.cache-key }}
+        save-if: false
+
+    - name: Setup test cache
+      if: ${{ !inputs.use-nix }}
+      uses: Leafwing-Studios/cargo-cache@v2
+      with:
+        sweep-cache: true
+        cache-group: "cargo-test-${{ hashFiles('**/Cargo.lock') }}${{ inputs.cache-key-suffix }}"
+
+    - name: Install nextest (if using nextest)
+      if: ${{ inputs.test-runner == 'nextest' && !inputs.use-nix }}
+      shell: bash
+      run: cargo install cargo-nextest --locked
+
+    - name: Run tests with nextest (Nix)
+      if: ${{ inputs.test-runner == 'nextest' && inputs.use-nix }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        nix develop -c cargo nextest run --profile ci --hide-progress-bar
+
+    - name: Run tests with nextest (standard)
+      if: ${{ inputs.test-runner == 'nextest' && !inputs.use-nix }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        cargo nextest run --profile ci --hide-progress-bar
+
+    - name: Run tests with cargo test (Nix)
+      if: ${{ inputs.test-runner == 'cargo-test' && inputs.use-nix }}
+      shell: bash
+      run: nix develop -c cargo test
+
+    - name: Run tests with cargo test (standard)
+      if: ${{ inputs.test-runner == 'cargo-test' && !inputs.use-nix }}
+      shell: bash
+      run: cargo test
+
+    - name: Test Report (nextest)
+      if: ${{ inputs.test-runner == 'nextest' && !cancelled() }}
+      uses: dorny/test-reporter@v2
+      with:
+        name: Rust tests
+        path: target/nextest/*/junit.xml
+        reporter: java-junit
+
+  cargo-clippy:
+    name: "🧑‍🏫 cargo clippy"
+    if: ${{ !inputs.skip-clippy }}
+    needs: cargo-check
+    runs-on: ${{ inputs.runs-on }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Nix (if enabled)
+      if: inputs.use-nix
+      uses: jmmaloney4/workflows/.github/actions/nix-setup@v1
+
+    - name: Setup Rust toolchain (if not using Nix)
+      if: ${{ !inputs.use-nix }}
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: ${{ inputs.rust-toolchain }}
+        override: true
+        components: clippy
+
+    - name: Setup cargo-action-fmt (if not using Nix)
+      if: ${{ !inputs.use-nix }}
+      uses: olix0r/cargo-action-fmt/setup@v2
+
+    - name: Cache Cargo dependencies for clippy
+      if: ${{ !inputs.use-nix }}
+      uses: Leafwing-Studios/cargo-cache@v2
+      with:
+        sweep-cache: true
+        cache-group: "cargo-clippy-${{ hashFiles('**/Cargo.lock') }}${{ inputs.cache-key-suffix }}"
+
+    - name: Cargo clippy (Nix)
+      if: inputs.use-nix
+      shell: bash
+      run: |
+        set -euo pipefail
+        nix develop -c sh -c 'cargo clippy ${{ inputs.clippy-args }} --message-format=json | cargo-action-fmt || true'
+
+    - name: Cargo clippy (standard)
+      if: ${{ !inputs.use-nix }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        cargo clippy ${{ inputs.clippy-args }} --message-format=json | cargo-action-fmt || true
