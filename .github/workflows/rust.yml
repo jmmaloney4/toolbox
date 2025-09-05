@@ -1,7 +1,7 @@
 # Rust CI/CD Pipeline
 # 
 # A comprehensive Rust CI pipeline with cargo check, test, and clippy.
-# Supports Nix-based development environments and configurable test runners.
+# Uses Nix flake devshells for reproducible Rust toolchains and dependencies.
 #
 # Usage:
 # ```yaml
@@ -9,15 +9,14 @@
 #   rust:
 #     uses: jmmaloney4/workflows/.github/workflows/rust.yml@main
 #     with:
-#       use-nix: true  # Toolchain defined in flake.nix
+#       flake-ref: "."  # Use default devshell from ./flake.nix
 #       test-runner: "nextest"
 #       clippy-args: "--all-targets --all-features"
 #       runs-on: "ubuntu-latest"
-#   rust-legacy:
+#   rust-custom:
 #     uses: jmmaloney4/workflows/.github/workflows/rust.yml@main
 #     with:
-#       use-nix: false
-#       rust-toolchain: "stable"  # Only used when use-nix is false
+#       flake-ref: ".#rust-dev"  # Use specific devshell
 #       test-runner: "cargo-test"
 # ```
 
@@ -26,16 +25,11 @@ name: "🦀 Rust"
 on:
   workflow_call:
     inputs:
-      rust-toolchain:
-        description: "Rust toolchain version (stable, beta, nightly, or specific version) - ignored when use-nix is true"
+      flake-ref:
+        description: "Flake reference (e.g., '.', '.#rust-dev', 'github:owner/repo#devshell')"
         required: false
         type: string
-        default: "stable"
-      use-nix:
-        description: "Use Nix development environment"
-        required: false
-        type: boolean
-        default: false
+        default: "."
       test-runner:
         description: "Test runner to use (cargo-test or nextest)"
         required: false
@@ -80,28 +74,20 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Setup Nix (if enabled)
-      if: inputs.use-nix
+    - name: Setup Nix
       uses: jmmaloney4/workflows/.github/actions/nix-setup@main
 
     - name: Setup Rust with caching
       id: rust-setup
       uses: jmmaloney4/workflows/.github/actions/rust-cache-setup@main
       with:
-        rust-toolchain: ${{ inputs.rust-toolchain }}
-        use-nix: ${{ inputs.use-nix }}
+        flake-ref: ${{ inputs.flake-ref }}
         cache-key-suffix: ${{ inputs.cache-key-suffix }}
         cache-group: "cargo-check"
 
-    - name: Cargo check (Nix)
-      if: inputs.use-nix
+    - name: Cargo check
       shell: bash
-      run: nix develop -c cargo check
-
-    - name: Cargo check (standard)
-      if: ${{ !inputs.use-nix }}
-      shell: bash
-      run: cargo check
+      run: nix develop ${{ inputs.flake-ref }} -c cargo check
 
   cargo-test:
     name: "🧪 cargo test"
@@ -111,53 +97,27 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Setup Nix (if enabled)
-      if: inputs.use-nix
+    - name: Setup Nix
       uses: jmmaloney4/workflows/.github/actions/nix-setup@main
 
     - name: Setup Rust with caching
       uses: jmmaloney4/workflows/.github/actions/rust-cache-setup@main
       with:
-        rust-toolchain: ${{ inputs.rust-toolchain }}
-        use-nix: ${{ inputs.use-nix }}
+        flake-ref: ${{ inputs.flake-ref }}
         cache-key-suffix: ${{ inputs.cache-key-suffix }}
         cache-group: "cargo-test"
 
-    - name: Restore cargo-check cache
-      if: ${{ !inputs.use-nix }}
-      uses: Leafwing-Studios/cargo-cache@v2
-      with:
-        cache-group: ${{ needs.cargo-check.outputs.cache-key }}
-        save-if: false
-
-    - name: Install nextest (if using nextest)
-      if: ${{ inputs.test-runner == 'nextest' && !inputs.use-nix }}
-      shell: bash
-      run: cargo install cargo-nextest --locked
-
-    - name: Run tests with nextest (Nix)
-      if: ${{ inputs.test-runner == 'nextest' && inputs.use-nix }}
+    - name: Run tests with nextest
+      if: ${{ inputs.test-runner == 'nextest' }}
       shell: bash
       run: |
         set -euo pipefail
-        nix develop -c cargo nextest run --config-file nextest.toml --profile ci --hide-progress-bar --test-threads 4
+        nix develop ${{ inputs.flake-ref }} -c cargo nextest run --config-file nextest.toml --profile ci --hide-progress-bar --test-threads 4
 
-    - name: Run tests with nextest (standard)
-      if: ${{ inputs.test-runner == 'nextest' && !inputs.use-nix }}
+    - name: Run tests with cargo test
+      if: ${{ inputs.test-runner == 'cargo-test' }}
       shell: bash
-      run: |
-        set -euo pipefail
-        cargo nextest run --config-file nextest.toml --profile ci --hide-progress-bar --test-threads 4
-
-    - name: Run tests with cargo test (Nix)
-      if: ${{ inputs.test-runner == 'cargo-test' && inputs.use-nix }}
-      shell: bash
-      run: nix develop -c cargo test
-
-    - name: Run tests with cargo test (standard)
-      if: ${{ inputs.test-runner == 'cargo-test' && !inputs.use-nix }}
-      shell: bash
-      run: cargo test
+      run: nix develop ${{ inputs.flake-ref }} -c cargo test
 
     - name: Test Report (nextest)
       if: ${{ inputs.test-runner == 'nextest' && !cancelled() }}
@@ -176,33 +136,18 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Setup Nix (if enabled)
-      if: inputs.use-nix
+    - name: Setup Nix
       uses: jmmaloney4/workflows/.github/actions/nix-setup@main
 
     - name: Setup Rust with caching
       uses: jmmaloney4/workflows/.github/actions/rust-cache-setup@main
       with:
-        rust-toolchain: ${{ inputs.rust-toolchain }}
-        use-nix: ${{ inputs.use-nix }}
+        flake-ref: ${{ inputs.flake-ref }}
         cache-key-suffix: ${{ inputs.cache-key-suffix }}
         cache-group: "cargo-clippy"
-        components: ${{ inputs.use-nix == 'false' && 'clippy' || '' }}
 
-    - name: Setup cargo-action-fmt (if not using Nix)
-      if: ${{ !inputs.use-nix }}
-      uses: olix0r/cargo-action-fmt/setup@v2
-
-    - name: Cargo clippy (Nix)
-      if: inputs.use-nix
+    - name: Cargo clippy
       shell: bash
       run: |
         set -euo pipefail
-        nix develop -c sh -c 'cargo clippy ${{ inputs.clippy-args }} --message-format=json | cargo-action-fmt || true'
-
-    - name: Cargo clippy (standard)
-      if: ${{ !inputs.use-nix }}
-      shell: bash
-      run: |
-        set -euo pipefail
-        cargo clippy ${{ inputs.clippy-args }} --message-format=json | cargo-action-fmt || true
+        nix develop ${{ inputs.flake-ref }} -c sh -c 'cargo clippy ${{ inputs.clippy-args }} --message-format=json | cargo-action-fmt || true'

@@ -1,52 +1,39 @@
 # Rust Cache Setup Action
 #
-# Sets up Rust toolchain and configures optimal caching for Cargo builds.
-# Supports both standard Rust installation and Nix development environments.
+# Sets up Rust toolchain from Nix flake and configures optimal Cargo caching.
+# Uses Nix development environments for reproducible Rust builds.
 #
 # Usage:
 # ```yaml
-# # With Nix (toolchain from flake.nix):
+# # Default devshell:
 # - uses: jmmaloney4/workflows/.github/actions/rust-cache-setup@main
-#   id: rust-setup-nix
+#   id: rust-setup
 #   with:
-#     use-nix: true
+#     flake-ref: "."
 #     cache-key-suffix: "custom"
 # 
-# # Without Nix (specify toolchain):
+# # Specific devshell:
 # - uses: jmmaloney4/workflows/.github/actions/rust-cache-setup@main
-#   id: rust-setup-std
+#   id: rust-setup-dev
 #   with:
-#     use-nix: false
-#     rust-toolchain: "stable"
-#     components: "clippy,rustfmt"
+#     flake-ref: ".#rust-dev"
+#     cache-group: "custom-cache"
 # ```
 
 name: 'Rust Cache Setup'
 description: 'Setup Rust toolchain with optimal Cargo caching configuration'
 
 inputs:
-  rust-toolchain:
-    description: 'Rust toolchain version (stable, beta, nightly, or specific version) - only used when use-nix is false'
+  flake-ref:
+    description: 'Flake reference for the development environment (e.g., ".", ".#rust-dev")'
     required: false
-    default: 'stable'
-  use-nix:
-    description: 'Use Nix development environment instead of installing Rust'
-    required: false
-    default: 'false'
+    default: '.'
   cache-key-suffix:
     description: 'Additional suffix for cache keys'
     required: false
     default: ''
   cache-group:
     description: 'Cache group name (defaults to job-specific naming)'
-    required: false
-    default: ''
-  components:
-    description: 'Additional Rust components to install (comma-separated)'
-    required: false
-    default: ''
-  targets:
-    description: 'Additional Rust targets to install (comma-separated)'
     required: false
     default: ''
   enable-cache:
@@ -73,25 +60,13 @@ runs:
   using: 'composite'
   steps:
 
-  - name: Setup Rust toolchain (if not using Nix)
-    if: ${{ inputs.use-nix != 'true' }}
-    uses: dtolnay/rust-toolchain@master
-    with:
-      toolchain: ${{ inputs.rust-toolchain }}
-      components: ${{ inputs.components }}
-      targets: ${{ inputs.targets }}
 
   - name: Get toolchain information
     id: toolchain-info
     shell: bash
     run: |
-      if [ "${{ inputs.use-nix }}" == "true" ]; then
-        version=$(nix develop -c rustc --version | cut -d' ' -f2)
-        echo "Rust version (via Nix): $version"
-      else
-        version=$(rustc --version | cut -d' ' -f2)
-        echo "Rust version: $version"
-      fi
+      version=$(nix develop ${{ inputs.flake-ref }} -c rustc --version | cut -d' ' -f2)
+      echo "Rust version (via Nix): $version"
       echo "version=$version" >> "$GITHUB_OUTPUT"
 
   - name: Compute cache key
@@ -112,13 +87,9 @@ runs:
         group="cargo-${job_name}"
       fi
       
-      # Build full cache key with Nix/non-Nix differentiation
-      nix_suffix=""
-      if [ "${{ inputs.use-nix }}" == "true" ]; then
-        nix_suffix="-nix"
-      fi
-      
-      key="${group}${nix_suffix}-${cargo_lock_hash}"
+      # Build cache key with flake reference hash for differentiation
+      flake_hash=$(echo "${{ inputs.flake-ref }}" | sha256sum | cut -d' ' -f1 | cut -c1-8)
+      key="${group}-${flake_hash}-${cargo_lock_hash}"
       
       # Add suffix if provided
       if [ -n "${{ inputs.cache-key-suffix }}" ]; then
@@ -145,19 +116,13 @@ runs:
       {
         echo "### 🦀 Rust Cache Setup Complete"
         echo ""
-        echo "- **Toolchain:** ${{ inputs.rust-toolchain }}"
+        echo "- **Toolchain:** from Nix flake"
         echo "- **Version:** ${{ steps.toolchain-info.outputs.version }}"
-        echo "- **Using Nix:** ${{ inputs.use-nix }}"
+        echo "- **Flake reference:** ${{ inputs.flake-ref }}"
         echo "- **Cache enabled:** ${{ inputs.enable-cache }}"
         if [ "${{ inputs.enable-cache }}" == "true" ]; then
           echo "- **Cache key:** \`${{ steps.cache-key.outputs.key }}\`"
           echo "- **Cache group:** \`${{ steps.cache-key.outputs.group }}\`"
-        fi
-        if [ -n "${{ inputs.components }}" ]; then
-          echo "- **Components:** ${{ inputs.components }}"
-        fi
-        if [ -n "${{ inputs.targets }}" ]; then
-          echo "- **Targets:** ${{ inputs.targets }}"
         fi
       } >> "$GITHUB_STEP_SUMMARY"
 
@@ -166,34 +131,22 @@ runs:
     run: |
       echo "=== Rust Installation Verification ==="
       
-      if [ "${{ inputs.use-nix }}" == "true" ]; then
-        echo "Using Nix development environment:"
-        nix develop -c rustc --version
-        nix develop -c cargo --version
-        
-        # Check if clippy is available
-        if nix develop -c clippy-driver --version >/dev/null 2>&1; then
-          echo "Clippy: available"
-        else
-          echo "Clippy: not available"
-        fi
+      echo "Using Nix development environment:"
+      nix develop ${{ inputs.flake-ref }} -c rustc --version
+      nix develop ${{ inputs.flake-ref }} -c cargo --version
+      
+      # Check if clippy is available
+      if nix develop ${{ inputs.flake-ref }} -c clippy-driver --version >/dev/null 2>&1; then
+        echo "Clippy: available"
       else
-        echo "Direct Rust installation:"
-        rustc --version
-        cargo --version
-        
-        # Check components
-        if command -v clippy-driver >/dev/null 2>&1; then
-          clippy-driver --version
-        else
-          echo "Clippy: not installed"
-        fi
-        
-        if command -v rustfmt >/dev/null 2>&1; then
-          rustfmt --version
-        else
-          echo "Rustfmt: not installed"
-        fi
+        echo "Clippy: not available"
+      fi
+      
+      # Check if rustfmt is available
+      if nix develop ${{ inputs.flake-ref }} -c rustfmt --version >/dev/null 2>&1; then
+        echo "Rustfmt: available"
+      else
+        echo "Rustfmt: not available"
       fi
       
       echo "✅ Rust setup verification complete"
