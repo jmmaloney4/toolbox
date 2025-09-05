@@ -7,9 +7,7 @@
 # ```yaml
 # - uses: jmmaloney4/workflows/.github/actions/pulumi-setup@main
 #   with:
-#     use-nix: true
 #     login-backend: gs://my-pulumi-state
-#     pulumi-version: latest
 #   env:
 #     GOOGLE_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
 #     GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ vars.GCP_SERVICE_ACCOUNT_EMAIL }}
@@ -19,26 +17,10 @@ name: 'Pulumi Setup'
 description: 'Setup Pulumi with authentication, dependencies, and environment configuration'
 
 inputs:
-  use-nix:
-    description: 'Use Nix development environment for Pulumi commands'
-    required: false
-    default: 'true'
   login-backend:
     description: 'Pulumi backend URL to login to (e.g., gs://bucket, s3://bucket, or blank for Pulumi Cloud)'
     required: false
     default: ''
-  pulumi-version:
-    description: 'Pulumi version to install (ignored if use-nix is true)'
-    required: false
-    default: 'latest'
-  node-version:
-    description: 'Node.js version for TypeScript/JavaScript projects (ignored if use-nix is true)'
-    required: false
-    default: '18'
-  python-version:
-    description: 'Python version for Python projects (ignored if use-nix is true)'
-    required: false
-    default: '3.11'
   install-dependencies:
     description: 'Install project dependencies (npm/pnpm install, pip install, etc.)'
     required: false
@@ -75,27 +57,6 @@ outputs:
 runs:
   using: 'composite'
   steps:
-  - name: Setup Nix (if enabled)
-    if: ${{ inputs.use-nix == 'true' }}
-    uses: jmmaloney4/workflows/.github/actions/nix-setup@main
-
-  - name: Setup Node.js (if not using Nix)
-    if: ${{ inputs.use-nix != 'true' }}
-    uses: actions/setup-node@v4
-    with:
-      node-version: ${{ inputs.node-version }}
-
-  - name: Setup Python (if not using Nix)
-    if: ${{ inputs.use-nix != 'true' }}
-    uses: actions/setup-python@v4
-    with:
-      python-version: ${{ inputs.python-version }}
-
-  - name: Install Pulumi (if not using Nix)
-    if: ${{ inputs.use-nix != 'true' }}
-    uses: pulumi/actions@v4
-    with:
-      pulumi-version: ${{ inputs.pulumi-version }}
 
   - name: Authenticate to Google Cloud
     if: ${{ inputs.enable-gcp-auth == 'true' && env.GOOGLE_WORKLOAD_IDENTITY_PROVIDER != '' }}

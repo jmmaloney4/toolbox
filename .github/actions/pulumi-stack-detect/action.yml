@@ -8,7 +8,6 @@
 # - uses: jmmaloney4/workflows/.github/actions/pulumi-stack-detect@main
 #   id: detect
 #   with:
-#     use-nix: true
 #     working-directory: "."
 # - name: Use matrix
 #   run: echo '${{ steps.detect.outputs.matrix }}'
@@ -18,10 +17,6 @@ name: 'Pulumi Stack Detect'
 description: 'Detect Pulumi stacks and generate deployment matrix'
 
 inputs:
-  use-nix:
-    description: 'Use Nix development environment for detection'
-    required: false
-    default: 'true'
   working-directory:
     description: 'Working directory to search for Pulumi stacks'
     required: false
@@ -53,27 +48,8 @@ outputs:
 runs:
   using: 'composite'
   steps:
-  - name: Setup environment for Nix
-    if: ${{ inputs.use-nix == 'true' }}
+  - name: Setup Nix
     uses: jmmaloney4/workflows/.github/actions/nix-setup@main
-
-  - name: Setup Node.js for non-Nix
-    if: ${{ inputs.use-nix != 'true' }}
-    uses: actions/setup-node@v4
-    with:
-      node-version: '18'
-
-  - name: Install dependencies for non-Nix
-    if: ${{ inputs.use-nix != 'true' }}
-    shell: bash
-    working-directory: ${{ inputs.working-directory }}
-    run: |
-      if [ -f "package.json" ]; then
-        echo "Installing npm dependencies..."
-        npm install
-      else
-        echo "No package.json found, skipping npm install"
-      fi
 
   - name: Detect Pulumi stacks
     id: detect

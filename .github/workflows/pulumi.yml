@@ -68,11 +68,6 @@ on:
         required: false
         type: boolean
         default: true
-      use-nix:
-        description: "Use Nix development environment"
-        required: false
-        type: boolean
-        default: true
     secrets:
       GCP_WORKLOAD_IDENTITY_PROVIDER:
         description: "GCP Workload Identity Provider"
@@ -109,8 +104,6 @@ jobs:
     - name: Detect Pulumi stacks
       id: detect
       uses: jmmaloney4/workflows/.github/actions/pulumi-stack-detect@main
-      with:
-        use-nix: ${{ inputs.use-nix }}
 
   pulumi-preview:
     name: "🔍 Pulumi preview (${{ matrix.stack }})"
@@ -132,10 +125,12 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    - name: Setup Nix
+      uses: jmmaloney4/workflows/.github/actions/nix-setup@main
+
     - name: Setup Pulumi environment
       uses: jmmaloney4/workflows/.github/actions/pulumi-setup@main
       with:
-        use-nix: ${{ inputs.use-nix }}
         login-backend: ${{ inputs.pulumi-backend }}
 
     - name: Derive artifact-safe name
@@ -153,11 +148,7 @@ jobs:
       run: |
         cd "${{ matrix.project }}"
         
-        if ${{ inputs.use-nix }}; then
-          nix develop --command pulumi preview --stack "${{ matrix.stack }}" --non-interactive
-        else
-          pulumi preview --stack "${{ matrix.stack }}" --non-interactive
-        fi
+        nix develop --command pulumi preview --stack "${{ matrix.stack }}" --non-interactive
 
     - name: Mark successful preview
       if: ${{ steps.preview.outcome == 'success' }}
@@ -229,10 +220,12 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    - name: Setup Nix
+      uses: jmmaloney4/workflows/.github/actions/nix-setup@main
+
     - name: Setup Pulumi environment
       uses: jmmaloney4/workflows/.github/actions/pulumi-setup@main
       with:
-        use-nix: ${{ inputs.use-nix }}
         login-backend: ${{ inputs.pulumi-backend }}
 
     - name: Pulumi up
@@ -240,11 +233,7 @@ jobs:
       run: |
         cd "${{ matrix.project }}"
         
-        if ${{ inputs.use-nix }}; then
-          nix develop --command pulumi up --stack "${{ matrix.stack }}" --yes --non-interactive
-        else
-          pulumi up --stack "${{ matrix.stack }}" --yes --non-interactive
-        fi
+        nix develop --command pulumi up --stack "${{ matrix.stack }}" --yes --non-interactive
 
     - name: Collect deployed stacks
       id: collect-deployed
@@ -301,10 +290,12 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    - name: Setup Nix
+      uses: jmmaloney4/workflows/.github/actions/nix-setup@main
+
     - name: Setup Pulumi environment
       uses: jmmaloney4/workflows/.github/actions/pulumi-setup@main
       with:
-        use-nix: ${{ inputs.use-nix }}
         login-backend: ${{ inputs.pulumi-backend }}
 
     - name: Pulumi up
@@ -312,11 +303,7 @@ jobs:
       run: |
         cd "${{ matrix.project }}"
         
-        if ${{ inputs.use-nix }}; then
-          nix develop --command pulumi up --stack "${{ matrix.stack }}" --yes --non-interactive
-        else
-          pulumi up --stack "${{ matrix.stack }}" --yes --non-interactive
-        fi
+        nix develop --command pulumi up --stack "${{ matrix.stack }}" --yes --non-interactive
 
     - name: Collect deployed stacks
       id: collect-deployed
