@@ -106,7 +106,7 @@ jobs:
       uses: jmmaloney4/workflows/.github/actions/pulumi-stack-detect@main
 
   pulumi-preview:
-    name: "🔍 Pulumi preview (${{ matrix.stack }})"
+    name: "🔍 Pulumi preview (${{ matrix.project }}, ${{ matrix.stack }})"
     needs: [detect-pulumi-stacks]
     if: ${{ always() && ((inputs.preview-on-pr && github.event_name == 'pull_request') || !inputs.auto-detect-stacks) }}
     runs-on: ${{ inputs.runs-on }}
@@ -194,7 +194,7 @@ jobs:
         kind: stage
 
   pulumi-up-stage:
-    name: "🚀 Deploy to stage (${{ matrix.stack }})"
+    name: "🚀 Deploy (${{ matrix.project }}, ${{ matrix.stack }})"
     needs: [collect-stage-targets]
     if: ${{ inputs.deploy-on-main && github.ref == 'refs/heads/main' && join(fromJson(needs.collect-stage-targets.outputs.matrix)) != '' }}
     runs-on: ${{ inputs.runs-on }}
@@ -264,7 +264,7 @@ jobs:
         kind: prod
 
   pulumi-up-prod:
-    name: "🚀 Deploy to prod (${{ matrix.stack }})"
+    name: "🚀 Deploy (${{ matrix.project }}, ${{ matrix.stack }})"
     needs: [collect-prod-targets]
     if: ${{ startsWith(github.ref, 'refs/tags/v') && join(fromJson(needs.collect-prod-targets.outputs.matrix)) != '' }}
     runs-on: ${{ inputs.runs-on }}
