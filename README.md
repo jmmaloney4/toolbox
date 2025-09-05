@@ -128,7 +128,29 @@ jobs:
       GCP_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GCP_SA_EMAIL }}
 ```
 
-> Tip: If your repo needs the same pipeline with small tweaks, prefer adding **inputs** to the reusable workflow here, rather than copying the whole thing.
+**7) Docker monorepo builds**
+Caller repo: `.github/workflows/docker.yml`
+
+```yaml
+name: Docker Build
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  docker:
+    uses: jmmaloney4/workflows/.github/workflows/docker.yml@v1
+    with:
+      registry: "ghcr.io"
+      platforms: "linux/amd64,linux/arm64"
+      max-parallel: 3
+      build-changed-only: false
+    secrets:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+> Tip: If your repo needs the same pipeline with small tweaks, prefer adding inputs to the reusable workflow here, rather than copying the whole thing.
 
 ---
 
@@ -212,7 +234,22 @@ jobs:
     GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ vars.GCP_SA_EMAIL }}
 ```
 
-> Pin **versions** (`@v1`, `@v1.2.0`, or a commit SHA) to avoid surprises. When you're ready to adopt changes, bump the tag in callers.
+**7) Docker discovery for custom workflows**
+
+```yaml
+- uses: jmmaloney4/workflows/.github/actions/docker-discover@v1
+  id: discover
+  with:
+    dockerfile-pattern: "**/Dockerfile"
+    exclude-paths: "node_modules/**,target/**"
+    registry: "ghcr.io"
+- name: Build custom matrix
+  run: |
+    echo "Found ${{ steps.discover.outputs.count }} Dockerfiles"
+    echo '${{ steps.discover.outputs.matrix }}' | jq '.'
+```
+
+> Pin versions (`@v1`, `@v1.2.0`, or a commit SHA) to avoid surprises. When you're ready to adopt changes, bump the tag in callers.
 
 ---
 
@@ -299,6 +336,7 @@ They're perfect for repeated procedures: toolchain setup, caching, linting, smal
 * `rust.yml` — Comprehensive Rust CI pipeline with cargo check, test, and clippy; supports Nix environments and nextest.
 * `nix.yml` — Intelligent Nix flake build pipeline with cache warming and matrix builds for uncached derivations.
 * `pulumi.yml` — Complete Pulumi infrastructure deployment pipeline supporting stage/prod environments with auto-stack detection.
+* `docker.yml` — Monorepo Docker build pipeline with automatic Dockerfile discovery and complete path-based image naming.
 
 ### Composite actions (building blocks)
 
@@ -307,6 +345,7 @@ They're perfect for repeated procedures: toolchain setup, caching, linting, smal
 * `docker-push` — Login and push an image to a registry (GHCR by default).
 * `version-bump` — Compute next semver from conventional commits and write it to a file/output.
 * `docker-build` — Enhanced Docker build/push with multi-arch support, flexible tagging strategies, and comprehensive metadata.
+* `docker-discover` — Discovers Dockerfiles in monorepos and generates build matrices with complete path-based naming.
 * `nix-setup` — Optimized Nix setup with FlakeHub cache, Magic Nix Cache, and CI-friendly configuration.
 * `pulumi-setup` — Complete Pulumi setup with multi-cloud authentication, dependency installation, and Nix support.
 * `pulumi-collect` — Collects Pulumi preview results and builds deployment matrices for stage/prod environments.

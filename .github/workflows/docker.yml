@@ -1,0 +1,178 @@
+# Docker Monorepo Build Pipeline
+#
+# Automatically discovers Dockerfiles in a monorepo and builds them with 
+# complete path-based image names. Uses composite actions to keep the 
+# workflow clean and the logic reusable.
+#
+# Image naming examples:
+# - ./Dockerfile → ghcr.io/owner/repo-name
+# - ./services/api/Dockerfile → ghcr.io/owner/repo-name/services/api
+# - ./apps/frontend/Dockerfile → ghcr.io/owner/repo-name/apps/frontend
+#
+# Usage:
+# ```yaml
+# jobs:
+#   docker:
+#     uses: jmmaloney4/workflows/.github/workflows/docker.yml@v1
+#     with:
+#       dockerfile-pattern: "**/Dockerfile"
+#       registry: "ghcr.io"
+#       platforms: "linux/amd64,linux/arm64"
+#       max-parallel: 3
+#     secrets:
+#       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+# ```
+
+name: "🐳 Docker"
+
+on:
+  workflow_call:
+    inputs:
+      dockerfile-pattern:
+        description: "Pattern to search for Dockerfiles"
+        required: false
+        type: string
+        default: "**/Dockerfile"
+      exclude-paths:
+        description: "Paths to exclude from search (comma-separated)"
+        required: false
+        type: string
+        default: "node_modules/**,target/**,.git/**,**/node_modules/**,**/target/**"
+      registry:
+        description: "Container registry"
+        required: false
+        type: string
+        default: "ghcr.io"
+      platforms:
+        description: "Target platforms for multi-arch builds"
+        required: false
+        type: string
+        default: "linux/amd64"
+      max-parallel:
+        description: "Maximum parallel builds in matrix"
+        required: false
+        type: number
+        default: 3
+      push:
+        description: "Whether to push images to registry"
+        required: false
+        type: boolean
+        default: true
+      build-changed-only:
+        description: "Only build images for changed paths (PR events only)"
+        required: false
+        type: boolean
+        default: false
+      runs-on:
+        description: "Runner to use for jobs"
+        required: false
+        type: string
+        default: "ubuntu-latest"
+      tag-strategy:
+        description: "Tagging strategy: standard, semver, or custom"
+        required: false
+        type: string
+        default: "standard"
+      working-directory:
+        description: "Working directory to search for Dockerfiles"
+        required: false
+        type: string
+        default: "."
+    secrets:
+      GITHUB_TOKEN:
+        description: "GitHub token for registry authentication"
+        required: true
+    outputs:
+      built-images:
+        description: "JSON array of successfully built images"
+        value: ${{ jobs.build.outputs.built-images }}
+      matrix:
+        description: "JSON matrix of discovered Dockerfiles"
+        value: ${{ jobs.discover.outputs.matrix }}
+      count:
+        description: "Number of Docker images built"
+        value: ${{ jobs.discover.outputs.count }}
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  discover:
+    name: "🔍 Discover Dockerfiles"
+    runs-on: ${{ inputs.runs-on }}
+    outputs:
+      matrix: ${{ steps.discover.outputs.matrix }}
+      has-dockerfiles: ${{ steps.discover.outputs.has-dockerfiles }}
+      count: ${{ steps.discover.outputs.count }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: ${{ inputs.build-changed-only && 2 || 1 }}
+
+    - name: Discover Dockerfiles
+      id: discover
+      uses: jmmaloney4/workflows/.github/actions/docker-discover@v1
+      with:
+        dockerfile-pattern: ${{ inputs.dockerfile-pattern }}
+        exclude-paths: ${{ inputs.exclude-paths }}
+        registry: ${{ inputs.registry }}
+        build-changed-only: ${{ inputs.build-changed-only }}
+        working-directory: ${{ inputs.working-directory }}
+
+  build:
+    name: "🏗️ ${{ matrix.image_name }}"
+    needs: [discover]
+    if: ${{ needs.discover.outputs.has-dockerfiles == 'true' }}
+    runs-on: ${{ inputs.runs-on }}
+    strategy:
+      fail-fast: false
+      max-parallel: ${{ inputs.max-parallel }}
+      matrix:
+        include: ${{ fromJson(needs.discover.outputs.matrix) }}
+    outputs:
+      built-images: ${{ steps.collect-results.outputs.built }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Build and push Docker image
+      id: docker-build
+      uses: jmmaloney4/workflows/.github/actions/docker-build@v1
+      with:
+        image-name: ${{ matrix.image_name }}
+        dockerfile-path: ${{ matrix.dockerfile }}
+        docker-context: ${{ matrix.context }}
+        registry: ${{ inputs.registry }}
+        platforms: ${{ inputs.platforms }}
+        push: ${{ inputs.push }}
+        tag-strategy: ${{ inputs.tag-strategy }}
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Collect build results
+      id: collect-results
+      shell: bash
+      run: |
+        # Create success record for this build
+        built_image=$(jq -nc \
+          --arg image_name "${{ matrix.image_name }}" \
+          --arg dockerfile "${{ matrix.dockerfile }}" \
+          --arg context "${{ matrix.context }}" \
+          --arg registry_url "${{ steps.docker-build.outputs.registry-url }}" \
+          --arg digest "${{ steps.docker-build.outputs.image-digest }}" \
+          --arg tags "${{ steps.docker-build.outputs.image-tags }}" \
+          '{
+            image_name: $image_name,
+            dockerfile: $dockerfile,
+            context: $context,
+            registry_url: $registry_url,
+            digest: $digest,
+            tags: ($tags | split("\n") | map(select(. != ""))),
+            success: true
+          }')
+        
+        echo "built=[$built_image]" >> "$GITHUB_OUTPUT"
+        
+        # Output build success to summary
+        echo "✅ Successfully built \`${{ matrix.image_name }}\`" >> "$GITHUB_STEP_SUMMARY"
