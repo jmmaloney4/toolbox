@@ -72,7 +72,7 @@ runs:
 
   - name: Setup Rust toolchain (if not using Nix)
     if: ${{ inputs.use-nix != 'true' }}
-    uses: actions-rs/toolchain@main
+    uses: actions-rs/toolchain@v1
     with:
       profile: minimal
       toolchain: ${{ inputs.rust-toolchain }}
