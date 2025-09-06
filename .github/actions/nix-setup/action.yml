@@ -8,9 +8,6 @@
 # - uses: jmmaloney4/workflows/.github/actions/nix-setup@main
 #   with:
 #     enable-flakehub-cache: true
-#     extra-nix-config: |
-#       experimental-features = nix-command flakes
-#       accept-flake-config = true
 # ```
 
 name: 'Nix Setup'
@@ -21,14 +18,6 @@ inputs:
     description: 'Enable FlakeHub cache for faster flake input resolution'
     required: false
     default: 'true'
-  nix-installer-url:
-    description: 'Custom Nix installer URL (default: Determinate Systems installer)'
-    required: false
-    default: ''
-  extra-nix-config:
-    description: 'Additional Nix configuration (appended to nix.conf)'
-    required: false
-    default: ''
   enable-magic-nix-cache:
     description: 'Enable Magic Nix Cache for better build caching'
     required: false
@@ -56,14 +45,12 @@ runs:
   - name: Install Nix
     uses: DeterminateSystems/nix-installer-action@main
     with:
-      nix-installer-url: ${{ inputs.nix-installer-url }}
       extra-conf: |
         experimental-features = nix-command flakes
         accept-flake-config = true
         auto-optimise-store = true
         max-jobs = auto
         cores = 0
-        ${{ inputs.extra-nix-config }}
 
   - name: Enable Magic Nix Cache
     if: ${{ inputs.enable-magic-nix-cache == 'true' }}
