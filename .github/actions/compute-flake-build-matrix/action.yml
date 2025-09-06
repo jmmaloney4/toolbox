@@ -20,6 +20,6 @@ runs:
       env:
         PROBE_TIMEOUT_SECONDS: ${{ inputs.probe-timeout-seconds }}
       run: |
-        bash "${{ github.action_path }}/compute-matrix.sh"
+        bash "${{ github.action_path }}/main.sh"
 
 
