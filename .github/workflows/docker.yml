@@ -68,11 +68,6 @@ on:
         required: false
         type: string
         default: "ubuntu-latest"
-      tag-strategy:
-        description: "Tagging strategy: standard, semver, or custom"
-        required: false
-        type: string
-        default: "standard"
       working-directory:
         description: "Working directory to search for Dockerfiles"
         required: false
@@ -147,7 +142,6 @@ jobs:
         registry: ${{ inputs.registry }}
         platforms: ${{ inputs.platforms }}
         push: ${{ inputs.push }}
-        tag-strategy: ${{ inputs.tag-strategy }}
         github-token: ${{ secrets.REGISTRY_TOKEN }}
 
     - name: Collect build results

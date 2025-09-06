@@ -54,14 +54,6 @@ inputs:
     description: 'Additional labels (newline-separated)'
     required: false
     default: ''
-  tag-strategy:
-    description: 'Tagging strategy: standard, semver, or custom'
-    required: false
-    default: 'standard'
-  custom-tags:
-    description: 'Custom tags (newline-separated, used with tag-strategy=custom)'
-    required: false
-    default: ''
 
 outputs:
   image-tags:
@@ -101,16 +93,10 @@ runs:
         latest=auto
       tags: |
         # Standard tagging strategy
-        type=raw,value=latest,enable=${{ github.ref_name == github.event.repository.default_branch && inputs.tag-strategy == 'standard' }}
-        type=ref,event=branch,enable=${{ inputs.tag-strategy == 'standard' }}
-        type=ref,event=pr,enable=${{ inputs.tag-strategy == 'standard' }}
-        type=sha,prefix=sha-,enable=${{ inputs.tag-strategy == 'standard' }}
-        # Semantic version tagging
-        type=semver,pattern={{version}},enable=${{ inputs.tag-strategy == 'semver' }}
-        type=semver,pattern={{major}}.{{minor}},enable=${{ inputs.tag-strategy == 'semver' }}
-        type=semver,pattern={{major}},enable=${{ inputs.tag-strategy == 'semver' }}
-        # Custom tagging
-        ${{ inputs.tag-strategy == 'custom' && inputs.custom-tags || '' }}
+        type=raw,value=latest,enable=${{ github.ref_name == github.event.repository.default_branch }}
+        type=ref,event=branch
+        type=ref,event=pr
+        type=sha,prefix=sha-
       labels: |
         org.opencontainers.image.title=${{ inputs.image-name }}
         org.opencontainers.image.description=Built from ${{ github.repository }}
