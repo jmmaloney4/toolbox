@@ -57,6 +57,16 @@ runs:
       set -euo pipefail
       
       echo "=== Building deployment matrix for requested stacks ==="
+      echo "Requested stacks: ${{ inputs.stacks }}"
+      
+      # Debug: List all downloaded artifacts
+      echo "=== Debug: Downloaded artifact structure ==="
+      find . -type f -name "*.json" | head -20 || echo "No JSON files found"
+      
+      # Debug: Show preview-ok directory contents
+      echo "=== Debug: preview-ok directory contents ==="
+      ls -la preview-ok/ 2>/dev/null || echo "preview-ok directory not found"
+      find preview-ok -type f 2>/dev/null | head -10 || echo "No files in preview-ok"
       
       # Collect all successful preview markers
       matrix_items=()
@@ -74,14 +84,21 @@ runs:
       # Process success markers
       if [ -d "preview-ok" ] && [ "$(ls -A "preview-ok" 2>/dev/null)" ]; then
         stacks='${{ inputs.stacks }}'
+        echo "=== Debug: Processing success markers ==="
+        echo "Stacks variable: $stacks"
         
         for marker_file in "preview-ok"/*.json; do
           if [ -f "$marker_file" ]; then
+            echo "=== Debug: Processing marker file: $marker_file ==="
+            cat "$marker_file"
+            
             # Extract project and stack from marker
             project=$(jq -r '.project' "$marker_file")
             stack=$(jq -r '.stack' "$marker_file")
+            echo "Extracted project: '$project', stack: '$stack'"
             
             # Check if this stack is in our requested stacks
+            echo "Checking if stack '$stack' is in requested stacks: $stacks"
             if jq -e --arg stack "$stack" 'index($stack) != null' <<<"$stacks" >/dev/null; then
               echo "Found successful preview for requested stack: $project/$stack"
               
@@ -101,12 +118,16 @@ runs:
               
               echo "| \`$project\` | \`$stack\` | ✅ Ready | $preview_path |" >> "$summary_file"
             else
-              echo "Skipping non-requested stack: $project/$stack"
+              echo "❌ Skipping non-requested stack: $project/$stack (not in $stacks)"
             fi
           fi
         done
       else
-        echo "No success markers found in preview-ok"
+        echo "❌ No success markers found in preview-ok directory"
+        echo "Debug: Checking if preview-ok directory exists..."
+        [ -d "preview-ok" ] && echo "preview-ok directory exists" || echo "preview-ok directory does not exist"
+        echo "Debug: Checking if preview-ok directory has files..."
+        ls -la preview-ok/ 2>/dev/null || echo "Cannot list preview-ok directory"
       fi
       
       # Build final matrix JSON
