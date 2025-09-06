@@ -18,7 +18,7 @@
 #       GCP_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
 # ```
 
-name: "☁️ Pulumi"
+name: "☁️ pulumi"
 
 on:
   workflow_call:
@@ -74,6 +74,7 @@ permissions:
   issues: write
   pull-requests: write
   deployments: write
+  actions: read
 
 jobs:
   detect-pulumi-stacks:
@@ -176,10 +177,14 @@ jobs:
       with:
         stacks: ${{ inputs.deploy-stacks }}
 
+    - name: Echo collected matrix
+      if: ${{ always() }}
+      run: echo "Collected matrix:${{ steps.collect.outputs.matrix }}"
+
   pulumi-up:
     name: "🚀 Deploy (${{ matrix.project }}, ${{ matrix.stack }})"
     needs: [collect-deploy-targets]
-    if: ${{ join(fromJson(needs.collect-deploy-targets.outputs.matrix)) != '' }}
+    if: ${{ needs.collect-deploy-targets.outputs.matrix != '' && needs.collect-deploy-targets.outputs.matrix != '[]' }}
     runs-on: ${{ inputs.runs-on }}
     strategy:
       fail-fast: false
@@ -239,6 +244,8 @@ jobs:
     needs: [collect-deploy-targets, pulumi-up]
     if: ${{ always() && join(fromJson(needs.collect-deploy-targets.outputs.matrix || '[]')) != '' }}
     runs-on: ${{ inputs.runs-on }}
+    permissions:
+      actions: read
     outputs:
       has_artifacts: ${{ steps.check.outputs.has_artifacts }}
     steps:
