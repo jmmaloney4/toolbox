@@ -1,100 +1,59 @@
-# Nix Flake Build Pipeline
-#
-# A comprehensive Nix flake build pipeline with intelligent caching, 
-# cache warming, and matrix builds for uncached derivations.
-#
-# Usage:
-# ```yaml
-# jobs:
-#   nix:
-#     uses: jmmaloney4/workflows/.github/workflows/nix.yml@main
-#     with:
-#       runs-on: "ubuntu-latest"
-#       max-parallel: 2
-#       probe-timeout: 180
-#       cache-version: "v1"
-# ```
-
-name: "❄️ nix"
-
+name: '❄️ nix'
 on:
   workflow_call:
     inputs:
       runs-on:
-        description: "Runner to use for jobs"
-        required: false
+        description: 'Runner type for all jobs'
+        required: true
         type: string
-        default: "ubuntu-latest"
-      max-parallel:
-        description: "Maximum parallel builds in matrix"
-        required: false
-        type: number
-        default: 1
-      probe-timeout:
-        description: "Timeout in seconds for cache probing"
-        required: false
-        type: number
-        default: 180
-      cache-version:
-        description: "Cache version identifier"
-        required: false
+      repository:
+        description: 'Repository to checkout and build (format: owner/repo)'
+        required: true
         type: string
-        default: "v1"
-      flake-inputs-cache:
-        description: "Enable FlakeHub cache for inputs"
-        required: false
-        type: boolean
-        default: true
-      push-images:
-        description: "Enable pushing Docker/OCI images discovered in flake (packages ending with -image)"
-        required: false
-        type: boolean
-        default: false
-      image-repo-prefix:
-        description: "Registry repo prefix to publish to (e.g., ghcr.io/owner/repo or ghcr.io/org/project). The image name is appended."
-        required: false
+      ref:
+        description: 'Git ref to checkout and build'
+        required: true
         type: string
-        default: "ghcr.io/${{ github.repository }}"
-    outputs:
-      built-outputs:
-        description: "JSON array of successfully built outputs"
-        value: ${{ jobs.build.outputs.built-outputs }}
-      cache-key:
-        description: "Nix evaluation cache key used"
-        value: ${{ jobs.warm-cache.outputs.cache_key }}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
   id-token: write
-  packages: write
 
 jobs:
+  # NOTE: Warm Nix evaluation/fetch caches once per workflow to avoid re-downloading
+  # nixpkgs and other flake inputs in every matrix job. Each matrix build re-evaluates
+  # the flake and resolves inputs; without a shared cache, this causes repeated network
+  # fetches and slower evaluations. We key this cache by OS and flake.lock to ensure
+  # correctness across input changes, and we restore it in all build jobs. This is a
+  # complementary optimization to binary caches (substituters); it only speeds up
+  # evaluation and source fetch, not the actual builds.
   warm-cache:
-    name: "🔥 Warm Nix eval cache"
+    name: "🔥 warm nix eval cache"
     runs-on: ${{ inputs.runs-on }}
     outputs:
       cache_key: ${{ steps.compute-key.outputs.cache_key }}
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Setup Nix
-      uses: jmmaloney4/workflows/.github/actions/nix-setup@main
+    - uses: actions/checkout@v4
       with:
-        enable-flakehub-cache: ${{ inputs.flake-inputs-cache }}
-
-    - name: Compute cache key
+        repository: ${{ inputs.repository }}
+        ref: ${{ inputs.ref }}
+    - uses: DeterminateSystems/nix-installer-action@main
+    - uses: DeterminateSystems/flakehub-cache-action@main
+    - name: compute cache key
       id: compute-key
       shell: bash
       run: |
         set -euo pipefail
-        # Use Nix system (e.g., aarch64-darwin, x86_64-linux) instead of runner OS
-        system="$(nix eval --impure --raw --expr 'builtins.currentSystem')"
+        # Use Nix system (e.g., aarch64-darwin, x86_64-linux) instead of runner OS for correctness
+        system="$(nix -L eval --impure --raw --expr 'builtins.currentSystem')"
         echo "Nix system: $system"
         lock_hash="${{ hashFiles('flake.lock') }}"
-        echo "cache_key=nix-eval-${system}-${lock_hash}-${{ inputs.cache-version }}" >> "$GITHUB_OUTPUT"
-
-    - name: Restore eval/source caches
+        echo "cache_key=nix-eval-${system}-${lock_hash}-v1" >> "$GITHUB_OUTPUT"
+    - name: restore eval/source caches
       id: evalcache-restore
       uses: actions/cache/restore@v4
       with:
@@ -104,16 +63,14 @@ jobs:
           ~/.cache/nix/git
           ~/.cache/nix/tarballs
         key: ${{ steps.compute-key.outputs.cache_key }}
-
-    - name: Warm Nix eval caches
+    - name: warm nix eval caches
       if: steps.evalcache-restore.outputs.cache-hit != 'true'
       shell: bash
       run: |
         set -euo pipefail
-        nix eval --impure --raw --expr 'builtins.currentSystem' >/dev/null
-        nix flake show --json >/dev/null
-
-    - name: Save eval/source caches
+        nix -L eval --impure --raw --expr 'builtins.currentSystem' >/dev/null
+        nix -L flake show --json >/dev/null
+    - name: save eval/source caches
       if: steps.evalcache-restore.outputs.cache-hit != 'true'
       uses: actions/cache/save@v4
       with:
@@ -123,25 +80,21 @@ jobs:
           ~/.cache/nix/git
           ~/.cache/nix/tarballs
         key: ${{ steps.compute-key.outputs.cache_key }}
-
   detect:
-    name: "☃️ Detect flake outputs"
+    name: '☃️ detect flake outputs'
     needs: [warm-cache]
     runs-on: ${{ inputs.runs-on }}
     outputs:
-      matrix_include: ${{ steps.compute.outputs.matrix-include }}
-      has_work: ${{ steps.compute.outputs.has-work }}
-      all_outputs: ${{ steps.compute.outputs.all-outputs }}
+      matrix_include: ${{ steps.compute.outputs.matrix_include }}
+      has_work: ${{ steps.compute.outputs.has_work }}
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Setup Nix
-      uses: jmmaloney4/workflows/.github/actions/nix-setup@main
+    - uses: actions/checkout@v4
       with:
-        enable-flakehub-cache: ${{ inputs.flake-inputs-cache }}
-
-    - name: Restore eval/source caches
+        repository: ${{ inputs.repository }}
+        ref: ${{ inputs.ref }}
+    - uses: DeterminateSystems/nix-installer-action@main
+    - uses: DeterminateSystems/flakehub-cache-action@main
+    - name: restore eval/source caches
       uses: actions/cache/restore@v4
       with:
         path: |
@@ -150,36 +103,144 @@ jobs:
           ~/.cache/nix/git
           ~/.cache/nix/tarballs
         key: ${{ needs.warm-cache.outputs.cache_key }}
-
-    - name: Detect flake outputs
+    - name: compute build-needed matrix via nix-eval-jobs
       id: compute
-      uses: jmmaloney4/workflows/.github/actions/nix-flake-detect@main
-      with:
-        probe-timeout: ${{ inputs.probe-timeout }}
-        cache-key: ${{ needs.warm-cache.outputs.cache_key }}
+      shell: bash
+      env:
+        PROBE_TIMEOUT_SECONDS: '180'
+      run: |
+        set -euo pipefail
 
+        # Detect current Nix system (e.g., aarch64-darwin, x86_64-linux)
+        system="$(nix eval --impure --raw --expr 'builtins.currentSystem')"
+        echo "System: $system"
+
+        # Cache flake metadata once to avoid repeated 'nix flake show' calls
+        flake_meta_json_tmp="$(mktemp)"
+        nix -L flake show --json > "$flake_meta_json_tmp"
+
+        # Helper: stream all attributes for a category/system as JSON with cache status
+        all_for() {
+          local category="$1"
+          local system_="$2"
+          local target=".#${category}.${system_}"
+
+          echo "nix-eval-jobs: $target" >&2
+
+          # Only evaluate categories that actually exist for this system; ignore others
+          local cat_exists sys_exists
+          cat_exists=$(nix -L eval --impure --raw --expr "let fl = builtins.getFlake (toString ./.); in if (builtins.hasAttr \"${category}\" fl) then \"1\" else \"0\"")
+          if [ "$cat_exists" != "1" ]; then
+            return 0
+          fi
+          sys_exists=$(nix -L eval --impure --raw --expr "let fl = builtins.getFlake (toString ./.); in if (builtins.hasAttr \"${system_}\" fl.${category}) then \"1\" else \"0\"")
+          if [ "$sys_exists" != "1" ]; then
+            return 0
+          fi
+
+          # Query cache status; fail fast on errors
+          if ! out=$(timeout "${PROBE_TIMEOUT_SECONDS}s" nix -L run nixpkgs#nix-eval-jobs -- --check-cache-status --flake "$target"); then
+            echo "::error title=Evaluation failed::nix-eval-jobs failed for $target" >&2
+            return 1
+          fi
+
+          # Get store paths for all attributes in this category/system
+          local store_paths_json
+          store_paths_json=$(nix -L eval --json --expr "
+            let
+              flake = builtins.getFlake (toString ./.);
+              attrs = flake.${category}.${system_};
+            in
+              builtins.mapAttrs (name: drv:
+                if builtins.isDerivation drv then drv.outPath or \"unknown\"
+                else \"not-a-derivation\"
+              ) attrs
+          " 2>/dev/null || echo '{}')
+
+          # Emit JSON lines with cache status, full flake attribute, and store path
+          printf '%s' "$out" \
+            | nix -L run nixpkgs#jq -- -rc \
+                --arg category "$category" \
+                --arg system "$system_" \
+                --argjson store_paths "$store_paths_json" '
+                  {
+                    category: $category,
+                    system: $system,
+                    name: (.attr // "default"),
+                    flake_attr: (".#" + $category + "." + $system + "." + (.attr // "default")),
+                    cached: ((.cacheStatus=="cached") or (.cached==true) or (.isCached==true)),
+                    store_path: ($store_paths[.attr // "default"] // "unknown")
+                  }
+                '
+        }
+
+        # Collect all outputs (for summary) into a temp file
+        tmp_all="$(mktemp)"
+        nix -L run nixpkgs#jq -- -r 'keys[]' "$flake_meta_json_tmp" \
+          | while IFS= read -r category; do
+              all_for "$category" "$system"
+            done > "$tmp_all"
+
+        # Build an array of all detected outputs (for summary)
+        all_outputs=$(nix -L run nixpkgs#jq -- -sc '[.[]]' "$tmp_all")
+        echo "All detected outputs: $all_outputs"
+
+        # Build include array from only uncached outputs
+        include_array=$(nix -L run nixpkgs#jq -- -sc 'map(select(.cached==false) | {category, system, name, flake_attr})' "$tmp_all")
+        echo "Computed include (uncached only): $include_array"
+
+        # Compute boolean flag indicating whether there is any work to do
+        has_work=$(nix -L run nixpkgs#jq -- -rc 'if (length>0) then "true" else "false" end' <<<"$include_array")
+        echo "Has work: $has_work"
+
+        # Expose outputs for downstream jobs
+        delim="MATRIX_INCLUDE_$(date +%s)"
+        {
+          echo "matrix_include<<$delim"
+          echo "$include_array"
+          echo "$delim"
+        } >> "$GITHUB_OUTPUT"
+        echo "has_work=$has_work" >> "$GITHUB_OUTPUT"
+
+        # Cleanup temp files
+        rm -f "$tmp_all" "$flake_meta_json_tmp"
+
+        # Write a human-readable summary to the GitHub Actions run summary
+        {
+          echo "### Detected flake outputs"
+          if [ -n "$all_outputs" ] && [ "$all_outputs" != "null" ] && [ "$all_outputs" != "[]" ]; then
+            # Render a markdown table listing all outputs and whether they are cached
+            nix -L run nixpkgs#jq -- -rc '
+              ["| Category | System | Name | Attr | Store Path | Cached |",
+               "|---|---|---|---|---|---|"]
+              + ( .
+                  | map("| " + .category + " | " + .system + " | **" + .name + "** | " + .flake_attr + " | `" + .store_path + "` | " + (if .cached then "📦  yes" else "🏗️  no" end) + " |")
+                )
+              | .[]
+            ' <<<"$all_outputs"
+          else
+            echo "No outputs detected for this system."
+          fi
+          echo
+        } >> "$GITHUB_STEP_SUMMARY"
   build:
     name: "👷‍♂️ ${{ matrix.category }}.${{ matrix.system }}.${{ matrix.name }}"
     needs: [detect, warm-cache]
     runs-on: ${{ inputs.runs-on }}
     if: ${{ needs.detect.outputs.has_work == 'true' }}
-    outputs:
-      built-outputs: ${{ steps.collect-outputs.outputs.built }}
     strategy:
       fail-fast: false
-      max-parallel: ${{ inputs.max-parallel }}
+      max-parallel: 1
       matrix:
         include: ${{ fromJson(needs.detect.outputs.matrix_include) }}
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Setup Nix
-      uses: jmmaloney4/workflows/.github/actions/nix-setup@main
+    - uses: actions/checkout@v4
       with:
-        enable-flakehub-cache: ${{ inputs.flake-inputs-cache }}
-
-    - name: Restore eval/source caches
+        repository: ${{ inputs.repository }}
+        ref: ${{ inputs.ref }}
+    - uses: DeterminateSystems/nix-installer-action@main
+    - uses: DeterminateSystems/flakehub-cache-action@main
+    - name: restore eval/source caches
       uses: actions/cache/restore@v4
       with:
         path: |
@@ -188,103 +249,13 @@ jobs:
           ~/.cache/nix/git
           ~/.cache/nix/tarballs
         key: ${{ needs.warm-cache.outputs.cache_key }}
-
-    - name: "🚀 Build with nix-fast-build"
-      uses: jmmaloney4/workflows/.github/actions/nix-fast-build@main
-      with:
-        flake-attr: ${{ matrix.flake_attr }}
-
-    - name: Collect build outputs
-      id: collect-outputs
-      shell: bash
-      run: |
-        # Create a simple success marker for this build
-        output_info=$(jq -nc \
-          --arg category "${{ matrix.category }}" \
-          --arg system "${{ matrix.system }}" \
-          --arg name "${{ matrix.name }}" \
-          --arg flake_attr "${{ matrix.flake_attr }}" \
-          '{category: $category, system: $system, name: $name, flake_attr: $flake_attr, success: true}')
-        echo "built=$output_info" >> "$GITHUB_OUTPUT"
-
-  gen-image-artifacts:
-    name: "📦 Generate image artifacts"
-    needs: [detect, warm-cache]
-    runs-on: ${{ inputs.runs-on }}
-    if: ${{ inputs.push-images == true }}
-    outputs:
-      has_images: ${{ steps.gen.outputs.has-images }}
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Setup Nix
-      uses: jmmaloney4/workflows/.github/actions/nix-setup@main
-      with:
-        enable-flakehub-cache: ${{ inputs.flake-inputs-cache }}
-
-    - name: Restore eval/source caches
-      uses: actions/cache/restore@v4
-      with:
-        path: |
-          ~/.cache/nix/eval-cache-v5
-          ~/.cache/nix/fetcher-cache-v1.sqlite
-          ~/.cache/nix/git
-          ~/.cache/nix/tarballs
-        key: ${{ needs.warm-cache.outputs.cache_key }}
-
-    - name: Create image descriptor env files
-      id: gen
-      uses: jmmaloney4/workflows/.github/actions/nix-image-descriptors@main
-      with:
-        all-outputs-json: ${{ needs.detect.outputs.all_outputs }}
-        out-dir: images
-
-    - name: Upload image artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: images
-        path: images/*.env
-        if-no-files-found: ignore
-
-  push-images:
-    name: "🚀 Push built images to GHCR"
-    needs: [gen-image-artifacts]
-    if: ${{ inputs.push-images == true && needs.gen-image-artifacts.outputs.has_images == 'true' }}
-    runs-on: ${{ inputs.runs-on }}
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Setup Nix
-      uses: jmmaloney4/workflows/.github/actions/nix-setup@main
-      with:
-        enable-flakehub-cache: ${{ inputs.flake-inputs-cache }}
-
-    - name: Download image artifacts
-      uses: actions/download-artifact@v4
-      with:
-        name: images
-        path: images
-        merge-multiple: false
-
-    - name: List artifacts
-      shell: bash
-      run: |
+    # probe step removed; nix-fast-build --skip-cached handles cache detection
+    - name: "🚀 build with nix-fast-build"
+      if: ${{ matrix.noop != 'true' }}
+      shell: 'nix -L shell nixpkgs#nix-fast-build -c bash {0}'
+      run: |-
         set -euo pipefail
-        if compgen -G "images/*.env" > /dev/null; then
-          echo "Found the following image descriptors:"
-          ls -la images
-          echo
-          for f in images/*.env; do echo "$(basename "$f"): $(cat "$f")"; done
-        else
-          echo "No image artifacts found; nothing to push."
-        fi
-
-    - name: Push images
-      if: ${{ hashFiles('images/*.env') != '' }}
-      uses: jmmaloney4/workflows/.github/actions/nix-image-push@main
-      with:
-        images-dir: images
-        image-repo-prefix: ${{ inputs.image-repo-prefix }}
-        github-token: ${{ secrets.GITHUB_TOKEN }}
+        attr='${{ matrix.flake_attr }}'
+        echo "Building via nix-fast-build: $attr"
+        # Build only missing (uncached) derivations, with CI-friendly logs and no out-link
+        nix-fast-build --skip-cached --no-nom --no-link --flake "$attr"
