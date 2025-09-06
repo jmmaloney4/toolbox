@@ -61,7 +61,7 @@ Reusable Workflows
     pulumi:
       uses: jmmaloney4/workflows/.github/workflows/pulumi.yml@main
       with:
-        environment: "stage"          # stage, prod, or both
+        deploy-stacks: '["stage"]'          # or '["prod"]' or '["stage","prod"]'; default [] (no deploy)
         auto-detect-stacks: true
         gcp-project-id: "my-project"  # optional
         pulumi-backend: "gs://state-bucket"  # or use Pulumi Cloud via token
@@ -210,7 +210,7 @@ Composite Actions
   - uses: jmmaloney4/workflows/.github/actions/pulumi-collect@main
     id: collect
     with:
-      kind: stage
+      stacks: '["stage"]'  # or '["prod"]' or '["stage","prod"]'
   - run: echo '${{ steps.collect.outputs.matrix }}'
   ```
 
