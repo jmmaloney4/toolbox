@@ -1,4 +1,4 @@
-name: Compute Nix build matrix
+name: compute-flake-build-matrix
 description: Evaluate flake outputs for the current system and emit uncached targets as a matrix include JSON plus a has_work flag. Requires Nix to be installed.
 inputs:
   probe-timeout-seconds:
