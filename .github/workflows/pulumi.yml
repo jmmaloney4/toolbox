@@ -163,7 +163,7 @@ jobs:
   collect-deploy-targets:
     name: "📦 Collect successful previews for requested stacks"
     needs: [pulumi-preview]
-    if: ${{ join(fromJson(inputs.deploy-stacks)) != '' }}
+    if: ${{ always() && join(fromJson(inputs.deploy-stacks)) != '' }}
     runs-on: ${{ inputs.runs-on }}
     outputs:
       matrix: ${{ steps.collect.outputs.matrix }}
