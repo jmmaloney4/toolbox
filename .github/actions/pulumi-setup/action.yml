@@ -33,18 +33,6 @@ inputs:
     description: 'Enable GCP authentication via Workload Identity'
     required: false
     default: 'true'
-  enable-aws-auth:
-    description: 'Enable AWS authentication via OIDC'
-    required: false
-    default: 'false'
-  aws-region:
-    description: 'AWS region (used with enable-aws-auth)'
-    required: false
-    default: 'us-east-1'
-  aws-role-arn:
-    description: 'AWS IAM role ARN for OIDC authentication'
-    required: false
-    default: ''
 
 outputs:
   pulumi-version:
@@ -69,13 +57,6 @@ runs:
     if: ${{ inputs.enable-gcp-auth == 'true' && env.GOOGLE_WORKLOAD_IDENTITY_PROVIDER != '' }}
     uses: google-github-actions/setup-gcloud@v2
 
-  - name: Configure AWS credentials
-    if: ${{ inputs.enable-aws-auth == 'true' && inputs.aws-role-arn != '' }}
-    uses: aws-actions/configure-aws-credentials@v4
-    with:
-      role-to-assume: ${{ inputs.aws-role-arn }}
-      aws-region: ${{ inputs.aws-region }}
-
   - name: Install project dependencies
     if: ${{ inputs.install-dependencies == 'true' }}
     shell: bash
@@ -96,5 +77,4 @@ runs:
     run: |
       "${{ github.action_path }}/../../scripts/actions/pulumi-setup/get-pulumi-info.sh" \
         "${{ inputs.working-directory }}" \
-        "${{ inputs.enable-gcp-auth }}" \
-        "${{ inputs.enable-aws-auth }}"
+        "${{ inputs.enable-gcp-auth }}"
