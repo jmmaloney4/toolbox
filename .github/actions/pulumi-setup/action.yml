@@ -79,79 +79,22 @@ runs:
   - name: Install project dependencies
     if: ${{ inputs.install-dependencies == 'true' }}
     shell: bash
-    working-directory: ${{ inputs.working-directory }}
     run: |
-      set -euo pipefail
-      
-      # Use Nix development shell for dependency installation
-      if [ -f "package.json" ]; then
-        echo "Installing npm/pnpm dependencies via Nix..."
-        if command -v pnpm >/dev/null 2>&1 || nix develop -c sh -c 'command -v pnpm' >/dev/null 2>&1; then
-          nix develop -c pnpm install
-        else
-          nix develop -c npm install
-        fi
-      elif [ -f "requirements.txt" ]; then
-        echo "Installing Python dependencies via Nix..."
-        nix develop -c pip install -r requirements.txt
-      elif [ -f "Pipfile" ]; then
-        echo "Installing Python dependencies via pipenv..."
-        nix develop -c pipenv install
-      elif [ -f "poetry.lock" ]; then
-        echo "Installing Python dependencies via poetry..."
-        nix develop -c poetry install
-      fi
+      "${{ github.action_path }}/../../scripts/actions/pulumi-setup/install-dependencies.sh" \
+        "${{ inputs.working-directory }}"
 
   - name: Login to Pulumi backend
     shell: bash
-    working-directory: ${{ inputs.working-directory }}
     run: |
-      set -euo pipefail
-      
-      if [ -n "${{ inputs.login-backend }}" ]; then
-        echo "Logging in to Pulumi backend: ${{ inputs.login-backend }}"
-        nix develop -c pulumi login "${{ inputs.login-backend }}"
-      elif [ -n "${PULUMI_ACCESS_TOKEN:-}" ]; then
-        echo "Using Pulumi Cloud with access token"
-        nix develop -c pulumi login
-      else
-        echo "::warning::No Pulumi backend or access token configured"
-      fi
+      "${{ github.action_path }}/../../scripts/actions/pulumi-setup/login-backend.sh" \
+        "${{ inputs.login-backend }}" \
+        "${{ inputs.working-directory }}"
 
   - name: Get Pulumi information
     id: pulumi-info
     shell: bash
-    working-directory: ${{ inputs.working-directory }}
     run: |
-      set -euo pipefail
-      
-      # Write outputs from inside the devshell to avoid capturing banner noise
-      nix develop -c bash -lc '
-        set -euo pipefail
-        version=$(pulumi version)
-        backend=$(pulumi whoami --url 2>/dev/null || echo "none")
-        {
-          echo "version=$version"
-          echo "backend=$backend"
-        } >> "$GITHUB_OUTPUT"
-      '
-
-      # Read back values for summary rendering
-      version=$(grep -E '^version=' "$GITHUB_OUTPUT" | tail -1 | cut -d= -f2-)
-      backend=$(grep -E '^backend=' "$GITHUB_OUTPUT" | tail -1 | cut -d= -f2-)
-      
-      # Output info to summary
-      {
-        echo "### ☁️ Pulumi Setup Complete"
-        echo ""
-        echo "- **Version:** $version"
-        echo "- **Backend:** $backend"
-        echo "- **Using Nix:** true"
-        echo "- **Working Directory:** ${{ inputs.working-directory }}"
-        if [ "${{ inputs.enable-gcp-auth }}" == "true" ]; then
-          echo "- **GCP Auth:** ✅ Enabled"
-        fi
-        if [ "${{ inputs.enable-aws-auth }}" == "true" ]; then
-          echo "- **AWS Auth:** ✅ Enabled"
-        fi
-      } >> "$GITHUB_STEP_SUMMARY"
+      "${{ github.action_path }}/../../scripts/actions/pulumi-setup/get-pulumi-info.sh" \
+        "${{ inputs.working-directory }}" \
+        "${{ inputs.enable-gcp-auth }}" \
+        "${{ inputs.enable-aws-auth }}"

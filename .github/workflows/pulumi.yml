@@ -122,26 +122,18 @@ jobs:
       id: names
       shell: bash
       run: |
-        safe_name="${{ matrix.project }}"
-        safe_name="${safe_name//\//__}"
-        echo "safe_name=$safe_name" >> "$GITHUB_OUTPUT"
+        .github/scripts/workflows/derive-safe-name.sh "${{ matrix.project }}"
 
     - name: Pulumi preview
       id: preview
       shell: bash
       run: |
-        cd "${{ matrix.project }}"
-        
-        nix develop --command pulumi preview --stack "${{ matrix.stack }}" --non-interactive
+        .github/scripts/workflows/pulumi-preview.sh "${{ matrix.project }}" "${{ matrix.stack }}"
 
     - name: Mark successful preview
       if: ${{ steps.preview.outcome == 'success' }}
       run: |
-        mkdir -p ok
-        safe_name="${{ matrix.project }}"
-        safe_name="${safe_name//\//__}"
-        jq -n --arg project "${{ matrix.project }}" --arg stack "${{ matrix.stack }}" \
-          '{project:$project, stack:$stack}' > "ok/${safe_name}-${{ matrix.stack }}.json"
+        .github/scripts/workflows/mark-successful-preview.sh "${{ matrix.project }}" "${{ matrix.stack }}"
 
     - name: Upload preview success markers
       if: ${{ success() }}
@@ -213,20 +205,13 @@ jobs:
     - name: Pulumi up
       shell: bash
       run: |
-        cd "${{ matrix.project }}"
-        
-        nix develop --command pulumi up --stack "${{ matrix.stack }}" --yes --non-interactive
+        .github/scripts/workflows/pulumi-up.sh "${{ matrix.project }}" "${{ matrix.stack }}"
 
     - name: Mark deployed
       if: ${{ success() }}
       shell: bash
       run: |
-        mkdir -p deployed
-        safe_name="${{ matrix.project }}"
-        safe_name="${safe_name//\//__}"
-        jq -n --arg project "${{ matrix.project }}" --arg stack "${{ matrix.stack }}" \
-          '{project:$project, stack:$stack, environment:$stack, success:true}' \
-          > "deployed/${safe_name}-${{ matrix.stack }}.json"
+        .github/scripts/workflows/mark-deployed.sh "${{ matrix.project }}" "${{ matrix.stack }}"
 
     - name: Upload deploy markers
       if: ${{ success() }}
@@ -273,11 +258,4 @@ jobs:
       id: merge
       shell: bash
       run: |
-        set -euo pipefail
-        files=$(find deploy-ok -type f -name '*.json' 2>/dev/null || true)
-        if [ -z "$files" ]; then
-          echo 'stacks=[]' >> "$GITHUB_OUTPUT"
-        else
-          jq -s '[.[]] | unique_by(.project + "|" + .stack)' $files > stacks.json
-          echo "stacks=$(cat stacks.json)" >> "$GITHUB_OUTPUT"
-        fi
+        .github/scripts/workflows/merge-deploy-markers.sh
