@@ -63,11 +63,6 @@ on:
         required: false
         type: boolean
         default: true
-      preview-on-pr:
-        description: "Run preview on pull requests"
-        required: false
-        type: boolean
-        default: true
     secrets:
       GCP_WORKLOAD_IDENTITY_PROVIDER:
         description: "GCP Workload Identity Provider"
@@ -108,7 +103,7 @@ jobs:
   pulumi-preview:
     name: "🔍 Pulumi preview (${{ matrix.project }}, ${{ matrix.stack }})"
     needs: [detect-pulumi-stacks]
-    if: ${{ always() && ((inputs.preview-on-pr && github.event_name == 'pull_request') || !inputs.auto-detect-stacks) }}
+    if: ${{ always() }}
     runs-on: ${{ inputs.runs-on }}
     strategy:
       fail-fast: false
