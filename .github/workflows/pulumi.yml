@@ -219,6 +219,7 @@ jobs:
         nix develop --command pulumi up --stack "${{ matrix.stack }}" --yes --non-interactive
 
     - name: Mark deployed
+      if: ${{ success() }}
       shell: bash
       run: |
         mkdir -p deployed
@@ -229,16 +230,36 @@ jobs:
           > "deployed/${safe_name}-${{ matrix.stack }}.json"
 
     - name: Upload deploy markers
+      if: ${{ success() }}
       uses: actions/upload-artifact@v4
       with:
         name: deploy-ok
         path: deployed/*.json
         if-no-files-found: ignore
 
+  check-deploy-artifacts:
+    name: "🔎 Check deploy success"
+    needs: [collect-deploy-targets, pulumi-up]
+    if: ${{ always() && join(fromJson(needs.collect-deploy-targets.outputs.matrix || '[]')) != '' }}
+    runs-on: ${{ inputs.runs-on }}
+    outputs:
+      has_artifacts: ${{ steps.check.outputs.has_artifacts }}
+    steps:
+    - name: Check for deploy-ok artifact
+      id: check
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const { owner, repo } = context.repo;
+          const run_id = context.runId;
+          const { data } = await github.rest.actions.listWorkflowRunArtifacts({ owner, repo, run_id });
+          const has = data.artifacts.some(a => a.name === 'deploy-ok' && !a.expired);
+          core.setOutput('has_artifacts', has ? 'true' : 'false');
+
   deployed-output:
     name: "📊 Deployed stacks output"
-    needs: [pulumi-up]
-    if: ${{ always() && join(fromJson(inputs.deploy-stacks)) != '' }}
+    needs: [pulumi-up, check-deploy-artifacts]
+    if: ${{ always() && needs.check-deploy-artifacts.outputs.has_artifacts == 'true' }}
     runs-on: ${{ inputs.runs-on }}
     outputs:
       stacks: ${{ steps.merge.outputs.stacks }}
