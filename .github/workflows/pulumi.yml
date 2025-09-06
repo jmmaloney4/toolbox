@@ -147,7 +147,7 @@ jobs:
       if: ${{ success() }}
       uses: actions/upload-artifact@v4
       with:
-        name: preview-ok-${{ matrix.stack }}-${{ hashFiles('ok/*.json') }}
+        name: preview-ok-${{ steps.names.outputs.safe_name }}-${{ matrix.stack }}
         path: ok/*.json
         if-no-files-found: ignore
 
