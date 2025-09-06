@@ -42,7 +42,8 @@ if [ -d "preview-ok" ] && [ "$(ls -A "preview-ok" 2>/dev/null)" ]; then
   echo "=== Debug: Processing success markers ==="
   echo "Stacks variable: $stacks"
   
-  for marker_file in "preview-ok"/*.json; do
+  # Iterate over marker files recursively (handles preview-ok/*/*.json layout)
+  while IFS= read -r marker_file; do
     if [ -f "$marker_file" ]; then
       echo "=== Debug: Processing marker file: $marker_file ==="
       cat "$marker_file"
@@ -76,7 +77,7 @@ if [ -d "preview-ok" ] && [ "$(ls -A "preview-ok" 2>/dev/null)" ]; then
         echo "❌ Skipping non-requested stack: $project/$stack (not in $stacks)"
       fi
     fi
-  done
+  done < <(find "preview-ok" -type f -name "*.json" | sort)
 else
   echo "❌ No success markers found in preview-ok directory"
   echo "Debug: Checking if preview-ok directory exists..."
