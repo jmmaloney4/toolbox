@@ -180,10 +180,12 @@ def main():
     
     # Set GitHub Actions outputs if in CI
     if "GITHUB_OUTPUT" in os.environ:
+        # GitHub Actions expects lowercase true/false strings for booleans
+        has_stacks_str = "true" if has_stacks else "false"
         with open(os.environ["GITHUB_OUTPUT"], "a") as f:
             f.write(f"matrix={matrix_json}\n")
             f.write(f"count={count}\n")
-            f.write(f"has_stacks={has_stacks}\n")
+            f.write(f"has_stacks={has_stacks_str}\n")
     
 
 
