@@ -1,0 +1,25 @@
+name: Compute Nix build matrix
+description: Evaluate flake outputs for the current system and emit uncached targets as a matrix include JSON plus a has_work flag. Requires Nix to be installed.
+inputs:
+  probe-timeout-seconds:
+    description: Timeout (in seconds) for nix-eval-jobs cache probe
+    required: false
+    default: '180'
+outputs:
+  matrix_include:
+    description: JSON array for strategy.matrix.include
+    value: ${{ steps.compute.outputs.matrix_include }}
+  has_work:
+    description: Whether there is any uncached work to perform
+    value: ${{ steps.compute.outputs.has_work }}
+runs:
+  using: composite
+  steps:
+    - id: compute
+      shell: bash
+      env:
+        PROBE_TIMEOUT_SECONDS: ${{ inputs.probe-timeout-seconds }}
+      run: |
+        bash "${{ github.action_path }}/compute-matrix.sh"
+
+
