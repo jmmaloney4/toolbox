@@ -1,0 +1,29 @@
+# Generate image descriptor env files from Nix flake outputs
+
+name: "Nix Image Descriptors"
+description: "Generate env files for flake package images (*-image) to be pushed"
+
+inputs:
+  all-outputs-json:
+    description: "JSON array of flake outputs (from detection)"
+    required: true
+  out-dir:
+    description: "Directory to write descriptor files into"
+    required: false
+    default: "images"
+
+outputs:
+  has-images:
+    description: "Whether any image descriptors were generated"
+    value: ${{ steps.generate.outputs.has_images }}
+
+runs:
+  using: "composite"
+  steps:
+    - id: generate
+      name: Generate image descriptor env files
+      shell: bash
+      env:
+        INPUT_ALL_OUTPUTS_JSON: ${{ inputs["all-outputs-json"] }}
+        INPUT_OUT_DIR: ${{ inputs["out-dir"] }}
+      run: bash "$GITHUB_ACTION_PATH/scripts/generate.sh"

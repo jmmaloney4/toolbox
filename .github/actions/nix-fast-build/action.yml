@@ -1,0 +1,17 @@
+name: "Nix Fast Build"
+description: "Build a flake attr via nix-fast-build"
+
+inputs:
+  flake-attr:
+    description: "Flake attribute to build (e.g., .#packages.x86_64-linux.myapp)"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Run nix-fast-build
+      shell: bash
+      env:
+        INPUT_FLAKE_ATTR: ${{ inputs.flake-attr }}
+      run: bash "$GITHUB_ACTION_PATH/scripts/run.sh"
+

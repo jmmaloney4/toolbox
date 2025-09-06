@@ -15,7 +15,7 @@
 #       cache-version: "v1"
 # ```
 
-name: "❄️ Nix"
+name: "❄️ nix"
 
 on:
   workflow_call:
@@ -45,6 +45,16 @@ on:
         required: false
         type: boolean
         default: true
+      push-images:
+        description: "Enable pushing Docker/OCI images discovered in flake (packages ending with -image)"
+        required: false
+        type: boolean
+        default: false
+      image-repo-prefix:
+        description: "Registry repo prefix to publish to (e.g., ghcr.io/owner/repo or ghcr.io/org/project). The image name is appended."
+        required: false
+        type: string
+        default: "ghcr.io/${{ github.repository }}"
     outputs:
       built-outputs:
         description: "JSON array of successfully built outputs"
@@ -55,6 +65,8 @@ on:
 
 permissions:
   contents: read
+  id-token: write
+  packages: write
 
 jobs:
   warm-cache:
@@ -178,14 +190,9 @@ jobs:
         key: ${{ needs.warm-cache.outputs.cache_key }}
 
     - name: "🚀 Build with nix-fast-build"
-      shell: bash
-      run: |
-        set -euo pipefail
-        attr='${{ matrix.flake_attr }}'
-        echo "Building via nix-fast-build: $attr"
-        
-        # Use nix shell to run nix-fast-build (matches reference pattern)
-        nix shell nixpkgs#nix-fast-build -c nix-fast-build --skip-cached --no-nom --no-link --flake "$attr"
+      uses: jmmaloney4/workflows/.github/actions/nix-fast-build@main
+      with:
+        flake-attr: ${{ matrix.flake_attr }}
 
     - name: Collect build outputs
       id: collect-outputs
@@ -199,3 +206,85 @@ jobs:
           --arg flake_attr "${{ matrix.flake_attr }}" \
           '{category: $category, system: $system, name: $name, flake_attr: $flake_attr, success: true}')
         echo "built=$output_info" >> "$GITHUB_OUTPUT"
+
+  gen-image-artifacts:
+    name: "📦 Generate image artifacts"
+    needs: [detect, warm-cache]
+    runs-on: ${{ inputs.runs-on }}
+    if: ${{ inputs.push-images == true }}
+    outputs:
+      has_images: ${{ steps.gen.outputs.has-images }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Nix
+      uses: jmmaloney4/workflows/.github/actions/nix-setup@main
+      with:
+        enable-flakehub-cache: ${{ inputs.flake-inputs-cache }}
+
+    - name: Restore eval/source caches
+      uses: actions/cache/restore@v4
+      with:
+        path: |
+          ~/.cache/nix/eval-cache-v5
+          ~/.cache/nix/fetcher-cache-v1.sqlite
+          ~/.cache/nix/git
+          ~/.cache/nix/tarballs
+        key: ${{ needs.warm-cache.outputs.cache_key }}
+
+    - name: Create image descriptor env files
+      id: gen
+      uses: jmmaloney4/workflows/.github/actions/nix-image-descriptors@main
+      with:
+        all-outputs-json: ${{ needs.detect.outputs.all_outputs }}
+        out-dir: images
+
+    - name: Upload image artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: images
+        path: images/*.env
+        if-no-files-found: ignore
+
+  push-images:
+    name: "🚀 Push built images to GHCR"
+    needs: [gen-image-artifacts]
+    if: ${{ inputs.push-images == true && needs.gen-image-artifacts.outputs.has_images == 'true' }}
+    runs-on: ${{ inputs.runs-on }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Nix
+      uses: jmmaloney4/workflows/.github/actions/nix-setup@main
+      with:
+        enable-flakehub-cache: ${{ inputs.flake-inputs-cache }}
+
+    - name: Download image artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: images
+        path: images
+        merge-multiple: false
+
+    - name: List artifacts
+      shell: bash
+      run: |
+        set -euo pipefail
+        if compgen -G "images/*.env" > /dev/null; then
+          echo "Found the following image descriptors:"
+          ls -la images
+          echo
+          for f in images/*.env; do echo "$(basename "$f"): $(cat "$f")"; done
+        else
+          echo "No image artifacts found; nothing to push."
+        fi
+
+    - name: Push images
+      if: ${{ hashFiles('images/*.env') != '' }}
+      uses: jmmaloney4/workflows/.github/actions/nix-image-push@main
+      with:
+        images-dir: images
+        image-repo-prefix: ${{ inputs.image-repo-prefix }}
+        github-token: ${{ secrets.GITHUB_TOKEN }}

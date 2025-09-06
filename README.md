@@ -32,6 +32,9 @@ Reusable Workflows
         max-parallel: 2
         probe-timeout: 180
         cache-version: "v1"
+        # Optional: enable pushing images (packages named *-image)
+        push-images: true
+        image-repo-prefix: "ghcr.io/your-org/your-project"
   ```
 
 - nix-flake-update.yml: Update `flake.lock` and open a PR.
@@ -134,6 +137,41 @@ Composite Actions
   - run: echo '${{ steps.detect.outputs.matrix-include }}'
   ```
 
+- nix-image-descriptors: Generate `images/*.env` descriptors from flake outputs for packages ending with `-image`.
+  Example:
+  ```yaml
+  - uses: jmmaloney4/workflows/.github/actions/nix-image-descriptors@main
+    id: images
+    with:
+      all-outputs-json: ${{ needs.detect.outputs.all_outputs }}
+      out-dir: images
+  - uses: actions/upload-artifact@v4
+    if: ${{ steps.images.outputs.has-images == 'true' }}
+    with:
+      name: images
+      path: images/*.env
+      if-no-files-found: ignore
+  ```
+
+- nix-image-push: Push images described by `images/*.env` to a registry using the flake `passthru.copyTo` runner.
+  Example:
+  ```yaml
+  - uses: jmmaloney4/workflows/.github/actions/nix-image-push@main
+    if: ${{ hashFiles('images/*.env') != '' }}
+    with:
+      images-dir: images
+      image-repo-prefix: ghcr.io/your-org/your-project
+      github-token: ${{ secrets.GITHUB_TOKEN }}
+  ```
+
+- nix-fast-build: Build a flake attribute via `nix-fast-build`.
+  Example:
+  ```yaml
+  - uses: jmmaloney4/workflows/.github/actions/nix-fast-build@main
+    with:
+      flake-attr: .#packages.x86_64-linux.myapp
+  ```
+
 - rust-cache-setup: Use a Nix devshell toolchain and configure Cargo cache.
   Example:
   ```yaml
@@ -187,4 +225,3 @@ Contributing
 
 - Open a PR for changes. Prefer adding inputs over creating near-duplicate variants.
 - Update examples when behavior or inputs change.
-
