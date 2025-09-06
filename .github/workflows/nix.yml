@@ -105,7 +105,7 @@ jobs:
         key: ${{ needs.warm-cache.outputs.cache_key }}
     - name: compute build-needed matrix via nix-eval-jobs
       id: compute
-      uses: ./.github/actions/compute-matrix
+      uses: ./.github/actions/compute-flake-build-matrix
       with:
         probe-timeout-seconds: '180'
   build:
