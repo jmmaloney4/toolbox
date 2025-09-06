@@ -10,10 +10,8 @@ import argparse
 import json
 import os
 import re
-import subprocess
-import sys
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict
 
 
 def find_pulumi_stacks(working_dir: Path) -> List[Dict[str, str]]:
@@ -61,52 +59,6 @@ def find_pulumi_stacks(working_dir: Path) -> List[Dict[str, str]]:
     return stacks
 
 
-def run_just_detect_stacks(use_nix: bool) -> List[Dict[str, str]]:
-    """Run 'just detect-stacks' command to get stack information."""
-    try:
-        if use_nix:
-            result = subprocess.run(
-                ["nix", "develop", "--command", "just", "detect-stacks"],
-                capture_output=True,
-                text=True,
-                check=True
-            )
-        else:
-            result = subprocess.run(
-                ["just", "detect-stacks"],
-                capture_output=True,
-                text=True,
-                check=True
-            )
-        
-        # Parse the last line as JSON
-        lines = result.stdout.strip().split('\n')
-        if lines:
-            json_output = lines[-1]
-            return json.loads(json_output)
-        return []
-        
-    except (subprocess.CalledProcessError, json.JSONDecodeError, FileNotFoundError) as e:
-        print(f"Failed to run 'just detect-stacks': {e}")
-        return []
-
-
-def run_custom_command(command: str) -> List[Dict[str, str]]:
-    """Run a custom detection command."""
-    try:
-        result = subprocess.run(
-            command,
-            shell=True,
-            capture_output=True,
-            text=True,
-            check=True
-        )
-        return json.loads(result.stdout.strip())
-    except (subprocess.CalledProcessError, json.JSONDecodeError) as e:
-        print(f"Failed to run custom command '{command}': {e}")
-        return []
-
-
 def filter_stacks(stacks: List[Dict[str, str]], include: List[str], exclude: List[str]) -> List[Dict[str, str]]:
     """Filter stacks by include/exclude patterns."""
     filtered = stacks
@@ -129,30 +81,22 @@ def filter_stacks(stacks: List[Dict[str, str]], include: List[str], exclude: Lis
 def main():
     parser = argparse.ArgumentParser(description="Detect Pulumi stacks and generate deployment matrix")
     parser.add_argument("--working-directory", "-d", type=Path, default=Path("."), help="Working directory to search")
-    parser.add_argument("--use-nix", action="store_true", help="Use Nix development environment")
-    parser.add_argument("--detection-command", help="Custom command to detect stacks")
     parser.add_argument("--include-stacks", help="Comma-separated list of stacks to include")
     parser.add_argument("--exclude-stacks", help="Comma-separated list of stacks to exclude")
     
     args = parser.parse_args()
     
     print("=== Pulumi Stack Detection ===")
-    print(f"Use Nix: {args.use_nix}")
     print(f"Working directory: {args.working_directory.absolute()}")
-    print(f"Custom command: {args.detection_command or 'None'}")
     
     # Change to working directory
     os.chdir(args.working_directory)
     
     stacks = []
     
-    # Detect stacks using various methods
-    if args.detection_command:
-        print("Using custom detection command...")
-        stacks = run_custom_command(args.detection_command)
-    else:
-        print("Using Python filesystem detection...")
-        stacks = find_pulumi_stacks(Path("."))
+    # Detect stacks using Python filesystem detection
+    print("Using Python filesystem detection...")
+    stacks = find_pulumi_stacks(Path("."))
     
     print(f"Raw detected matrix: {json.dumps(stacks, indent=2)}")
     
