@@ -1,7 +1,7 @@
 # Pulumi Stack Detect Action
 #
 # Automatically detects Pulumi stacks in a repository and generates a build matrix.
-# Supports both Nix-based projects (with `just detect-stacks`) and standard detection.
+# Uses standard Python-based detection with Nix support.
 #
 # Usage:
 # ```yaml
@@ -21,10 +21,6 @@ inputs:
     description: 'Working directory to search for Pulumi stacks'
     required: false
     default: '.'
-  detection-command:
-    description: 'Custom command to detect stacks (overrides default detection)'
-    required: false
-    default: ''
   include-stacks:
     description: 'Comma-separated list of stack names to include (empty = all)'
     required: false
@@ -60,7 +56,6 @@ runs:
       python3 "${{ github.action_path }}/detect_stacks.py" \
         --working-directory "." \
         --use-nix \
-        ${{ inputs.detection-command != '' && format('--detection-command "{0}"', inputs.detection-command) || '' }} \
         ${{ inputs.include-stacks != '' && format('--include-stacks "{0}"', inputs.include-stacks) || '' }} \
         ${{ inputs.exclude-stacks != '' && format('--exclude-stacks "{0}"', inputs.exclude-stacks) || '' }}
       
