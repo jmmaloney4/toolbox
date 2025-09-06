@@ -10,7 +10,6 @@
 #     uses: jmmaloney4/workflows/.github/workflows/pulumi.yml@main
 #     with:
 #       deploy-stacks: '["stage"]'  # or '["prod"]' or '["stage","prod"]'
-#       auto-detect-stacks: true
 #       gcp-project-id: "my-project"
 #       pulumi-backend: "gs://my-pulumi-state"
 #     secrets:
@@ -25,16 +24,6 @@ on:
     inputs:
       deploy-stacks:
         description: "JSON array of stack names to deploy (e.g., [\"stage\"], [\"prod\"], [\"stage\",\"prod\"])"
-        required: false
-        type: string
-        default: "[]"
-      auto-detect-stacks:
-        description: "Auto-detect Pulumi stacks from repository"
-        required: false
-        type: boolean
-        default: true
-      stack-matrix:
-        description: "JSON array of {project, stack} objects (overrides auto-detection)"
         required: false
         type: string
         default: "[]"
@@ -79,7 +68,6 @@ permissions:
 jobs:
   detect-pulumi-stacks:
     name: "🧩 Detect Pulumi stacks"
-    if: ${{ inputs.auto-detect-stacks }}
     runs-on: ${{ inputs.runs-on }}
     outputs:
       matrix: ${{ steps.detect.outputs.matrix }}
@@ -94,12 +82,11 @@ jobs:
   pulumi-preview:
     name: "🔍 Pulumi preview (${{ matrix.project }}, ${{ matrix.stack }})"
     needs: [detect-pulumi-stacks]
-    if: ${{ always() }}
     runs-on: ${{ inputs.runs-on }}
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ inputs.auto-detect-stacks && fromJson(needs.detect-pulumi-stacks.outputs.matrix || '[]') || fromJson(inputs.stack-matrix || '[]') }}
+        include: ${{ fromJson(needs.detect-pulumi-stacks.outputs.matrix || '[]') }}
     env:
       GOOGLE_PROJECT: ${{ inputs.gcp-project-id }}
       GOOGLE_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
