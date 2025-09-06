@@ -34,32 +34,18 @@ all_for() {
     return 1
   fi
 
-  # Get store paths for all attributes in this category/system
-  local store_paths_json
-  store_paths_json=$(nix -L eval --json --expr "
-    let
-      flake = builtins.getFlake (toString ./.);
-      attrs = flake.${category}.${system_};
-    in
-      builtins.mapAttrs (name: drv:
-        if builtins.isDerivation drv then drv.outPath or \"unknown\"
-        else \"not-a-derivation\"
-      ) attrs
-  " 2>/dev/null || echo '{}')
-
   # Emit JSON lines with cache status, full flake attribute, and store path
   printf '%s' "$out" \
     | nix -L run nixpkgs#jq -- -rc \
         --arg category "$category" \
-        --arg system "$system_" \
-        --argjson store_paths "$store_paths_json" '
+        --arg system "$system_" '
           {
             category: $category,
             system: $system,
             name: (.attr // "default"),
             flake_attr: (".#" + $category + "." + $system + "." + (.attr // "default")),
             cached: ((.cacheStatus=="cached") or (.cached==true) or (.isCached==true)),
-            store_path: ($store_paths[.attr // "default"] // "unknown")
+            store_path: (.outputs.out // "unknown")
           }
         '
 }
