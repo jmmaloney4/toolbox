@@ -1,6 +1,6 @@
 # Pulumi Collect Action
 #
-# Collects Pulumi preview artifacts and builds deployment matrices for stage/prod.
+# Collects Pulumi preview artifacts and builds deployment matrices for requested stacks.
 # This action downloads preview markers and artifacts, then builds a matrix of
 # successful previews for deployment.
 #
@@ -9,7 +9,7 @@
 # - uses: jmmaloney4/workflows/.github/actions/pulumi-collect@main
 #   id: collect
 #   with:
-#     kind: stage
+#     stacks: '["stage","prod"]'
 # - name: Use collected matrix
 #   run: echo '${{ steps.collect.outputs.matrix }}'
 # ```
@@ -18,8 +18,8 @@ name: 'Collect Pulumi previews and build deploy matrix'
 description: 'Download success markers and previews, summarize results, and output deployment matrix'
 
 inputs:
-  kind:
-    description: 'Environment kind (stage or prod)'
+  stacks:
+    description: 'JSON array of stack names to collect (e.g., ["stage","prod"])'
     required: true
   working-directory:
     description: 'Working directory for operations'
@@ -40,16 +40,14 @@ runs:
   - name: Download success markers
     uses: actions/download-artifact@v4
     with:
-      pattern: ${{ inputs.kind }}-ok-*
-      path: ${{ inputs.kind }}-ok
-      merge-multiple: true
+      pattern: 'preview-ok-*'
+      path: preview-ok
 
   - name: Download preview artifacts
     uses: actions/download-artifact@v4
     with:
-      pattern: ${{ inputs.kind }}-previews-*
-      path: ${{ inputs.kind }}-previews
-      merge-multiple: true
+      pattern: 'preview-*'
+      path: preview-previews
 
   - name: Build deployment matrix
     id: build
@@ -58,57 +56,64 @@ runs:
     run: |
       set -euo pipefail
       
-      echo "=== Building deployment matrix for ${{ inputs.kind }} ==="
+      echo "=== Building deployment matrix for requested stacks ==="
       
       # Collect all successful preview markers
       matrix_items=()
-      summary_file="${{ inputs.kind }}-preview-summary.md"
+      summary_file="preview-summary.md"
       
       # Initialize summary
       {
-        echo "<!-- pulumi-${{ inputs.kind }}-summary -->"
-        echo "## 🔍 Pulumi ${{ inputs.kind }} Preview Summary"
+        echo "<!-- pulumi-preview-summary -->"
+        echo "## 🔍 Pulumi Preview Summary"
         echo ""
         echo "| Project | Stack | Status | Preview |"
         echo "|---------|-------|--------|---------|"
       } > "$summary_file"
       
       # Process success markers
-      if [ -d "${{ inputs.kind }}-ok" ] && [ "$(ls -A "${{ inputs.kind }}-ok" 2>/dev/null)" ]; then
-        for marker_file in "${{ inputs.kind }}-ok"/*.json; do
+      if [ -d "preview-ok" ] && [ "$(ls -A "preview-ok" 2>/dev/null)" ]; then
+        stacks='${{ inputs.stacks }}'
+        
+        for marker_file in "preview-ok"/*.json; do
           if [ -f "$marker_file" ]; then
             # Extract project and stack from marker
             project=$(jq -r '.project' "$marker_file")
             stack=$(jq -r '.stack' "$marker_file")
             
-            echo "Found successful preview: $project/$stack"
-            
-            # Add to matrix
-            matrix_items+=("{\"project\": \"$project\", \"stack\": \"$stack\"}")
-            
-            # Add to summary
-            safe_name="${project//\//__}"
-            preview_path=""
-            if [ -d "${{ inputs.kind }}-previews" ]; then
-              # Look for corresponding preview files
-              preview_files=$(find "${{ inputs.kind }}-previews" -name "*${safe_name}*" -type f | head -5)
-              if [ -n "$preview_files" ]; then
-                preview_path="📄 [View Preview](#)"
+            # Check if this stack is in our requested stacks
+            if jq -e --arg stack "$stack" 'index($stack) != null' <<<"$stacks" >/dev/null; then
+              echo "Found successful preview for requested stack: $project/$stack"
+              
+              # Add to matrix
+              matrix_items+=("{\"project\": \"$project\", \"stack\": \"$stack\"}")
+              
+              # Add to summary
+              safe_name="${project//\//__}"
+              preview_path=""
+              if [ -d "preview-previews" ]; then
+                # Look for corresponding preview files
+                preview_files=$(find "preview-previews" -name "*${safe_name}*" -type f | head -5)
+                if [ -n "$preview_files" ]; then
+                  preview_path="📄 [View Preview](#)"
+                fi
               fi
+              
+              echo "| \`$project\` | \`$stack\` | ✅ Ready | $preview_path |" >> "$summary_file"
+            else
+              echo "Skipping non-requested stack: $project/$stack"
             fi
-            
-            echo "| \`$project\` | \`$stack\` | ✅ Ready | $preview_path |" >> "$summary_file"
           fi
         done
       else
-        echo "No success markers found in ${{ inputs.kind }}-ok"
+        echo "No success markers found in preview-ok"
       fi
       
       # Build final matrix JSON
       if [ ${#matrix_items[@]} -eq 0 ]; then
         matrix="[]"
         echo "" >> "$summary_file"
-        echo "⚠️ No successful previews found. Nothing to deploy." >> "$summary_file"
+        echo "⚠️ No successful previews found for requested stacks. Nothing to deploy." >> "$summary_file"
       else
         matrix="[$(IFS=,; echo "${matrix_items[*]}")]"
         echo "" >> "$summary_file"
@@ -128,6 +133,6 @@ runs:
   - name: Upload summary artifact
     uses: actions/upload-artifact@v4
     with:
-      name: pulumi-${{ inputs.kind }}-summary
+      name: pulumi-preview-summary
       path: ${{ steps.build.outputs.summary-path }}
       if-no-files-found: warn
