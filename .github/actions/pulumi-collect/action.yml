@@ -1,0 +1,48 @@
+name: Pulumi Collect
+description: Collect successful previews and compute next matrix; render summary for stage
+inputs:
+  kind:
+    description: 'stage or prod'
+    required: true
+outputs:
+  matrix:
+    description: 'JSON array of {project, stack}'
+    value: ${{ steps.compute.outputs.matrix }}
+runs:
+  using: composite
+  steps:
+  - uses: actions/download-artifact@v4
+    with:
+      pattern: ${{ inputs.kind }}-ok-*
+      merge-multiple: true
+      path: ok
+  - uses: actions/download-artifact@v4
+    with:
+      pattern: ${{ inputs.kind }}-previews-*
+      merge-multiple: true
+      path: previews
+  - id: compute
+    shell: bash
+    run: |
+      shopt -s nullglob
+      files=(ok/*.json)
+      if [[ ${#files[@]} -eq 0 ]]; then
+        echo "matrix=[]" >> "$GITHUB_OUTPUT"
+        exit 0
+      fi
+      matrix=$(jq -cs '.' ok/*.json)
+      echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+  - if: ${{ inputs.kind == 'stage' }}
+    shell: bash
+    run: |
+      echo '<!-- pulumi-stage-summary -->' > stage-preview-summary.md
+      echo '## Stage Preview Summary' >> stage-preview-summary.md
+      for f in previews/*; do
+        name="$(basename "$f")"
+        echo "<details><summary>${name}</summary>" >> stage-preview-summary.md
+        echo '' >> stage-preview-summary.md
+        echo '```text' >> stage-preview-summary.md
+        sed -e 's/\x1b\[[0-9;]*m//g' "$f" >> stage-preview-summary.md || true
+        echo '```' >> stage-preview-summary.md
+        echo '</details>' >> stage-preview-summary.md
+      done

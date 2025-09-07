@@ -1,0 +1,28 @@
+name: Pulumi Setup
+description: Authenticate to GCP and prepare environment for Pulumi via Nix
+inputs:
+  google_project:
+    description: GCP project ID
+    required: true
+  google_workload_identity_provider:
+    description: Workload Identity Provider resource
+    required: true
+  google_service_account_email:
+    description: Service account email
+    required: true
+runs:
+  using: composite
+  steps:
+  - uses: DeterminateSystems/nix-installer-action@main
+  - uses: DeterminateSystems/flakehub-cache-action@main
+  - uses: google-github-actions/auth@v2
+    with:
+      workload_identity_provider: ${{ inputs.google_workload_identity_provider }}
+      service_account: ${{ inputs.google_service_account_email }}
+  - uses: google-github-actions/setup-gcloud@v2
+    with:
+      install_components: gke-gcloud-auth-plugin
+  - shell: bash
+    run: |
+      echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> "$GITHUB_ENV"
+      echo "GOOGLE_PROJECT=${{ inputs.google_project }}" >> "$GITHUB_ENV"

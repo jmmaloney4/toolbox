@@ -14,7 +14,7 @@ Reusable GitHub Actions workflows and composite actions for CI/CD across reposit
 ### Minimal consumer workflow (copy-paste)
 
 ```yaml
-name: Nix CI (shared)
+name: ❄️ nix
 
 on:
   workflow_dispatch:
@@ -47,7 +47,7 @@ jobs:
 ### Minimal consumer workflow (copy-paste)
 
 ```yaml
-name: Pulumi CI (shared)
+name: ☁️ pulumi
 
 on:
   workflow_dispatch:

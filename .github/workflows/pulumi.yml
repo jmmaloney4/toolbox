@@ -250,8 +250,11 @@ jobs:
       pull-requests: write
     steps:
     - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      with:
+        repository: ${{ inputs.repository }}
+        ref: ${{ inputs.ref }}
     - id: collect
-      uses: ./.github/actions/pulumi-collect
+      uses: jmmaloney4/workflows/.github/actions/pulumi-collect@main
       with:
         kind: prod
 
@@ -273,14 +276,21 @@ jobs:
       contents: read
       deployments: write
     env:
-      GOOGLE_PROJECT: ${{ vars.GCP_PROJECT_ID }}
-      GOOGLE_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-      GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ vars.GCP_SERVICE_ACCOUNT_EMAIL }}
+      GOOGLE_PROJECT: ${{ inputs.google_project }}
+      GOOGLE_WORKLOAD_IDENTITY_PROVIDER: ${{ inputs.google_workload_identity_provider }}
+      GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ inputs.google_service_account_email }}
       PULUMI_CONFIG_PASSPHRASE: ""
       USE_GKE_GCLOUD_AUTH_PLUGIN: "True"
     steps:
     - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-    - uses: ./.github/actions/pulumi-setup
+      with:
+        repository: ${{ inputs.repository }}
+        ref: ${{ inputs.ref }}
+    - uses: jmmaloney4/workflows/.github/actions/pulumi-setup@main
+      with:
+        google_project: ${{ inputs.google_project }}
+        google_workload_identity_provider: ${{ inputs.google_workload_identity_provider }}
+        google_service_account_email: ${{ inputs.google_service_account_email }}
 
     - name: pulumi up
       run: nix develop .#pulumi --command pulumi up -C ${{ matrix.project }} --stack ${{ matrix.stack }} --yes --non-interactive

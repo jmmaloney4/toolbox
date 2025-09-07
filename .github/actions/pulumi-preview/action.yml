@@ -1,0 +1,21 @@
+name: Pulumi Preview
+description: Run Pulumi preview and generate artifacts and a markdown summary
+inputs:
+  project:
+    description: Pulumi project directory (relative to workspace)
+    required: true
+  stack:
+    description: Pulumi stack name
+    required: true
+  safe-name:
+    description: Optional artifact-safe name; defaults to project with '/' replaced by '__'
+    required: false
+runs:
+  using: composite
+  steps:
+  - shell: bash
+    env:
+      PROJECT: ${{ inputs.project }}
+      STACK: ${{ inputs.stack }}
+      SAFE_NAME_IN: ${{ inputs.safe-name }}
+    run: bash "$GITHUB_ACTION_PATH/main.sh"
