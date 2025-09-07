@@ -17,8 +17,11 @@ Reusable GitHub Actions workflows and composite actions for CI/CD across reposit
 name: ❄️ nix
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+    - main
   pull_request:
+  workflow_dispatch:
 
 jobs:
   nix-build:
@@ -50,12 +53,13 @@ jobs:
 name: ☁️ pulumi
 
 on:
-  workflow_dispatch:
-  pull_request:
   push:
-    branches: [main]
-  release:
-    types: [published]
+    branches:
+    - main
+    tags:
+    - 'v*'
+  pull_request:
+  workflow_dispatch:
 
 jobs:
   pulumi:
