@@ -24,65 +24,8 @@ permissions:
   id-token: write
 
 jobs:
-  # NOTE: Warm Nix evaluation/fetch caches once per workflow to avoid re-downloading
-  # nixpkgs and other flake inputs in every matrix job. Each matrix build re-evaluates
-  # the flake and resolves inputs; without a shared cache, this causes repeated network
-  # fetches and slower evaluations. We key this cache by OS and flake.lock to ensure
-  # correctness across input changes, and we restore it in all build jobs. This is a
-  # complementary optimization to binary caches (substituters); it only speeds up
-  # evaluation and source fetch, not the actual builds.
-  warm-cache:
-    name: "🔥 warm nix eval cache"
-    runs-on: ${{ inputs.runs-on }}
-    outputs:
-      cache_key: ${{ steps.compute-key.outputs.cache_key }}
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        repository: ${{ inputs.repository }}
-        ref: ${{ inputs.ref }}
-    - uses: DeterminateSystems/nix-installer-action@main
-    - uses: DeterminateSystems/flakehub-cache-action@main
-    - name: compute cache key
-      id: compute-key
-      shell: bash
-      run: |
-        set -euo pipefail
-        # Use Nix system (e.g., aarch64-darwin, x86_64-linux) instead of runner OS for correctness
-        system="$(nix -L eval --impure --raw --expr 'builtins.currentSystem')"
-        echo "Nix system: $system"
-        lock_hash="${{ hashFiles('flake.lock') }}"
-        echo "cache_key=nix-eval-${system}-${lock_hash}-v1" >> "$GITHUB_OUTPUT"
-    - name: restore eval/source caches
-      id: evalcache-restore
-      uses: actions/cache/restore@v4
-      with:
-        path: |
-          ~/.cache/nix/eval-cache-v5
-          ~/.cache/nix/fetcher-cache-v1.sqlite
-          ~/.cache/nix/git
-          ~/.cache/nix/tarballs
-        key: ${{ steps.compute-key.outputs.cache_key }}
-    - name: warm nix eval caches
-      if: steps.evalcache-restore.outputs.cache-hit != 'true'
-      shell: bash
-      run: |
-        set -euo pipefail
-        nix -L eval --impure --raw --expr 'builtins.currentSystem' >/dev/null
-        nix -L flake show --json >/dev/null
-    - name: save eval/source caches
-      if: steps.evalcache-restore.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v4
-      with:
-        path: |
-          ~/.cache/nix/eval-cache-v5
-          ~/.cache/nix/fetcher-cache-v1.sqlite
-          ~/.cache/nix/git
-          ~/.cache/nix/tarballs
-        key: ${{ steps.compute-key.outputs.cache_key }}
   detect:
     name: '☃️ detect flake outputs'
-    needs: [warm-cache]
     runs-on: ${{ inputs.runs-on }}
     outputs:
       matrix_include: ${{ steps.compute.outputs.matrix_include }}
@@ -94,15 +37,6 @@ jobs:
         ref: ${{ inputs.ref }}
     - uses: DeterminateSystems/nix-installer-action@main
     - uses: DeterminateSystems/flakehub-cache-action@main
-    - name: restore eval/source caches
-      uses: actions/cache/restore@v4
-      with:
-        path: |
-          ~/.cache/nix/eval-cache-v5
-          ~/.cache/nix/fetcher-cache-v1.sqlite
-          ~/.cache/nix/git
-          ~/.cache/nix/tarballs
-        key: ${{ needs.warm-cache.outputs.cache_key }}
     - name: compute build-needed matrix via nix-eval-jobs
       id: compute
       uses: jmmaloney4/workflows/.github/actions/compute-flake-build-matrix@main
@@ -110,7 +44,7 @@ jobs:
         probe-timeout-seconds: '180'
   build:
     name: "👷‍♂️ ${{ matrix.category }}.${{ matrix.system }}.${{ matrix.name }}"
-    needs: [detect, warm-cache]
+    needs: [detect]
     runs-on: ${{ inputs.runs-on }}
     if: ${{ needs.detect.outputs.has_work == 'true' }}
     strategy:
@@ -125,15 +59,6 @@ jobs:
         ref: ${{ inputs.ref }}
     - uses: DeterminateSystems/nix-installer-action@main
     - uses: DeterminateSystems/flakehub-cache-action@main
-    - name: restore eval/source caches
-      uses: actions/cache/restore@v4
-      with:
-        path: |
-          ~/.cache/nix/eval-cache-v5
-          ~/.cache/nix/fetcher-cache-v1.sqlite
-          ~/.cache/nix/git
-          ~/.cache/nix/tarballs
-        key: ${{ needs.warm-cache.outputs.cache_key }}
     # probe step removed; nix-fast-build --skip-cached handles cache detection
     - name: "🚀 build with nix-fast-build"
       if: ${{ matrix.noop != 'true' }}
