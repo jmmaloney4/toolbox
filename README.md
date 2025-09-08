@@ -66,7 +66,10 @@ on:
 
 permissions:
   contents: read
+  actions: write
+  deployments: write
   id-token: write
+  issues: write
   pull-requests: write
 
 jobs:
@@ -79,7 +82,7 @@ jobs:
       google_project: ${{ vars.GCP_PROJECT_ID }}
       google_workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
       google_service_account_email: ${{ vars.GCP_SERVICE_ACCOUNT_EMAIL }}
-      
+
       # PR context (enables commenting on PRs)
       pr_number: ${{ (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && github.event.pull_request.number || 0 }}
       is_fork: ${{ (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && github.event.pull_request.head.repo.fork }}
