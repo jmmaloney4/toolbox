@@ -14,14 +14,17 @@ Reusable GitHub Actions workflows and composite actions for CI/CD across reposit
 ### Minimal consumer workflow (copy-paste)
 
 ```yaml
-name: ❄️ nix
-
+name: '❄️ nix'
 on:
+  workflow_dispatch:
+  pull_request:
   push:
     branches:
     - main
-  pull_request:
-  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
 
 jobs:
   nix-build:
@@ -60,6 +63,11 @@ on:
     - 'v*'
   pull_request:
   workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
 
 jobs:
   pulumi:
