@@ -130,3 +130,57 @@ jobs:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 ```
 
+## 👀 `claude-review.yml`
+
+- **Path**: `.github/workflows/claude-review.yml` (callable-only)
+- **Purpose**: Automated Claude AI code review triggered by "claude review" comments
+- **Required inputs**:
+  - **runs-on**: Runner label (e.g., `ubuntu-latest` or your self-hosted label)
+  - **repository**: Repository to checkout (`owner/repo`), typically `${{ github.repository }}`
+  - **ref**: Git ref to build, typically `${{ github.ref }}`
+- **Required secrets**:
+  - **CLAUDE_CODE_OAUTH_TOKEN**: Claude Code OAuth token for authentication
+
+### Minimal consumer workflow (copy-paste)
+
+```yaml
+name: 👀 claude review
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+  id-token: write
+  actions: read
+
+jobs:
+  claude-review:
+    # Only run when someone comments "claude review" on a pull request
+    if: |
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       (contains(github.event.comment.body, 'claude review') || contains(github.event.comment.body, 'Claude review') || contains(github.event.comment.body, 'CLAUDE REVIEW')) &&
+       !contains(github.event.comment.body, 'no claude review') &&
+       !contains(github.event.comment.body, 'disable claude review') &&
+       !contains(github.event.comment.body, 'claude review is not needed')) ||
+      (github.event_name == 'pull_request_review_comment' &&
+       (contains(github.event.comment.body, 'claude review') || contains(github.event.comment.body, 'Claude review') || contains(github.event.comment.body, 'CLAUDE REVIEW')) &&
+       !contains(github.event.comment.body, 'no claude review') &&
+       !contains(github.event.comment.body, 'disable claude review') &&
+       !contains(github.event.comment.body, 'claude review is not needed'))
+
+    uses: jmmaloney4/toolbox/.github/workflows/claude-review.yml@main
+    with:
+      runs-on: ubuntu-latest
+      repository: ${{ github.repository }}
+      ref: ${{ github.ref }}
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+```
+

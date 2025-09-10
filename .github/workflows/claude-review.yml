@@ -1,0 +1,101 @@
+name: 👀 claude review
+
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        description: 'Runner label for all jobs'
+        required: true
+        type: string
+      repository:
+        description: 'Repository to checkout and build (owner/repo)'
+        required: true
+        type: string
+      ref:
+        description: 'Git ref to checkout and build'
+        required: true
+        type: string
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN:
+        description: 'Claude Code OAuth token for authentication'
+        required: true
+
+jobs:
+  claude-review:
+    # Only run when someone comments "claude review" on a pull request
+    # This is completely distinct from the general @claude trigger to avoid conflicts
+    # Supports case variations: "claude review", "Claude review", "CLAUDE REVIEW"
+    # Uses word boundary matching to avoid false positives like "no claude review needed"
+    if: |
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       (contains(github.event.comment.body, 'claude review') || contains(github.event.comment.body, 'Claude review') || contains(github.event.comment.body, 'CLAUDE REVIEW')) &&
+       !contains(github.event.comment.body, 'no claude review') &&
+       !contains(github.event.comment.body, 'disable claude review') &&
+       !contains(github.event.comment.body, 'claude review is not needed')) ||
+      (github.event_name == 'pull_request_review_comment' &&
+       (contains(github.event.comment.body, 'claude review') || contains(github.event.comment.body, 'Claude review') || contains(github.event.comment.body, 'CLAUDE REVIEW')) &&
+       !contains(github.event.comment.body, 'no claude review') &&
+       !contains(github.event.comment.body, 'disable claude review') &&
+       !contains(github.event.comment.body, 'claude review is not needed'))
+
+    runs-on: ${{ inputs.runs-on }}
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      id-token: write
+      actions: read # Required for Claude to read CI results on PRs
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ inputs.repository }}
+        ref: ${{ inputs.ref }}
+        fetch-depth: 1
+
+    - name: Run Claude Code Review
+      id: claude-review
+      uses: anthropics/claude-code-action@beta
+      with:
+        claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+        # Optional: Specify model (defaults to Claude Sonnet 4, uncomment for Claude Opus 4)
+        # model: "claude-opus-4-20250514"
+
+        # Direct prompt for automated review (no @claude mention needed)
+        direct_prompt: |
+          Please review this pull request and provide feedback on:
+          - Code quality and best practices
+          - Potential bugs or issues
+          - Performance considerations
+          - Security concerns
+          - Test coverage
+
+          Be constructive and helpful in your feedback.
+
+        # Optional: Use sticky comments to make Claude reuse the same comment on subsequent pushes to the same PR
+        # use_sticky_comment: true
+
+        # Optional: Customize review based on file types
+        # direct_prompt: |
+        #   Review this PR focusing on:
+        #   - For TypeScript files: Type safety and proper interface usage
+        #   - For API endpoints: Security, input validation, and error handling
+        #   - For React components: Performance, accessibility, and best practices
+        #   - For tests: Coverage, edge cases, and test quality
+
+        # Optional: Different prompts for different authors
+        # direct_prompt: |
+        #   ${{ github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR' &&
+        #   'Welcome! Please review this PR from a first-time contributor. Be encouraging and provide detailed explanations for any suggestions.' ||
+        #   'Please provide a thorough code review focusing on our coding standards and best practices.' }}
+
+        # Add specific tools for running tests or linting
+        allowed_tools: "Bash(true),Bash(find:*),Bash(npm:*),Bash(npx:*),Bash(pulumi:*),Bash(node:*),Bash(python:*),Bash(nix:*),Bash(git:*),Bash(env),Bash(gcloud:*),Bash(curl:*),Bash(apollo:*),Bash(rm:*)"
+
+        # Optional: Skip review for certain conditions
+        # if: |
+        #   !contains(github.event.pull_request.title, '[skip-review]') &&
+        #   !contains(github.event.pull_request.title, '[WIP]')
