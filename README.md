@@ -126,6 +126,7 @@ jobs:
 
 - **Path**: `.github/workflows/claude.yml` (callable-only)
 - **Purpose**: Automated Claude AI assistant for GitHub issues and comments
+- **Important**: Put all event-based `if:` conditions in the caller workflow. The reusable workflow runs under `workflow_call` and does not have access to original event payloads.
 - **Required inputs**:
   - **runs-on**: Runner label (e.g., `ubuntu-latest` or your self-hosted label)
   - **repository**: Repository to checkout (`owner/repo`), typically `${{ github.repository }}`
@@ -155,6 +156,22 @@ permissions:
 
 jobs:
   claude:
+    # Gate on event context in the caller
+    if: |
+      (github.event_name == 'issue_comment' &&
+       (contains(github.event.comment.body, '@claude') || contains(github.event.comment.body, '@Claude') || contains(github.event.comment.body, '@CLAUDE')) &&
+       !(contains(github.event.comment.body, 'claude review') || contains(github.event.comment.body, 'Claude review') || contains(github.event.comment.body, 'CLAUDE REVIEW'))) ||
+      (github.event_name == 'pull_request_review_comment' &&
+       (contains(github.event.comment.body, '@claude') || contains(github.event.comment.body, '@Claude') || contains(github.event.comment.body, '@CLAUDE')) &&
+       !(contains(github.event.comment.body, 'claude review') || contains(github.event.comment.body, 'Claude review') || contains(github.event.comment.body, 'CLAUDE REVIEW'))) ||
+      (github.event_name == 'pull_request_review' &&
+       (contains(github.event.review.body, '@claude') || contains(github.event.review.body, '@Claude') || contains(github.event.review.body, '@CLAUDE')) &&
+       !(contains(github.event.review.body, 'claude review') || contains(github.event.review.body, 'Claude review') || contains(github.event.review.body, 'CLAUDE REVIEW'))) ||
+      (github.event_name == 'issues' &&
+       ((contains(github.event.issue.body, '@claude') || contains(github.event.issue.body, '@Claude') || contains(github.event.issue.body, '@CLAUDE')) ||
+        (contains(github.event.issue.title, '@claude') || contains(github.event.issue.title, '@Claude') || contains(github.event.issue.title, '@CLAUDE'))) &&
+       !((contains(github.event.issue.body, 'claude review') || contains(github.event.issue.body, 'Claude review') || contains(github.event.issue.body, 'CLAUDE REVIEW')) ||
+         (contains(github.event.issue.title, 'claude review') || contains(github.event.issue.title, 'Claude review') || contains(github.event.issue.title, 'CLAUDE REVIEW'))))
     uses: jmmaloney4/toolbox/.github/workflows/claude.yml@main
     with:
       runs-on: ubuntu-latest
@@ -168,6 +185,7 @@ jobs:
 
 - **Path**: `.github/workflows/claude-review.yml` (callable-only)
 - **Purpose**: Automated Claude AI code review triggered by "claude review" comments
+- **Important**: Gate on event context in the caller workflow. The reusable workflow runs under `workflow_call` and cannot read `github.event.comment.*`.
 - **Required inputs**:
   - **runs-on**: Runner label (e.g., `ubuntu-latest` or your self-hosted label)
   - **repository**: Repository to checkout (`owner/repo`), typically `${{ github.repository }}`
