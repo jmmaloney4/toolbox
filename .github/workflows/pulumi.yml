@@ -82,7 +82,7 @@ jobs:
       with:
         repository: ${{ inputs.repository }}
         ref: ${{ inputs.ref }}
-    - uses: jmmaloney4/workflows/.github/actions/pulumi-setup@main
+    - uses: jmmaloney4/toolbox/.github/actions/pulumi-setup@main
       with:
         google_project: ${{ inputs.google_project }}
         google_workload_identity_provider: ${{ inputs.google_workload_identity_provider }}
@@ -99,7 +99,7 @@ jobs:
     - name: pulumi preview
       id: preview
       continue-on-error: true
-      uses: jmmaloney4/workflows/.github/actions/pulumi-preview@main
+      uses: jmmaloney4/toolbox/.github/actions/pulumi-preview@main
       with:
         project: ${{ matrix.project }}
         stack: ${{ matrix.stack }}
@@ -172,7 +172,7 @@ jobs:
         repository: ${{ inputs.repository }}
         ref: ${{ inputs.ref }}
     - id: collect
-      uses: jmmaloney4/workflows/.github/actions/pulumi-collect@main
+      uses: jmmaloney4/toolbox/.github/actions/pulumi-collect@main
       with:
         kind: stage
 
@@ -227,7 +227,7 @@ jobs:
       with:
         repository: ${{ inputs.repository }}
         ref: ${{ inputs.ref }}
-    - uses: jmmaloney4/workflows/.github/actions/pulumi-setup@main
+    - uses: jmmaloney4/toolbox/.github/actions/pulumi-setup@main
       with:
         google_project: ${{ inputs.google_project }}
         google_workload_identity_provider: ${{ inputs.google_workload_identity_provider }}
@@ -254,7 +254,7 @@ jobs:
         repository: ${{ inputs.repository }}
         ref: ${{ inputs.ref }}
     - id: collect
-      uses: jmmaloney4/workflows/.github/actions/pulumi-collect@main
+      uses: jmmaloney4/toolbox/.github/actions/pulumi-collect@main
       with:
         kind: prod
 
@@ -286,7 +286,7 @@ jobs:
       with:
         repository: ${{ inputs.repository }}
         ref: ${{ inputs.ref }}
-    - uses: jmmaloney4/workflows/.github/actions/pulumi-setup@main
+    - uses: jmmaloney4/toolbox/.github/actions/pulumi-setup@main
       with:
         google_project: ${{ inputs.google_project }}
         google_workload_identity_provider: ${{ inputs.google_workload_identity_provider }}
