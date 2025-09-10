@@ -2,6 +2,40 @@ workflows
 
 Reusable GitHub Actions workflows and composite actions for CI/CD across repositories.
 
+## 🦀 `rust.yml`
+
+- **Path**: `.github/workflows/rust.yml` (callable-only)
+- **Purpose**: Run Rust CI (cargo check, test with nextest + JUnit, clippy formatting)
+- **Required inputs**:
+  - **runs-on**: Runner label (e.g., `ubuntu-latest` or your self-hosted label)
+  - **repository**: Repository to checkout (`owner/repo`), typically `${{ github.repository }}`
+  - **ref**: Git ref to build, typically `${{ github.ref }}`
+
+### Minimal consumer workflow (copy-paste)
+
+```yaml
+name: '🦀 rust'
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+    - main
+
+permissions:
+  contents: read
+  id-token: write
+  checks: write
+
+jobs:
+  rust:
+    uses: jmmaloney4/toolbox/.github/workflows/rust.yml@main
+    with:
+      runs-on: ubuntu-latest
+      repository: ${{ github.repository }}
+      ref: ${{ github.ref }}
+```
+
 ## ❄️ `nix.yml`
 
 - **Path**: `.github/workflows/nix.yml` (callable-only)
