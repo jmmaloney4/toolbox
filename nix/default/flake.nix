@@ -1,95 +1,135 @@
 {
-  description = "Default development environment";
-
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    flake-utils.url = "github:numtide/flake-utils";
-    
-    # Development tools
-    rust-overlay = {
-      url = "github:oxalica/rust-overlay";
+    ### Nixpkgs ###
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+
+    ### Flake / Project Inputs ###
+    flake-parts.url = "github:hercules-ci/flake-parts";
+
+    flake-root.url = "github:srid/flake-root";
+
+    just-flake.url = "github:juspay/just-flake";
+
+    pre-commit-hooks = {
+      url = "github:cachix/pre-commit-hooks.nix";
       inputs.nixpkgs.follows = "nixpkgs";
-      inputs.flake-utils.follows = "flake-utils";
+      # inputs.flake-utils.inputs.systems.follows = "systems";
     };
-    
-    # Language servers and formatters
-    nil = {
-      url = "github:oxalica/nil";
+
+    systems.url = "github:nix-systems/default";
+
+    treefmt = {
+      url = "github:numtide/treefmt-nix";
       inputs.nixpkgs.follows = "nixpkgs";
-      inputs.rust-overlay.follows = "rust-overlay";
     };
   };
 
-  outputs = { self, nixpkgs, flake-utils, rust-overlay, nil }:
-    flake-utils.lib.eachDefaultSystem (system:
-      let
-        overlays = [
-          (import rust-overlay)
-        ];
+  outputs = {
+    self,
+    nixpkgs,
+    flake-parts,
+    flake-root,
+    just-flake,
+    pre-commit-hooks,
+    systems,
+    treefmt,
+  } @ inputs:
+    flake-parts.lib.mkFlake {inherit inputs;} ({
+      withSystem,
+      inputs,
+      ...
+    }: {
+      systems = import systems;
+      imports = [
+        flake-root.flakeModule
+        just-flake.flakeModule
+        pre-commit-hooks.flakeModule
+        treefmt.flakeModule
+      ];
 
-        pkgs = import nixpkgs {
-          inherit system overlays;
-        };
+      perSystem = {
+        config,
+        self',
+        inputs',
+        pkgs,
+        system,
+        lib,
+        ...
+      }: {
+        packages = with lib.attrsets; let
+          f = n: v: v.config.nixpkgs.system == system;
+          nixos = mapAttrs (n: v: v.config.system.build.toplevel) (filterAttrs f self.nixosConfigurations);
+          # darwin = mapAttrs (n: v: v.system) (filterAttrs f self.darwinConfigurations);
+          darwin = {};
+        in
+          nixos // darwin;
 
-        # Common development packages
-        commonDevPackages = with pkgs; [
-          # Build tools
-          gnumake
-          cmake
-          ninja
-          pkg-config
+        devShells.default = pkgs.mkShell {
+          inputsFrom = [
+            config.just-flake.outputs.devShell
+            config.pre-commit.devShell
+            config.treefmt.build.devShell
+          ];
+          buildInputs = with pkgs; [
+            fluxcd
+            kubectl
+            sops
+          ];
 
-          # Version control
-          git
-          gh
-
-          # Development tools
-          direnv
-          nil.packages.${system}.default # Nix LSP
-
-          # Languages
-          (rust-bin.stable.latest.default.override {
-            extensions = [ "rust-src" "rust-analyzer" ];
-          })
-          go
-          python3
-          nodejs
-          
-          # Cloud tools
-          awscli2
-          azure-cli
-          google-cloud-sdk
-          kubectl
-          kubernetes-helm
-          
-          # Utilities
-          jq
-          yq
-          ripgrep
-          fd
-          bat
-          exa
-          fzf
-          htop
-          tmux
-        ];
-
-      in
-      {
-        devShell = pkgs.mkShell {
-          buildInputs = commonDevPackages;
-
+          # Add comma alias for backwards compatibility
           shellHook = ''
-            # Add any shell initialization here
+            # Set up comma alias for just
+            alias ','='just'
+            echo ""
+            echo "⚡ Alias ',' set to 'just' ✨"
+            echo ""
           '';
         };
 
-        packages = {
-          default = self.packages.${system}.devenv;
-          devenv = pkgs.buildEnv {
-            name = "devenv";
-            paths = commonDevPackages;
+                just-flake.features = {
+          treefmt.enable = true;
+          
+          development = {
+            enable = true;
+            justfile = ''
+              # Update flake dependencies
+              update-deps:
+                  nix flake update
+              
+              # Run tests and checks
+              test:
+                  nix flake check
+            '';
           };
         };
-      });
+
+        pre-commit = {
+          check.enable = true;
+          settings.hooks.treefmt.enable = true;
+          settings.settings.treefmt.package = config.treefmt.build.wrapper;
+        };
+
+        treefmt.config = {
+          inherit (config.flake-root) projectRootFile;
+          package = pkgs.treefmt;
+          programs.alejandra.enable = true;
+        };
+        formatter = config.treefmt.build.wrapper;
+      };
+
+      flake = {
+        nixosConfigurations.hbot = withSystem "x86_64-linux" (ctx @ {
+          system,
+          config,
+          inputs',
+          ...
+        }:
+          nixpkgs.lib.nixosSystem {
+            inherit system;
+            modules = [
+              ./configuration.nix
+            ];
+          });
+      };
+    });
 }
