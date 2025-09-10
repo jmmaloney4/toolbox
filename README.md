@@ -1,6 +1,6 @@
 # 🔧 toolbox
 
-Reusable GitHub Actions workflows and composite actions for CI/CD across repositories.
+Reusable GitHub Actions workflows, composite actions, and development environments for CI/CD across repositories.
 
 ## 🦀 `rust.yml`
 
@@ -236,3 +236,59 @@ jobs:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 ```
 
+## 🛠️ Development Environment
+
+This repository includes a Nix flake that provides a consistent development environment across all supported platforms. The environment includes common development tools, language runtimes, and cloud utilities.
+
+### Prerequisites
+
+1. Install Nix package manager:
+   ```bash
+   curl -L https://nixos.org/nix/install | sh
+   ```
+
+2. Enable flakes (if not already enabled):
+   ```bash
+   mkdir -p ~/.config/nix
+   echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
+   ```
+
+3. Install direnv (optional, but recommended):
+   ```bash
+   nix-env -i direnv
+   ```
+
+### Usage
+
+#### Using direnv (recommended)
+
+1. Allow direnv in the repository:
+   ```bash
+   cd nix/default
+   direnv allow
+   ```
+
+2. The development environment will be automatically activated when you enter the directory.
+
+#### Manual activation
+
+1. Enter a development shell:
+   ```bash
+   cd nix/default
+   nix develop
+   ```
+
+### Available Tools
+
+The development environment includes:
+
+- **Build Tools**: Make, CMake, Ninja, pkg-config
+- **Version Control**: Git, GitHub CLI
+- **Development Tools**: direnv, Nix LSP
+- **Languages**: Rust (with rust-analyzer), Go, Python 3, Node.js
+- **Cloud Tools**: AWS CLI, Azure CLI, Google Cloud SDK, kubectl, Helm
+- **Utilities**: jq, yq, ripgrep, fd, bat, exa, fzf, htop, tmux
+
+### Customization
+
+To customize the development environment, modify `nix/default/flake.nix`. The file is well-documented and follows Nix best practices.
