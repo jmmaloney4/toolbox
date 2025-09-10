@@ -1,0 +1,72 @@
+name: 🤖 claude
+
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        description: 'Runner label for all jobs'
+        required: true
+        type: string
+      repository:
+        description: 'Repository to checkout and build (owner/repo)'
+        required: true
+        type: string
+      ref:
+        description: 'Git ref to checkout and build'
+        required: true
+        type: string
+
+jobs:
+  claude:
+    if: |
+      (github.event_name == 'issue_comment' && (contains(github.event.comment.body, '@claude') || contains(github.event.comment.body, '@Claude') || contains(github.event.comment.body, '@CLAUDE')) && !(contains(github.event.comment.body, 'claude review') || contains(github.event.comment.body, 'Claude review') || contains(github.event.comment.body, 'CLAUDE REVIEW'))) ||
+      (github.event_name == 'pull_request_review_comment' && (contains(github.event.comment.body, '@claude') || contains(github.event.comment.body, '@Claude') || contains(github.event.comment.body, '@CLAUDE')) && !(contains(github.event.comment.body, 'claude review') || contains(github.event.comment.body, 'Claude review') || contains(github.event.comment.body, 'CLAUDE REVIEW'))) ||
+      (github.event_name == 'pull_request_review' && (contains(github.event.review.body, '@claude') || contains(github.event.review.body, '@Claude') || contains(github.event.review.body, '@CLAUDE')) && !(contains(github.event.review.body, 'claude review') || contains(github.event.review.body, 'Claude review') || contains(github.event.review.body, 'CLAUDE REVIEW'))) ||
+      (github.event_name == 'issues' && ((contains(github.event.issue.body, '@claude') || contains(github.event.issue.body, '@Claude') || contains(github.event.issue.body, '@CLAUDE')) || (contains(github.event.issue.title, '@claude') || contains(github.event.issue.title, '@Claude') || contains(github.event.issue.title, '@CLAUDE'))) && !((contains(github.event.issue.body, 'claude review') || contains(github.event.issue.body, 'Claude review') || contains(github.event.issue.body, 'CLAUDE REVIEW')) || (contains(github.event.issue.title, 'claude review') || contains(github.event.issue.title, 'Claude review') || contains(github.event.issue.title, 'CLAUDE REVIEW'))))
+    runs-on: ${{ inputs.runs-on }}
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      id-token: write
+      actions: read # Required for Claude to read CI results on PRs
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ inputs.repository }}
+        ref: ${{ inputs.ref }}
+        fetch-depth: 1
+
+    - name: Run Claude Code
+      id: claude
+      uses: anthropics/claude-code-action@beta
+      with:
+        claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+        # This is an optional setting that allows Claude to read CI results on PRs
+        additional_permissions: |
+          actions: read
+
+        # Optional: Specify model (defaults to Claude Sonnet 4, uncomment for Claude Opus 4)
+        # model: "claude-opus-4-20250514"
+
+        # Optional: Customize the trigger phrase (default: @claude)
+        # trigger_phrase: "/claude"
+
+        # Optional: Trigger when specific user is assigned to an issue
+        # assignee_trigger: "claude-bot"
+
+        # Allow Claude to run specific commands
+        allowed_tools: "Bash(true),Bash(find:*),Bash(npm:*),Bash(npx:*),Bash(pulumi:*),Bash(node:*),Bash(python:*),Bash(nix:*),Bash(git:*),Bash(env),Bash(gcloud:*),Bash(curl:*),Bash(apollo:*),Bash(rm:*)"
+
+        # Optional: Add custom instructions for Claude to customize its behavior for your project
+        # custom_instructions: |
+        #   Follow our coding standards
+        #   Ensure all new code has tests
+        #   Use TypeScript for new files
+
+        # Optional: Custom environment variables for Claude
+        # claude_env: |
+        #   NODE_ENV: test
+

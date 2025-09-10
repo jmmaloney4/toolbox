@@ -28,7 +28,7 @@ permissions:
 
 jobs:
   nix-build:
-    uses: jmmaloney4/workflows/.github/workflows/nix.yml@main
+    uses: jmmaloney4/toolbox/.github/workflows/nix.yml@main
     with:
       runs-on: ubuntu-latest
       repository: ${{ github.repository }}
@@ -74,7 +74,7 @@ permissions:
 
 jobs:
   pulumi:
-    uses: jmmaloney4/workflows/.github/workflows/pulumi.yml@main
+    uses: jmmaloney4/toolbox/.github/workflows/pulumi.yml@main
     with:
       runs-on: ubuntu-latest
       repository: ${{ github.repository }}
@@ -86,5 +86,47 @@ jobs:
       # PR context (enables commenting on PRs)
       pr_number: ${{ (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && github.event.pull_request.number || 0 }}
       is_fork: ${{ (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && github.event.pull_request.head.repo.fork }}
+```
+
+## 🤖 `claude.yml`
+
+- **Path**: `.github/workflows/claude.yml` (callable-only)
+- **Purpose**: Automated Claude AI assistant for GitHub issues and comments
+- **Required inputs**:
+  - **runs-on**: Runner label (e.g., `ubuntu-latest` or your self-hosted label)
+  - **repository**: Repository to checkout (`owner/repo`), typically `${{ github.repository }}`
+  - **ref**: Git ref to build, typically `${{ github.ref }}`
+
+### Minimal consumer workflow (copy-paste)
+
+```yaml
+name: 🤖 claude
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  issues:
+    types: [opened, assigned]
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+  id-token: write
+  actions: read
+
+jobs:
+  claude:
+    uses: jmmaloney4/toolbox/.github/workflows/claude.yml@main
+    with:
+      runs-on: ubuntu-latest
+      repository: ${{ github.repository }}
+      ref: ${{ github.ref }}
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 ```
 
