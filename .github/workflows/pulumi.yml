@@ -65,18 +65,22 @@ jobs:
         echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
       shell: bash
 
-  pulumi-preview:
-    name: "🔍 pulumi preview"
+  pulumi-preview-and-deploy:
+    name: "🔍☁️ pulumi preview + deploy"
     needs: detect-pulumi-stacks
     runs-on: ${{ inputs.runs-on }}
     strategy:
       fail-fast: false
       matrix:
         include: ${{ fromJson(needs.detect-pulumi-stacks.outputs.matrix) }}
+    concurrency:
+      group: pulumi-${{ matrix.project }}-${{ matrix.stack }}
+      cancel-in-progress: false
     permissions:
       id-token: write
       contents: read
       actions: write
+      deployments: write
     env:
       GOOGLE_PROJECT: ${{ inputs.google_project }}
       GOOGLE_WORKLOAD_IDENTITY_PROVIDER: ${{ inputs.google_workload_identity_provider }}
@@ -119,7 +123,7 @@ jobs:
         safe-name: ${{ steps.names.outputs.safe_name }}
 
     - name: upload stage preview artifacts
-      if: ${{ matrix.stack == 'stage' }}
+      if: ${{ always() && matrix.stack == 'stage' }}
       uses: actions/upload-artifact@v4
       with:
         name: stage-previews-${{ steps.names.outputs.safe_name }}
@@ -127,168 +131,28 @@ jobs:
         if-no-files-found: ignore
 
     - name: upload prod preview artifacts
-      if: ${{ matrix.stack == 'prod' }}
+      if: ${{ always() && matrix.stack == 'prod' }}
       uses: actions/upload-artifact@v4
       with:
         name: prod-previews-${{ steps.names.outputs.safe_name }}
         path: previews/*
         if-no-files-found: ignore
 
-    - name: upload stage preview markers
-      if: ${{ matrix.stack == 'stage' }}
-      uses: actions/upload-artifact@v4
-      with:
-        name: stage-ok-${{ steps.names.outputs.safe_name }}
-        path: ok/*.json
-        if-no-files-found: ignore
+    - name: pulumi up (stage)
+      if: ${{ steps.preview.outcome == 'success' && github.ref == 'refs/heads/main' && matrix.stack == 'stage' }}
+      run: nix develop .#pulumi --command pulumi up -C ${{ matrix.project }} --stack ${{ matrix.stack }} --yes --non-interactive
+      shell: bash
 
-    - name: upload prod preview markers
-      if: ${{ matrix.stack == 'prod' }}
-      uses: actions/upload-artifact@v4
-      with:
-        name: prod-ok-${{ steps.names.outputs.safe_name }}
-        path: ok/*.json
-        if-no-files-found: ignore
+    - name: pulumi up (prod)
+      if: ${{ steps.preview.outcome == 'success' && startsWith(github.ref, 'refs/tags/v') && matrix.stack == 'prod' }}
+      run: nix develop .#pulumi --command pulumi up -C ${{ matrix.project }} --stack ${{ matrix.stack }} --yes --non-interactive
+      shell: bash
 
-  collect-stage-targets:
-    name: "📦 collect successful stage previews"
-    needs: pulumi-preview
-    if: ${{ always() }}
-    runs-on: ${{ inputs.runs-on }}
-    outputs:
-      matrix: ${{ steps.collect.outputs.matrix }}
-    permissions:
-      actions: read
-      contents: read
-      issues: write
-      pull-requests: write
-    steps:
-    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-      with:
-        repository: ${{ inputs.repository }}
-        ref: ${{ inputs.ref }}
-    - id: collect
-      uses: jmmaloney4/toolbox/.github/actions/pulumi-collect@main
-      with:
-        kind: stage
-
-    - name: find existing summary comment
-      if: ${{ inputs.pr_number > 0 && !inputs.is_fork }}
-      id: find-summary
-      uses: peter-evans/find-comment@v3
-      with:
-        issue-number: ${{ inputs.pr_number }}
-        body-includes: '<!-- pulumi-stage-summary -->'
-
-    - name: create or update summary comment
-      if: ${{ inputs.pr_number > 0 && !inputs.is_fork }}
-      uses: peter-evans/create-or-update-comment@v4
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        issue-number: ${{ inputs.pr_number }}
-        body-file: stage-preview-summary.md
-        comment-id: ${{ steps.find-summary.outputs.comment-id }}
-        edit-mode: replace
-
-    - name: skip PR comment for forked contributions
-      if: ${{ inputs.pr_number > 0 && inputs.is_fork }}
+    - name: fail job if preview failed
+      if: ${{ steps.preview.outcome != 'success' }}
       run: |
-        echo "Skipping PR comment on forked contribution due to token permission restrictions."
+        echo "Preview failed; skipping deploy and failing job."
+        exit 1
+      shell: bash
 
-  pulumi-up-stage:
-    name: "🚀 pulumi up (stage)"
-    needs: collect-stage-targets
-    if: ${{ github.ref == 'refs/heads/main' && needs.collect-stage-targets.outputs.matrix != '[]' }}
-    # IMPORTANT: No `environment:` here — we will create Deployments manually to avoid duplicates.
-    runs-on: ${{ inputs.runs-on }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include: ${{ fromJson(needs.collect-stage-targets.outputs.matrix) }}
-    concurrency:
-      group: pulumi-${{ matrix.project }}-${{ matrix.stack }}
-      cancel-in-progress: false
-    permissions:
-      id-token: write
-      contents: read
-      deployments: write
-    env:
-      GOOGLE_PROJECT: ${{ inputs.google_project }}
-      GOOGLE_WORKLOAD_IDENTITY_PROVIDER: ${{ inputs.google_workload_identity_provider }}
-      GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ inputs.google_service_account_email }}
-      PULUMI_BACKEND_URL: ${{ inputs.pulumi_backend_url }}
-      PULUMI_CONFIG_PASSPHRASE: ""
-      USE_GKE_GCLOUD_AUTH_PLUGIN: "True"
-    steps:
-    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-      with:
-        repository: ${{ inputs.repository }}
-        ref: ${{ inputs.ref }}
-    - uses: jmmaloney4/toolbox/.github/actions/pulumi-setup@main
-      with:
-        google_project: ${{ inputs.google_project }}
-        google_workload_identity_provider: ${{ inputs.google_workload_identity_provider }}
-        google_service_account_email: ${{ inputs.google_service_account_email }}
-
-    - name: pulumi up
-      run: nix develop .#pulumi --command pulumi up -C ${{ matrix.project }} --stack ${{ matrix.stack }} --yes --non-interactive
-
-  collect-prod-targets:
-    name: "📦 collect successful prod previews"
-    needs: pulumi-preview
-    if: ${{ always() && startsWith(github.ref, 'refs/tags/v') }}
-    runs-on: ${{ inputs.runs-on }}
-    outputs:
-      matrix: ${{ steps.collect.outputs.matrix }}
-    permissions:
-      actions: read
-      contents: read
-      issues: write
-      pull-requests: write
-    steps:
-    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-      with:
-        repository: ${{ inputs.repository }}
-        ref: ${{ inputs.ref }}
-    - id: collect
-      uses: jmmaloney4/toolbox/.github/actions/pulumi-collect@main
-      with:
-        kind: prod
-
-  pulumi-up-prod:
-    name: "🚀 pulumi up (prod)"
-    needs: collect-prod-targets
-    if: ${{ startsWith(github.ref, 'refs/tags/v') && needs.collect-prod-targets.outputs.matrix != '[]' }}
-    # IMPORTANT: No `environment:` here — we will create Deployments manually to avoid duplicates.
-    runs-on: ${{ inputs.runs-on }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include: ${{ fromJson(needs.collect-prod-targets.outputs.matrix) }}
-    concurrency:
-      group: pulumi-${{ matrix.project }}-${{ matrix.stack }}
-      cancel-in-progress: false
-    permissions:
-      id-token: write
-      contents: read
-      deployments: write
-    env:
-      GOOGLE_PROJECT: ${{ inputs.google_project }}
-      GOOGLE_WORKLOAD_IDENTITY_PROVIDER: ${{ inputs.google_workload_identity_provider }}
-      GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ inputs.google_service_account_email }}
-      PULUMI_BACKEND_URL: ${{ inputs.pulumi_backend_url }}
-      PULUMI_CONFIG_PASSPHRASE: ""
-      USE_GKE_GCLOUD_AUTH_PLUGIN: "True"
-    steps:
-    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-      with:
-        repository: ${{ inputs.repository }}
-        ref: ${{ inputs.ref }}
-    - uses: jmmaloney4/toolbox/.github/actions/pulumi-setup@main
-      with:
-        google_project: ${{ inputs.google_project }}
-        google_workload_identity_provider: ${{ inputs.google_workload_identity_provider }}
-        google_service_account_email: ${{ inputs.google_service_account_email }}
-
-    - name: pulumi up
-      run: nix develop .#pulumi --command pulumi up -C ${{ matrix.project }} --stack ${{ matrix.stack }} --yes --non-interactive
+  
