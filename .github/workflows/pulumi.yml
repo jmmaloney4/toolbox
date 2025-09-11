@@ -95,6 +95,12 @@ jobs:
         google_workload_identity_provider: ${{ inputs.google_workload_identity_provider }}
         google_service_account_email: ${{ inputs.google_service_account_email }}
 
+    - name: Install pnpm dependencies
+      if: ${{ hashFiles('pnpm-lock.yaml') != '' }}
+      continue-on-error: true
+      run: nix develop .#pulumi --command pnpm install --frozen-lockfile
+      shell: bash
+
     - name: derive artifact-safe name
       id: names
       shell: bash
