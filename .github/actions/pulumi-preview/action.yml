@@ -10,10 +10,15 @@ inputs:
   safe-name:
     description: Optional artifact-safe name; defaults to project with '/' replaced by '__'
     required: false
+outputs:
+  has_changes:
+    description: Whether the preview detected any changes
+    value: ${{ steps.main.outputs.has_changes }}
 runs:
   using: composite
   steps:
-  - shell: bash
+  - id: main
+    shell: bash
     env:
       PROJECT: ${{ inputs.project }}
       STACK: ${{ inputs.stack }}

@@ -121,37 +121,19 @@ jobs:
         path: previews/*
         if-no-files-found: error
 
-    - name: mark successful stage preview
-      if: ${{ matrix.stack == 'stage' && steps.preview.outcome == 'success' }}
-      run: |
-        mkdir -p ok
-        safe_name="${{ matrix.project }}"
-        safe_name="${safe_name//\//__}"
-        jq -n --arg project "${{ matrix.project }}" --arg stack "${{ matrix.stack }}" \
-          '{project:$project, stack:$stack}' > "ok/${safe_name}.json"
-
-    - name: mark successful prod preview
-      if: ${{ matrix.stack == 'prod' && steps.preview.outcome == 'success' }}
-      run: |
-        mkdir -p ok
-        safe_name="${{ matrix.project }}"
-        safe_name="${safe_name//\//__}"
-        jq -n --arg project "${{ matrix.project }}" --arg stack "${{ matrix.stack }}" \
-          '{project:$project, stack:$stack}' > "ok/${safe_name}.json"
-
     - name: upload stage preview markers
-      if: ${{ success() && matrix.stack == 'stage' }}
+      if: ${{ matrix.stack == 'stage' }}
       uses: actions/upload-artifact@v4
       with:
-        name: stage-ok-${{ matrix.stack }}-${{ hashFiles('ok/*.json') }}
+        name: stage-ok-${{ steps.names.outputs.safe_name }}
         path: ok/*.json
         if-no-files-found: ignore
 
     - name: upload prod preview markers
-      if: ${{ success() && matrix.stack == 'prod' }}
+      if: ${{ matrix.stack == 'prod' }}
       uses: actions/upload-artifact@v4
       with:
-        name: prod-ok-${{ matrix.stack }}-${{ hashFiles('ok/*.json') }}
+        name: prod-ok-${{ steps.names.outputs.safe_name }}
         path: ok/*.json
         if-no-files-found: ignore
 
