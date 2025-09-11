@@ -80,6 +80,7 @@ jobs:
   - **google_project**: GCP project ID
   - **google_workload_identity_provider**: GCP Workload Identity Provider resource
   - **google_service_account_email**: GCP service account email
+  - **pulumi_backend_url**: GCS bucket URL for Pulumi backend (e.g., `gs://my-bucket-name`)
 - **Optional inputs**:
   - **pr_number**: Pull request number for commenting (pass `0` or omit for non-PR triggers)
   - **is_fork**: Whether the PR comes from a fork (affects commenting permissions)
@@ -116,6 +117,7 @@ jobs:
       google_project: ${{ vars.GCP_PROJECT_ID }}
       google_workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
       google_service_account_email: ${{ vars.GCP_SERVICE_ACCOUNT_EMAIL }}
+      pulumi_backend_url: gs://${{ vars.PULUMI_BACKEND_BUCKET }}
 
       # PR context (enables commenting on PRs)
       pr_number: ${{ (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && github.event.pull_request.number || 0 }}

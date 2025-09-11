@@ -27,6 +27,10 @@ on:
         description: 'GCP service account email'
         required: true
         type: string
+      pulumi_backend_url:
+        description: 'GCS bucket URL for Pulumi backend (e.g., gs://my-bucket-name)'
+        required: true
+        type: string
       pr_number:
         description: 'Pull request number to comment on (if any)'
         required: false
@@ -45,6 +49,8 @@ jobs:
       id-token: write
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
+    env:
+      PULUMI_BACKEND_URL: ${{ inputs.pulumi_backend_url }}
     steps:
     - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
       with:
@@ -75,6 +81,7 @@ jobs:
       GOOGLE_PROJECT: ${{ inputs.google_project }}
       GOOGLE_WORKLOAD_IDENTITY_PROVIDER: ${{ inputs.google_workload_identity_provider }}
       GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ inputs.google_service_account_email }}
+      PULUMI_BACKEND_URL: ${{ inputs.pulumi_backend_url }}
       PULUMI_CONFIG_PASSPHRASE: ""
       USE_GKE_GCLOUD_AUTH_PLUGIN: "True"
     steps:
@@ -203,6 +210,7 @@ jobs:
       GOOGLE_PROJECT: ${{ inputs.google_project }}
       GOOGLE_WORKLOAD_IDENTITY_PROVIDER: ${{ inputs.google_workload_identity_provider }}
       GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ inputs.google_service_account_email }}
+      PULUMI_BACKEND_URL: ${{ inputs.pulumi_backend_url }}
       PULUMI_CONFIG_PASSPHRASE: ""
       USE_GKE_GCLOUD_AUTH_PLUGIN: "True"
     steps:
@@ -262,6 +270,7 @@ jobs:
       GOOGLE_PROJECT: ${{ inputs.google_project }}
       GOOGLE_WORKLOAD_IDENTITY_PROVIDER: ${{ inputs.google_workload_identity_provider }}
       GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ inputs.google_service_account_email }}
+      PULUMI_BACKEND_URL: ${{ inputs.pulumi_backend_url }}
       PULUMI_CONFIG_PASSPHRASE: ""
       USE_GKE_GCLOUD_AUTH_PLUGIN: "True"
     steps:
