@@ -3,12 +3,25 @@
     ### Nixpkgs ###
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
+    jackpkgs = {
+      url = "github:jmmaloney4/jackpkgs";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.flake-utils.follows = "flake-utils";
+      inputs.just-flake.follows = "just-flake";
+    };
+
     ### Flake / Project Inputs ###
-    flake-parts.url = "github:hercules-ci/flake-parts";
+    flake-parts = {
+      url = "github:hercules-ci/flake-parts";
+    };
 
-    flake-root.url = "github:srid/flake-root";
+    flake-root = {
+      url = "github:srid/flake-root";
+    };
 
-    just-flake.url = "github:juspay/just-flake";
+    just-flake = {
+      url = "github:juspay/just-flake";
+    };
 
     pre-commit-hooks = {
       url = "github:cachix/pre-commit-hooks.nix";
@@ -27,6 +40,7 @@
   outputs = {
     self,
     nixpkgs,
+    jackpkgs,
     flake-parts,
     flake-root,
     just-flake,
@@ -76,23 +90,6 @@
             echo "⚡ Alias ',' set to 'just' ✨"
             echo ""
           '';
-        };
-
-                just-flake.features = {
-          treefmt.enable = true;
-          
-          development = {
-            enable = true;
-            justfile = ''
-              # Update flake dependencies
-              update-deps:
-                  nix flake update
-              
-              # Run tests and checks
-              test:
-                  nix flake check
-            '';
-          };
         };
 
         pre-commit = {
