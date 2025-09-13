@@ -49,7 +49,6 @@
             config.jackpkgs.outputs.devShell
           ];
           buildInputs = with pkgs; [
-            just
           ];
         };
       };
