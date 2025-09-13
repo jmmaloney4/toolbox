@@ -59,7 +59,6 @@ jobs:
         ref: ${{ inputs.ref }}
     - uses: DeterminateSystems/nix-installer-action@main
     - uses: DeterminateSystems/flakehub-cache-action@main
-    # probe step removed; nix-fast-build --skip-cached handles cache detection
     - name: "🚀 build with nix-fast-build"
       if: ${{ matrix.noop != 'true' }}
       shell: 'nix -L shell nixpkgs#nix-fast-build -c bash {0}'
