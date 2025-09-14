@@ -15,10 +15,6 @@ on:
         description: 'Git ref to checkout and build'
         required: true
         type: string
-      google_project:
-        description: 'GCP project ID'
-        required: true
-        type: string
       google_workload_identity_provider:
         description: 'GCP Workload Identity Provider resource'
         required: true
@@ -82,7 +78,6 @@ jobs:
       actions: write
       deployments: write
     env:
-      GOOGLE_PROJECT: ${{ inputs.google_project }}
       GOOGLE_WORKLOAD_IDENTITY_PROVIDER: ${{ inputs.google_workload_identity_provider }}
       GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ inputs.google_service_account_email }}
       PULUMI_BACKEND_URL: ${{ inputs.pulumi_backend_url }}
@@ -95,7 +90,6 @@ jobs:
         ref: ${{ inputs.ref }}
     - uses: jmmaloney4/toolbox/.github/actions/pulumi-setup@main
       with:
-        google_project: ${{ inputs.google_project }}
         google_workload_identity_provider: ${{ inputs.google_workload_identity_provider }}
         google_service_account_email: ${{ inputs.google_service_account_email }}
 

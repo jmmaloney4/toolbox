@@ -1,9 +1,6 @@
 name: Pulumi Setup
 description: Authenticate to GCP and prepare environment for Pulumi via Nix
 inputs:
-  google_project:
-    description: GCP project ID
-    required: true
   google_workload_identity_provider:
     description: Workload Identity Provider resource
     required: true
@@ -25,4 +22,3 @@ runs:
   - shell: bash
     run: |
       echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> "$GITHUB_ENV"
-      echo "GOOGLE_PROJECT=${{ inputs.google_project }}" >> "$GITHUB_ENV"

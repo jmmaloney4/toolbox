@@ -77,7 +77,6 @@ jobs:
   - **runs-on**: Runner label (e.g., `ubuntu-latest`)
   - **repository**: Repository to checkout (`owner/repo`), typically `${{ github.repository }}`
   - **ref**: Git ref to build, typically `${{ github.ref }}`
-  - **google_project**: GCP project ID
   - **google_workload_identity_provider**: GCP Workload Identity Provider resource
   - **google_service_account_email**: GCP service account email
   - **pulumi_backend_url**: GCS bucket URL for Pulumi backend (e.g., `gs://my-bucket-name`)
@@ -114,7 +113,6 @@ jobs:
       runs-on: ubuntu-latest
       repository: ${{ github.repository }}
       ref: ${{ github.ref }}
-      google_project: ${{ vars.GCP_PROJECT_ID }}
       google_workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
       google_service_account_email: ${{ vars.GCP_SERVICE_ACCOUNT_EMAIL }}
       pulumi_backend_url: gs://${{ vars.PULUMI_BACKEND_BUCKET }}
@@ -123,6 +121,8 @@ jobs:
       pr_number: ${{ (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && github.event.pull_request.number || 0 }}
       is_fork: ${{ (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && github.event.pull_request.head.repo.fork }}
 ```
+
+**Note**: Ensure each Pulumi stack defines `gcp:project` in its stack configuration to specify the target GCP project.
 
 ## 🤖 `claude.yml`
 
