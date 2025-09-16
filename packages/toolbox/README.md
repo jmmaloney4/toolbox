@@ -36,10 +36,13 @@ import { GitHubOidcResource } from "@jmmaloney4/toolbox/pulumi";
 const githubOidc = new GitHubOidcResource("github-oidc", {
     repoOwner: "jmmaloney4",
     repoName: "my-repo",
-    serviceAccountRoles: [
-        "roles/storage.admin",
-        "roles/secretmanager.secretAccessor"
-    ],
+    // Map role -> list of project IDs to bind the role in
+    serviceAccountRoles: {
+        "roles/iam.serviceAccountTokenCreator": ["my-admin-project"],  // SA/WIF admin project
+        "roles/storage.admin": ["my-prod", "my-stage"],
+        "roles/secretmanager.secretAccessor": ["my-prod"],
+        "roles/storage.objectViewer": ["my-dev"]
+    },
     limitToRef: "refs/heads/main"  // Optional: limit to specific branch/tag
 });
 
@@ -97,13 +100,20 @@ Create a stack configuration file (e.g., `Pulumi.dev.yaml`):
 
 ```yaml
 config:
-  gcp:project: your-project-id
+  gcp:project: your-admin-project-id
   wif:
     repoOwner: jmmaloney4
     repoName: my-repo
     serviceAccountRoles:
-      - roles/storage.admin
-      - roles/secretmanager.secretAccessor
+      roles/iam.serviceAccountTokenCreator:
+        - your-admin-project-id
+      roles/storage.admin:
+        - your-prod-project
+        - your-stage-project
+      roles/secretmanager.secretAccessor:
+        - your-prod-project
+      roles/storage.objectViewer:
+        - your-dev-project
     limitToRef: refs/heads/main
 ```
 
@@ -135,10 +145,11 @@ The `examples/stack` directory contains a working example of how to use this pac
    ```
 3. Configure the stack:
    ```bash
-   pulumi config set gcp:project your-project-id
+   pulumi config set gcp:project your-admin-project-id
    pulumi config set --path wif.repoOwner jmmaloney4
    pulumi config set --path wif.repoName my-repo
-   pulumi config set --path 'wif.serviceAccountRoles[0]' roles/storage.admin
+   pulumi config set --path 'wif.serviceAccountRoles["roles/storage.admin"][0]' your-prod-project
+   pulumi config set --path 'wif.serviceAccountRoles["roles/storage.admin"][1]' your-stage-project
    ```
 4. Deploy:
    ```bash

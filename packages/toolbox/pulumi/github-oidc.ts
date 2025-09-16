@@ -4,7 +4,9 @@ import * as pulumi from "@pulumi/pulumi";
 export interface GitHubOidcArgs {
 	repoOwner: string;
 	repoName: string;
-	serviceAccountRoles: string[];
+	// Map each role to a list of project IDs to bind the role in
+	// Example: { "roles/storage.admin": ["my-prod","my-stage"], "roles/viewer": ["my-dev"] }
+	serviceAccountRoles: Record<string, string[]>;
 	limitToRef?: string;
 }
 
@@ -29,20 +31,27 @@ export class GitHubOidcResource extends pulumi.ComponentResource {
 			{ parent: this },
 		);
 
-		// Assign roles to the service account
-		args.serviceAccountRoles.forEach((role, idx) => {
-			new gcp.projects.IAMMember(
-				`${name}-sa-role-${idx}`,
-				{
-					project: gcp.config.project!,
-					role: role,
-					member: serviceAccount.email.apply(
-						(e: string) => `serviceAccount:${e}`,
-					),
-				},
-				{ parent: this },
+		// Assign roles to the service account across projects
+		const sortedRoles = Object.keys(args.serviceAccountRoles ?? {}).sort();
+		let idx = 0;
+		for (const role of sortedRoles) {
+			const projects = Array.from(
+				new Set((args.serviceAccountRoles[role] ?? []).slice().sort()),
 			);
-		});
+			for (const project of projects) {
+				new gcp.projects.IAMMember(
+					`${name}-sa-role-${idx++}`,
+					{
+						project,
+						role,
+						member: serviceAccount.email.apply(
+							(e: string) => `serviceAccount:${e}`,
+						),
+					},
+					{ parent: this },
+				);
+			}
+		}
 
 		// Create a Workload Identity Pool for GitHub
 		const pool = new gcp.iam.WorkloadIdentityPool(
