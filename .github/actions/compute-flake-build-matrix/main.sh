@@ -9,53 +9,48 @@ echo "System: $system"
 flake_meta_json_tmp="$(mktemp)"
 nix -L flake show --json > "$flake_meta_json_tmp"
 
-# Helper: stream all attributes for a category/system as JSON with cache status
-all_for() {
-  local category="$1"
-  local system_="$2"
-  local target=".#${category}.${system_}"
+# Helper: evaluate selected outputs (packages, checks, devShells) for a system with cache status
+selected_for_system() {
+  local system_="$1"
 
-  echo "nix-eval-jobs: $target" >&2
+  echo "nix-eval-jobs (selected): packages|checks|devShells for $system_" >&2
 
-  # Only evaluate categories that actually exist for this system; ignore others
-  local cat_exists sys_exists
-  cat_exists=$(nix -L eval --impure --raw --expr "let fl = builtins.getFlake (toString ./.); in if (builtins.hasAttr \"${category}\" fl) then \"1\" else \"0\"")
-  if [ "$cat_exists" != "1" ]; then
-    return 0
-  fi
-  sys_exists=$(nix -L eval --impure --raw --expr "let fl = builtins.getFlake (toString ./.); in if (builtins.hasAttr \"${system_}\" fl.${category}) then \"1\" else \"0\"")
-  if [ "$sys_exists" != "1" ]; then
-    return 0
-  fi
-
-  # Query cache status; fail fast on errors
-  if ! out=$(timeout "${PROBE_TIMEOUT_SECONDS}s" nix -L run nixpkgs#nix-eval-jobs -- --check-cache-status --flake "$target"); then
-    echo "::error title=Evaluation failed::nix-eval-jobs failed for $target" >&2
+  # Evaluate only the selected outputs for the current system using --select
+  if ! out=$(timeout "${PROBE_TIMEOUT_SECONDS}s" nix -L run nixpkgs#nix-eval-jobs -- \
+        --check-cache-status \
+        --flake . \
+        --select 'flake: let system = builtins.currentSystem; in {
+          packages = flake.outputs.packages.${system} or {};
+          checks = flake.outputs.checks.${system} or {};
+          devShells = flake.outputs.devShells.${system} or {};
+        }'); then
+    echo "::error title=Evaluation failed::nix-eval-jobs failed for selected outputs" >&2
     return 1
   fi
 
-  # Emit JSON lines with cache status, full flake attribute, and store path
+  # Map nix-eval-jobs JSON to our unified row format
   printf '%s' "$out" \
     | nix -L run nixpkgs#jq -- -rc \
-        --arg category "$category" \
         --arg system "$system_" '
-          {
-            category: $category,
-            system: $system,
-            name: (.attr // "default"),
-            flake_attr: (".#" + $category + "." + $system + "." + (.attr // "default")),
-            cached: ((.cacheStatus=="cached") or (.cached==true) or (.isCached==true)),
-            store_path: (.outputs.out // "unknown")
-          }
+          . as $i
+          | ($i.attr // "default") as $attr
+          | ($attr | split(".")) as $parts
+          | ($parts[0] // "unknown") as $category
+          | ($parts[1:] | if length>0 then join(".") else "default" end) as $name
+          | {
+              category: $category,
+              system: $system,
+              name: $name,
+              flake_attr: (".#" + $category + "." + $system + "." + $name),
+              cached: ((.cacheStatus=="cached") or (.cached==true) or (.isCached==true)),
+              store_path: (.outputs.out // "unknown")
+            }
         '
 }
 
 # Collect all outputs (for summary) into a temp file
 tmp_all="$(mktemp)"
-nix -L run nixpkgs#jq -- -r 'keys[]' "$flake_meta_json_tmp" \
-  | while IFS= read -r category; do
-      all_for "$category" "$system"
-    done > "$tmp_all"
+selected_for_system "$system" > "$tmp_all"
 
 # Build an array of all detected outputs (for summary)
 all_outputs=$(nix -L run nixpkgs#jq -- -sc '[.[]]' "$tmp_all")
