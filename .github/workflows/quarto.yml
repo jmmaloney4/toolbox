@@ -1,17 +1,14 @@
 name: 📊 quarto
-
 on:
   push:
     branches: [main] # production deploys
   pull_request: # per‑PR preview deploys
     types: [opened, synchronize, reopened]
-
 permissions: # required by the action
   actions: read # (only for private repos)
   contents: read
   deployments: write
   pull-requests: write
-
 jobs:
   deploy:
     runs-on: ${{ vars.ACTIONS_RUNS_ON }}
@@ -23,36 +20,32 @@ jobs:
       pull-requests: write
     env:
       DIST: research/_site
-
     steps:
-    - uses: actions/checkout@v4
-    - uses: DeterminateSystems/nix-installer-action@main
-    - uses: DeterminateSystems/flakehub-cache-action@main
-
-    - name: Build site with Nix
-      run: |
-        nix develop -c quarto render ./research
-
-    - name: Validate build output
-      run: |
-        if [ ! -d "${{ env.DIST }}" ]; then
-          echo "Build output directory not found"
-          exit 1
-        fi
-        if [ ! -f "${{ env.DIST }}/index.html" ]; then
-          echo "Index page not generated"
-          ls -la "${{ env.DIST }}"
-          exit 1
-        fi
-
-    - name: Deploy to Cloudflare Pages
-      id: pages
-      uses: andykenward/github-actions-cloudflare-pages@v3.0.1
-      with:
-        cloudflare-api-token: ${{ secrets.CLOUDFLARE_PAGES_API_TOKEN }}
-        cloudflare-account-id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-        cloudflare-project-name: zeus
-        directory: ${{ env.DIST }}
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        # main → production, everything else → preview
-        github-environment: ${{ (github.ref == 'refs/heads/main' && 'research-production') || 'research-preview' }}
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/flakehub-cache-action@main
+      - name: Build site with Nix
+        run: |
+          nix develop -c quarto render ./research
+      - name: Validate build output
+        run: |
+          if [ ! -d "${{ env.DIST }}" ]; then
+            echo "Build output directory not found"
+            exit 1
+          fi
+          if [ ! -f "${{ env.DIST }}/index.html" ]; then
+            echo "Index page not generated"
+            ls -la "${{ env.DIST }}"
+            exit 1
+          fi
+      - name: Deploy to Cloudflare Pages
+        id: pages
+        uses: andykenward/github-actions-cloudflare-pages@v3.0.1
+        with:
+          cloudflare-api-token: ${{ secrets.CLOUDFLARE_PAGES_API_TOKEN }}
+          cloudflare-account-id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          cloudflare-project-name: zeus
+          directory: ${{ env.DIST }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          # main → production, everything else → preview
+          github-environment: ${{ (github.ref == 'refs/heads/main' && 'research-production') || 'research-preview' }}

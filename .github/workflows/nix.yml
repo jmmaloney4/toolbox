@@ -14,15 +14,12 @@ on:
         description: 'Git ref to checkout and build'
         required: true
         type: string
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
-
 permissions:
   contents: read
   id-token: write
-
 jobs:
   detect:
     name: '☃️ detect flake outputs'
@@ -31,17 +28,17 @@ jobs:
       matrix_include: ${{ steps.compute.outputs.matrix_include }}
       has_work: ${{ steps.compute.outputs.has_work }}
     steps:
-    - uses: actions/checkout@v4
-      with:
-        repository: ${{ inputs.repository }}
-        ref: ${{ inputs.ref }}
-    - uses: DeterminateSystems/nix-installer-action@main
-    - uses: DeterminateSystems/flakehub-cache-action@main
-    - name: compute build-needed matrix via nix-eval-jobs
-      id: compute
-      uses: jmmaloney4/workflows/.github/actions/compute-flake-build-matrix@main
-      with:
-        probe-timeout-seconds: '180'
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.repository }}
+          ref: ${{ inputs.ref }}
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/flakehub-cache-action@main
+      - name: compute build-needed matrix via nix-eval-jobs
+        id: compute
+        uses: jmmaloney4/workflows/.github/actions/compute-flake-build-matrix@main
+        with:
+          probe-timeout-seconds: '180'
   build:
     name: "👷‍♂️ ${{ matrix.category }}.${{ matrix.system }}.${{ matrix.name }}"
     needs: [detect]
@@ -53,18 +50,18 @@ jobs:
       matrix:
         include: ${{ fromJson(needs.detect.outputs.matrix_include) }}
     steps:
-    - uses: actions/checkout@v4
-      with:
-        repository: ${{ inputs.repository }}
-        ref: ${{ inputs.ref }}
-    - uses: DeterminateSystems/nix-installer-action@main
-    - uses: DeterminateSystems/flakehub-cache-action@main
-    - name: "🚀 build with nix-fast-build"
-      if: ${{ matrix.noop != 'true' }}
-      shell: 'nix -L shell nixpkgs#nix-fast-build -c bash {0}'
-      run: |-
-        set -euo pipefail
-        attr='${{ matrix.flake_attr }}'
-        echo "Building via nix-fast-build: $attr"
-        # Build only missing (uncached) derivations, with CI-friendly logs and no out-link
-        nix-fast-build --skip-cached --no-nom --no-link --flake "$attr"
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.repository }}
+          ref: ${{ inputs.ref }}
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/flakehub-cache-action@main
+      - name: "🚀 build with nix-fast-build"
+        if: ${{ matrix.noop != 'true' }}
+        shell: 'nix -L shell nixpkgs#nix-fast-build -c bash {0}'
+        run: |-
+          set -euo pipefail
+          attr='${{ matrix.flake_attr }}'
+          echo "Building via nix-fast-build: $attr"
+          # Build only missing (uncached) derivations, with CI-friendly logs and no out-link
+          nix-fast-build --skip-cached --no-nom --no-link --flake "$attr"

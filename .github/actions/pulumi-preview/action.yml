@@ -17,10 +17,10 @@ outputs:
 runs:
   using: composite
   steps:
-  - id: main
-    shell: bash
-    env:
-      PROJECT: ${{ inputs.project }}
-      STACK: ${{ inputs.stack }}
-      SAFE_NAME_IN: ${{ inputs.safe-name }}
-    run: bash "$GITHUB_ACTION_PATH/main.sh"
+    - id: main
+      shell: bash
+      env:
+        PROJECT: ${{ inputs.project }}
+        STACK: ${{ inputs.stack }}
+        SAFE_NAME_IN: ${{ inputs.safe-name }}
+      run: bash "$GITHUB_ACTION_PATH/main.sh"

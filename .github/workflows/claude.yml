@@ -1,5 +1,4 @@
 name: 🤖 claude
-
 on:
   workflow_call:
     inputs:
@@ -15,7 +14,6 @@ on:
         description: 'Git ref to checkout and build'
         required: true
         type: string
-
 jobs:
   claude:
     runs-on: ${{ inputs.runs-on }}
@@ -26,42 +24,38 @@ jobs:
       id-token: write
       actions: read # Required for Claude to read CI results on PRs
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        repository: ${{ inputs.repository }}
-        ref: ${{ inputs.ref }}
-        fetch-depth: 1
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.repository }}
+          ref: ${{ inputs.ref }}
+          fetch-depth: 1
+      - name: Run Claude Code
+        id: claude
+        uses: anthropics/claude-code-action@beta
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # This is an optional setting that allows Claude to read CI results on PRs
+          additional_permissions: |
+            actions: read
+          # Optional: Specify model (defaults to Claude Sonnet 4, uncomment for Claude Opus 4)
+          # model: "claude-opus-4-20250514"
 
-    - name: Run Claude Code
-      id: claude
-      uses: anthropics/claude-code-action@beta
-      with:
-        claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Optional: Customize the trigger phrase (default: @claude)
+          # trigger_phrase: "/claude"
 
-        # This is an optional setting that allows Claude to read CI results on PRs
-        additional_permissions: |
-          actions: read
+          # Optional: Trigger when specific user is assigned to an issue
+          # assignee_trigger: "claude-bot"
 
-        # Optional: Specify model (defaults to Claude Sonnet 4, uncomment for Claude Opus 4)
-        # model: "claude-opus-4-20250514"
+          # Allow Claude to run specific commands
+          allowed_tools: "Bash(true),Bash(find:*),Bash(npm:*),Bash(npx:*),Bash(pulumi:*),Bash(node:*),Bash(python:*),Bash(nix:*),Bash(git:*),Bash(env),Bash(gcloud:*),Bash(curl:*),Bash(apollo:*),Bash(rm:*)"
 
-        # Optional: Customize the trigger phrase (default: @claude)
-        # trigger_phrase: "/claude"
+# Optional: Add custom instructions for Claude to customize its behavior for your project
+# custom_instructions: |
+#   Follow our coding standards
+#   Ensure all new code has tests
+#   Use TypeScript for new files
 
-        # Optional: Trigger when specific user is assigned to an issue
-        # assignee_trigger: "claude-bot"
-
-        # Allow Claude to run specific commands
-        allowed_tools: "Bash(true),Bash(find:*),Bash(npm:*),Bash(npx:*),Bash(pulumi:*),Bash(node:*),Bash(python:*),Bash(nix:*),Bash(git:*),Bash(env),Bash(gcloud:*),Bash(curl:*),Bash(apollo:*),Bash(rm:*)"
-
-        # Optional: Add custom instructions for Claude to customize its behavior for your project
-        # custom_instructions: |
-        #   Follow our coding standards
-        #   Ensure all new code has tests
-        #   Use TypeScript for new files
-
-        # Optional: Custom environment variables for Claude
-        # claude_env: |
-        #   NODE_ENV: test
-
+# Optional: Custom environment variables for Claude
+# claude_env: |
+#   NODE_ENV: test

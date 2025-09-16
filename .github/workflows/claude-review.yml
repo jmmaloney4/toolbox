@@ -1,5 +1,4 @@
 name: 👀 claude review
-
 on:
   workflow_call:
     inputs:
@@ -19,7 +18,6 @@ on:
       CLAUDE_CODE_OAUTH_TOKEN:
         description: 'Claude Code OAuth token for authentication'
         required: true
-
 jobs:
   claude-review:
     runs-on: ${{ inputs.runs-on }}
@@ -29,56 +27,52 @@ jobs:
       issues: read
       id-token: write
       actions: read # Required for Claude to read CI results on PRs
-
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        repository: ${{ inputs.repository }}
-        ref: ${{ inputs.ref }}
-        fetch-depth: 1
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.repository }}
+          ref: ${{ inputs.ref }}
+          fetch-depth: 1
+      - name: Run Claude Code Review
+        id: claude-review
+        uses: anthropics/claude-code-action@beta
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Optional: Specify model (defaults to Claude Sonnet 4, uncomment for Claude Opus 4)
+          # model: "claude-opus-4-20250514"
 
-    - name: Run Claude Code Review
-      id: claude-review
-      uses: anthropics/claude-code-action@beta
-      with:
-        claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Direct prompt for automated review (no @claude mention needed)
+          direct_prompt: |
+            Please review this pull request and provide feedback on:
+            - Code quality and best practices
+            - Potential bugs or issues
+            - Performance considerations
+            - Security concerns
+            - Test coverage
 
-        # Optional: Specify model (defaults to Claude Sonnet 4, uncomment for Claude Opus 4)
-        # model: "claude-opus-4-20250514"
+            Be constructive and helpful in your feedback.
+          # Optional: Use sticky comments to make Claude reuse the same comment on subsequent pushes to the same PR
+          # use_sticky_comment: true
 
-        # Direct prompt for automated review (no @claude mention needed)
-        direct_prompt: |
-          Please review this pull request and provide feedback on:
-          - Code quality and best practices
-          - Potential bugs or issues
-          - Performance considerations
-          - Security concerns
-          - Test coverage
+          # Optional: Customize review based on file types
+          # direct_prompt: |
+          #   Review this PR focusing on:
+          #   - For TypeScript files: Type safety and proper interface usage
+          #   - For API endpoints: Security, input validation, and error handling
+          #   - For React components: Performance, accessibility, and best practices
+          #   - For tests: Coverage, edge cases, and test quality
 
-          Be constructive and helpful in your feedback.
+          # Optional: Different prompts for different authors
+          # direct_prompt: |
+          #   ${{ github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR' &&
+          #   'Welcome! Please review this PR from a first-time contributor. Be encouraging and provide detailed explanations for any suggestions.' ||
+          #   'Please provide a thorough code review focusing on our coding standards and best practices.' }}
 
-        # Optional: Use sticky comments to make Claude reuse the same comment on subsequent pushes to the same PR
-        # use_sticky_comment: true
+          # Add specific tools for running tests or linting
+          allowed_tools: "Bash(true),Bash(find:*),Bash(npm:*),Bash(npx:*),Bash(pulumi:*),Bash(node:*),Bash(python:*),Bash(nix:*),Bash(git:*),Bash(env),Bash(gcloud:*),Bash(curl:*),Bash(apollo:*),Bash(rm:*)"
 
-        # Optional: Customize review based on file types
-        # direct_prompt: |
-        #   Review this PR focusing on:
-        #   - For TypeScript files: Type safety and proper interface usage
-        #   - For API endpoints: Security, input validation, and error handling
-        #   - For React components: Performance, accessibility, and best practices
-        #   - For tests: Coverage, edge cases, and test quality
-
-        # Optional: Different prompts for different authors
-        # direct_prompt: |
-        #   ${{ github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR' &&
-        #   'Welcome! Please review this PR from a first-time contributor. Be encouraging and provide detailed explanations for any suggestions.' ||
-        #   'Please provide a thorough code review focusing on our coding standards and best practices.' }}
-
-        # Add specific tools for running tests or linting
-        allowed_tools: "Bash(true),Bash(find:*),Bash(npm:*),Bash(npx:*),Bash(pulumi:*),Bash(node:*),Bash(python:*),Bash(nix:*),Bash(git:*),Bash(env),Bash(gcloud:*),Bash(curl:*),Bash(apollo:*),Bash(rm:*)"
-
-        # Optional: Skip review for certain conditions
-        # if: |
-        #   !contains(github.event.pull_request.title, '[skip-review]') &&
-        #   !contains(github.event.pull_request.title, '[WIP]')
+# Optional: Skip review for certain conditions
+# if: |
+#   !contains(github.event.pull_request.title, '[skip-review]') &&
+#   !contains(github.event.pull_request.title, '[WIP]')

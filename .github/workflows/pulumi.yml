@@ -1,5 +1,4 @@
 name: '☁️ pulumi'
-
 on:
   workflow_call:
     inputs:
@@ -35,7 +34,6 @@ on:
         description: 'Whether the PR head comes from a fork'
         required: false
         type: boolean
-
 jobs:
   detect-pulumi-stacks:
     name: "🧩 detect pulumi stacks"
@@ -48,19 +46,18 @@ jobs:
     env:
       PULUMI_BACKEND_URL: ${{ inputs.pulumi_backend_url }}
     steps:
-    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-      with:
-        repository: ${{ inputs.repository }}
-        ref: ${{ inputs.ref }}
-    - uses: DeterminateSystems/nix-installer-action@main
-    - uses: DeterminateSystems/flakehub-cache-action@main
-    - name: Detect all (project, stack) pairs
-      id: set-matrix
-      run: |
-        matrix=$(nix develop .#pulumi --command just detect-stacks | tail -n 1)
-        echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
-      shell: bash
-
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          repository: ${{ inputs.repository }}
+          ref: ${{ inputs.ref }}
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/flakehub-cache-action@main
+      - name: Detect all (project, stack) pairs
+        id: set-matrix
+        run: |
+          matrix=$(nix develop .#pulumi --command just detect-stacks | tail -n 1)
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+        shell: bash
   pulumi-preview-and-deploy:
     name: "🔍☁️ pulumi preview + deploy"
     needs: detect-pulumi-stacks
@@ -84,69 +81,59 @@ jobs:
       PULUMI_CONFIG_PASSPHRASE: ""
       USE_GKE_GCLOUD_AUTH_PLUGIN: "True"
     steps:
-    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-      with:
-        repository: ${{ inputs.repository }}
-        ref: ${{ inputs.ref }}
-    - uses: jmmaloney4/toolbox/.github/actions/pulumi-setup@main
-      with:
-        google_workload_identity_provider: ${{ inputs.google_workload_identity_provider }}
-        google_service_account_email: ${{ inputs.google_service_account_email }}
-
-    - name: Install pnpm dependencies
-      if: ${{ hashFiles('pnpm-lock.yaml') != '' }}
-      continue-on-error: true
-      run: nix develop .#pulumi --command pnpm install --frozen-lockfile
-      shell: bash
-
-    - name: derive artifact-safe name
-      id: names
-      shell: bash
-      run: |
-        safe_name="${{ matrix.project }}"
-        safe_name="${safe_name//\//__}"
-        echo "safe_name=$safe_name" >> "$GITHUB_OUTPUT"
-
-    - name: pulumi preview
-      id: preview
-      continue-on-error: true
-      uses: jmmaloney4/toolbox/.github/actions/pulumi-preview@main
-      with:
-        project: ${{ matrix.project }}
-        stack: ${{ matrix.stack }}
-        safe-name: ${{ steps.names.outputs.safe_name }}
-
-    - name: upload stage preview artifacts
-      if: ${{ always() && matrix.stack == 'stage' }}
-      uses: actions/upload-artifact@v4
-      with:
-        name: stage-previews-${{ steps.names.outputs.safe_name }}
-        path: previews/*
-        if-no-files-found: ignore
-
-    - name: upload prod preview artifacts
-      if: ${{ always() && matrix.stack == 'prod' }}
-      uses: actions/upload-artifact@v4
-      with:
-        name: prod-previews-${{ steps.names.outputs.safe_name }}
-        path: previews/*
-        if-no-files-found: ignore
-
-    - name: pulumi up (stage)
-      if: ${{ steps.preview.outcome == 'success' && github.ref == 'refs/heads/main' && matrix.stack == 'stage' }}
-      run: nix develop .#pulumi --command pulumi up -C ${{ matrix.project }} --stack ${{ matrix.stack }} --yes --non-interactive
-      shell: bash
-
-    - name: pulumi up (prod)
-      if: ${{ steps.preview.outcome == 'success' && startsWith(github.ref, 'refs/tags/v') && matrix.stack == 'prod' }}
-      run: nix develop .#pulumi --command pulumi up -C ${{ matrix.project }} --stack ${{ matrix.stack }} --yes --non-interactive
-      shell: bash
-
-    - name: fail job if preview failed
-      if: ${{ steps.preview.outcome != 'success' }}
-      run: |
-        echo "Preview failed; skipping deploy and failing job."
-        exit 1
-      shell: bash
-
-  
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          repository: ${{ inputs.repository }}
+          ref: ${{ inputs.ref }}
+      - uses: jmmaloney4/toolbox/.github/actions/pulumi-setup@main
+        with:
+          google_workload_identity_provider: ${{ inputs.google_workload_identity_provider }}
+          google_service_account_email: ${{ inputs.google_service_account_email }}
+      - name: Install pnpm dependencies
+        if: ${{ hashFiles('pnpm-lock.yaml') != '' }}
+        continue-on-error: true
+        run: nix develop .#pulumi --command pnpm install --frozen-lockfile
+        shell: bash
+      - name: derive artifact-safe name
+        id: names
+        shell: bash
+        run: |
+          safe_name="${{ matrix.project }}"
+          safe_name="${safe_name//\//__}"
+          echo "safe_name=$safe_name" >> "$GITHUB_OUTPUT"
+      - name: pulumi preview
+        id: preview
+        continue-on-error: true
+        uses: jmmaloney4/toolbox/.github/actions/pulumi-preview@main
+        with:
+          project: ${{ matrix.project }}
+          stack: ${{ matrix.stack }}
+          safe-name: ${{ steps.names.outputs.safe_name }}
+      - name: upload stage preview artifacts
+        if: ${{ always() && matrix.stack == 'stage' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage-previews-${{ steps.names.outputs.safe_name }}
+          path: previews/*
+          if-no-files-found: ignore
+      - name: upload prod preview artifacts
+        if: ${{ always() && matrix.stack == 'prod' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: prod-previews-${{ steps.names.outputs.safe_name }}
+          path: previews/*
+          if-no-files-found: ignore
+      - name: pulumi up (stage)
+        if: ${{ steps.preview.outcome == 'success' && github.ref == 'refs/heads/main' && matrix.stack == 'stage' }}
+        run: nix develop .#pulumi --command pulumi up -C ${{ matrix.project }} --stack ${{ matrix.stack }} --yes --non-interactive
+        shell: bash
+      - name: pulumi up (prod)
+        if: ${{ steps.preview.outcome == 'success' && startsWith(github.ref, 'refs/tags/v') && matrix.stack == 'prod' }}
+        run: nix develop .#pulumi --command pulumi up -C ${{ matrix.project }} --stack ${{ matrix.stack }} --yes --non-interactive
+        shell: bash
+      - name: fail job if preview failed
+        if: ${{ steps.preview.outcome != 'success' }}
+        run: |
+          echo "Preview failed; skipping deploy and failing job."
+          exit 1
+        shell: bash

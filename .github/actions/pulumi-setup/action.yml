@@ -10,15 +10,15 @@ inputs:
 runs:
   using: composite
   steps:
-  - uses: DeterminateSystems/nix-installer-action@main
-  - uses: DeterminateSystems/flakehub-cache-action@main
-  - uses: google-github-actions/auth@v2
-    with:
-      workload_identity_provider: ${{ inputs.google_workload_identity_provider }}
-      service_account: ${{ inputs.google_service_account_email }}
-  - uses: google-github-actions/setup-gcloud@v2
-    with:
-      install_components: gke-gcloud-auth-plugin
-  - shell: bash
-    run: |
-      echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> "$GITHUB_ENV"
+    - uses: DeterminateSystems/nix-installer-action@main
+    - uses: DeterminateSystems/flakehub-cache-action@main
+    - uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: ${{ inputs.google_workload_identity_provider }}
+        service_account: ${{ inputs.google_service_account_email }}
+    - uses: google-github-actions/setup-gcloud@v2
+      with:
+        install_components: gke-gcloud-auth-plugin
+    - shell: bash
+      run: |
+        echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> "$GITHUB_ENV"
