@@ -1,4 +1,4 @@
-# @jmmaloney4/pulumi-components
+# @jmmaloney4/toolbox
 
 Reusable Pulumi components for infrastructure management.
 
@@ -7,13 +7,13 @@ Reusable Pulumi components for infrastructure management.
 You can install this package directly from GitHub using pnpm:
 
 ```bash
-pnpm add "git+https://github.com/jmmaloney4/toolbox.git#path:/packages/pulumi-components"
+pnpm add "git+https://github.com/jmmaloney4/toolbox.git#path:/packages/toolbox"
 ```
 
 Or pin to a specific version/commit:
 
 ```bash
-pnpm add "git+https://github.com/jmmaloney4/toolbox.git#path:/packages/pulumi-components#v0.1.0"
+pnpm add "git+https://github.com/jmmaloney4/toolbox.git#path:/packages/toolbox#v0.1.0"
 ```
 
 ## Components
@@ -31,7 +31,7 @@ A component that sets up GitHub Actions OIDC authentication with Google Cloud Pl
 
 ```typescript
 import * as pulumi from "@pulumi/pulumi";
-import { GitHubOidcResource } from "@jmmaloney4/pulumi-components";
+import { GitHubOidcResource } from "@jmmaloney4/toolbox/pulumi";
 
 const githubOidc = new GitHubOidcResource("github-oidc", {
     repoOwner: "jmmaloney4",

@@ -1,5 +1,5 @@
 {
-	"name": "@jmmaloney4/pulumi-components",
+	"name": "@jmmaloney4/toolbox",
 	"version": "0.1.0",
 	"description": "Reusable Pulumi components for infrastructure management",
 	"license": "MPL-2.0",
