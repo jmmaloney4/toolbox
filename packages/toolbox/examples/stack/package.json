@@ -1,10 +1,10 @@
 {
-	"name": "pulumi-components-example",
+	"name": "pulumi-toolbox-example",
 	"private": true,
 	"type": "commonjs",
 	"dependencies": {
 		"@pulumi/pulumi": "^3.0.0",
 		"@pulumi/gcp": "^8.0.0",
-		"@jmmaloney4/pulumi-components": "workspace:*"
+		"@jmmaloney4/toolbox": "workspace:*"
 	}
 }

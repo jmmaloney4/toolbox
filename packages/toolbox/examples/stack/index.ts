@@ -1,7 +1,7 @@
 import {
 	type GitHubOidcArgs,
 	GitHubOidcResource,
-} from "@jmmaloney4/pulumi-components";
+} from "../../pulumi";
 import * as pulumi from "@pulumi/pulumi";
 
 const config = new pulumi.Config();
