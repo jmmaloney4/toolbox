@@ -19,11 +19,11 @@ selected_for_system() {
   if ! out=$(timeout "${PROBE_TIMEOUT_SECONDS}s" nix -L run nixpkgs#nix-eval-jobs -- \
         --check-cache-status \
         --flake . \
-        --select 'flake: let system = builtins.currentSystem; in {
-          packages = flake.outputs.packages.${system} or {};
-          checks = flake.outputs.checks.${system} or {};
-          devShells = flake.outputs.devShells.${system} or {};
-        }'); then
+        --select "flake: let system = \"$system_\"; in {
+          packages = flake.outputs.packages.\${system} or {};
+          checks = flake.outputs.checks.\${system} or {};
+          devShells = flake.outputs.devShells.\${system} or {};
+        }"); then
     echo "::error title=Evaluation failed::nix-eval-jobs failed for selected outputs" >&2
     return 1
   fi
