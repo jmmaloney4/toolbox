@@ -1,0 +1,32 @@
+{
+  "name": "@jmmaloney4/pulumi-components",
+  "version": "0.1.0",
+  "description": "Reusable Pulumi components for infrastructure management",
+  "license": "MPL-2.0",
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "clean": "rimraf dist",
+    "build": "tsc -p tsconfig.json",
+    "prepare": "pnpm run build"
+  },
+  "peerDependencies": {
+    "@pulumi/pulumi": "^3.0.0",
+    "@pulumi/gcp": "^8.0.0",
+    "@pulumi/aws": "^6.0.0",
+    "@pulumi/azure-native": "^2.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "rimraf": "^6.0.0",
+    "@types/node": "^20.0.0",
+    "@pulumi/pulumi": "^3.0.0",
+    "@pulumi/gcp": "^8.0.0",
+    "@pulumi/aws": "^6.0.0",
+    "@pulumi/azure-native": "^2.0.0"
+  }
+}

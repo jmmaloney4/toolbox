@@ -1,0 +1,6 @@
+name: pulumi-components-example
+runtime:
+  name: nodejs
+  options:
+    packagemanager: pnpm
+description: Example stack using @jmmaloney4/pulumi-components
