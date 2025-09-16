@@ -211,11 +211,11 @@
         "treefmt": "treefmt"
       },
       "locked": {
-        "lastModified": 1757999078,
-        "narHash": "sha256-mSOqlxUY67rSCH92IY97PzQItvgiPunxamT+9ab4y+A=",
+        "lastModified": 1758027796,
+        "narHash": "sha256-XdItduNvKUR7NxgQAgukYDa9m2t8keyfS3C5PVsJbzk=",
         "owner": "jmmaloney4",
         "repo": "jackpkgs",
-        "rev": "eccff2ed828a71f8fd9264d7e962fa010168a570",
+        "rev": "d98757f33dd6f65b207be9f80608f13fe63d8832",
         "type": "github"
       },
       "original": {
