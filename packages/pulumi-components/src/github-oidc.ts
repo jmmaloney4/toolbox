@@ -25,13 +25,13 @@ export class GitHubOidcResource extends pulumi.ComponentResource {
         args.serviceAccountRoles.forEach((role, idx) => {
             new gcp.projects.IAMMember(`${name}-sa-role-${idx}`, {
                 role: role,
-                member: pulumi.interpolate\`serviceAccount:\${serviceAccount.email}\`,
+                member: serviceAccount.email.apply((e: string) => `serviceAccount:${e}`),
             }, { parent: this });
         });
 
         // Create a Workload Identity Pool for GitHub
         const pool = new gcp.iam.WorkloadIdentityPool(`${name}-pool`, {
-            workloadIdentityPoolId: \`github-${pulumi.getStack()}\`,
+            workloadIdentityPoolId: pulumi.getStack().apply((stack: string) => `github-${stack}`),
             displayName: "GitHub Actions",
             description: "Identity pool for GitHub Actions",
         }, { parent: this });
@@ -39,7 +39,7 @@ export class GitHubOidcResource extends pulumi.ComponentResource {
         // Create a Workload Identity Provider for GitHub Actions
         const provider = new gcp.iam.WorkloadIdentityPoolProvider(`${name}-provider`, {
             workloadIdentityPoolId: pool.workloadIdentityPoolId,
-            workloadIdentityPoolProviderId: \`github-${pulumi.getStack()}\`,
+            workloadIdentityPoolProviderId: pulumi.getStack().apply((stack: string) => `github-${stack}`),
             displayName: "GitHub Actions provider",
             description: "GitHub Actions provider",
             attributeMapping: {
@@ -50,11 +50,11 @@ export class GitHubOidcResource extends pulumi.ComponentResource {
             },
             oidc: {
                 issuerUri: "https://token.actions.githubusercontent.com",
-                allowedAudiences: ["https://github.com/${args.repoOwner}"],
+                allowedAudiences: [`https://github.com/${args.repoOwner}`],
             },
             attributeCondition: args.limitToRef
-                ? \`attribute.repository=="$\{args.repoOwner}/$\{args.repoName}" && attribute.ref=="$\{args.limitToRef}"\`
-                : \`attribute.repository=="$\{args.repoOwner}/$\{args.repoName}"\`,
+                ? pulumi.interpolate`attribute.repository=="${args.repoOwner}/${args.repoName}" && attribute.ref=="${args.limitToRef}"`
+                : pulumi.interpolate`attribute.repository=="${args.repoOwner}/${args.repoName}"`,
         }, { parent: this });
 
         // Allow authentications from the Workload Identity Provider to impersonate the Service Account
@@ -62,13 +62,13 @@ export class GitHubOidcResource extends pulumi.ComponentResource {
             serviceAccountId: serviceAccount.name,
             role: "roles/iam.workloadIdentityUser",
             members: [
-                pulumi.interpolate\`principalSet://iam.googleapis.com/\${pool.name}/attribute.repository/$\{args.repoOwner}/$\{args.repoName}\`,
+                pulumi.interpolate`principalSet://iam.googleapis.com/${pool.name}/attribute.repository/${args.repoOwner}/${args.repoName}`,
             ],
         }, { parent: this });
 
         // Export the service account email and workload identity provider resource
         this.serviceAccountEmail = serviceAccount.email;
-        this.workloadIdentityProviderResource = pulumi.interpolate\`\${provider.name}\`;
+        this.workloadIdentityProviderResource = pulumi.interpolate`${provider.name}`;
 
         this.registerOutputs({
             serviceAccountEmail: this.serviceAccountEmail,

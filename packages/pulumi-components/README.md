@@ -48,6 +48,49 @@ export const serviceAccountEmail = githubOidc.serviceAccountEmail;
 export const workloadIdentityProviderResource = githubOidc.workloadIdentityProviderResource;
 ```
 
+#### Using with the reusable Pulumi workflow
+
+This component emits outputs that map 1:1 to the inputs expected by the reusable workflow in this repo at `.github/workflows/pulumi.yml`:
+
+- `workloadIdentityProviderResource` → `google_workload_identity_provider`
+- `serviceAccountEmail` → `google_service_account_email`
+
+Yes — this component creates all of the required GCP resources to authenticate GitHub Actions via OIDC for that workflow: a Service Account, a Workload Identity Pool, a GitHub OIDC Provider, and the `workloadIdentityUser` binding.
+
+Typical setup:
+
+1. Bootstrap once with Pulumi using this component to create the resources and capture the two outputs.
+2. Store the outputs in your repository variables (recommended) or secrets in the caller repo, e.g. `vars.GOOGLE_WORKLOAD_IDENTITY_PROVIDER` and `vars.GOOGLE_SERVICE_ACCOUNT_EMAIL`.
+3. Call the reusable workflow and pass those values as inputs, along with your Pulumi backend URL.
+
+Example caller workflow:
+
+```yaml
+name: Infra
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  pulumi:
+    uses: jmmaloney4/toolbox/.github/workflows/pulumi.yml@main
+    with:
+      runs-on: ubuntu-latest
+      repository: ${{ github.repository }}
+      ref: ${{ github.ref }}
+      google_workload_identity_provider: ${{ vars.GOOGLE_WORKLOAD_IDENTITY_PROVIDER }}
+      google_service_account_email: ${{ vars.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
+      pulumi_backend_url: ${{ vars.PULUMI_BACKEND_URL }} # e.g., gs://my-pulumi-state
+```
+
+Notes:
+
+- If you set `limitToRef` when creating the provider (e.g., `refs/heads/main`), authentication will only work for that ref. Ensure it matches the refs where you expect this workflow to run.
+- The reusable workflow checks out the caller repo/ref you pass via `repository`/`ref`, so the Pulumi projects and `flake.lock` referenced by the workflow should live in the caller repository.
+- The workflow requires the three inputs shown above; variables/secrets are not implicitly inherited, so pass them explicitly as inputs as shown.
+
 #### Configuration
 
 Create a stack configuration file (e.g., `Pulumi.dev.yaml`):
