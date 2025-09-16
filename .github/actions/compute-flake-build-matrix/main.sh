@@ -15,33 +15,62 @@ selected_for_system() {
 
   echo "nix-eval-jobs (selected): packages|checks|devShells for $system_" >&2
 
-  # Evaluate only the selected outputs for the current system using --select
-  if ! out=$(timeout "${PROBE_TIMEOUT_SECONDS}s" nix -L run nixpkgs#nix-eval-jobs -- \
+  # Evaluate each category separately and combine the results
+  local all_outputs=""
+  
+  # Evaluate packages
+  if packages_out=$(timeout "${PROBE_TIMEOUT_SECONDS}s" nix -L run nixpkgs#nix-eval-jobs -- \
         --check-cache-status \
         --flake . \
-        --select "flake: let system = \"$system_\"; in {
-          packages = flake.outputs.packages.\${system} or {};
-          checks = flake.outputs.checks.\${system} or {};
-          devShells = flake.outputs.devShells.\${system} or {};
-        }"); then
+        --select "flake: flake.outputs.packages.\"$system_\" or {}" 2>/dev/null); then
+    if [ -n "$packages_out" ]; then
+      # Add category information to each output
+      packages_out=$(printf '%s' "$packages_out" | jq -c '. + {category: "packages"}')
+      all_outputs="$all_outputs$packages_out"$'\n'
+    fi
+  fi
+  
+  # Evaluate checks
+  if checks_out=$(timeout "${PROBE_TIMEOUT_SECONDS}s" nix -L run nixpkgs#nix-eval-jobs -- \
+        --check-cache-status \
+        --flake . \
+        --select "flake: flake.outputs.checks.\"$system_\" or {}" 2>/dev/null); then
+    if [ -n "$checks_out" ]; then
+      # Add category information to each output
+      checks_out=$(printf '%s' "$checks_out" | jq -c '. + {category: "checks"}')
+      all_outputs="$all_outputs$checks_out"$'\n'
+    fi
+  fi
+  
+  # Evaluate devShells
+  if devshells_out=$(timeout "${PROBE_TIMEOUT_SECONDS}s" nix -L run nixpkgs#nix-eval-jobs -- \
+        --check-cache-status \
+        --flake . \
+        --select "flake: flake.outputs.devShells.\"$system_\" or {}" 2>/dev/null); then
+    if [ -n "$devshells_out" ]; then
+      # Add category information to each output
+      devshells_out=$(printf '%s' "$devshells_out" | jq -c '. + {category: "devShells"}')
+      all_outputs="$all_outputs$devshells_out"$'\n'
+    fi
+  fi
+  
+  if [ -z "$all_outputs" ]; then
     echo "::error title=Evaluation failed::nix-eval-jobs failed for selected outputs" >&2
     return 1
   fi
-
+  
   # Map nix-eval-jobs JSON to our unified row format
-  printf '%s' "$out" \
+  printf '%s' "$all_outputs" \
     | nix -L run nixpkgs#jq -- -rc \
         --arg system "$system_" '
           . as $i
           | ($i.attr // "default") as $attr
-          | ($attr | split(".")) as $parts
-          | ($parts[0] // "unknown") as $category
-          | ($parts[1:] | if length>0 then join(".") else "default" end) as $name
+          | ($i.category // "unknown") as $category
           | {
               category: $category,
               system: $system,
-              name: $name,
-              flake_attr: (".#" + $category + "." + $system + "." + $name),
+              name: $attr,
+              flake_attr: (".#" + $category + "." + $system + "." + $attr),
               cached: ((.cacheStatus=="cached") or (.cached==true) or (.isCached==true)),
               store_path: (.outputs.out // "unknown")
             }
