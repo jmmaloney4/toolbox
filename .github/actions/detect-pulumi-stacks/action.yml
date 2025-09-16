@@ -1,0 +1,14 @@
+name: Detect Pulumi stacks
+description: Emits a JSON matrix of {project, stack} pairs for all Pulumi projects in the repo
+runs:
+  using: "composite"
+  steps:
+    - id: detect
+      shell: bash
+      run: |
+        matrix="$($GITHUB_ACTION_PATH/main.sh | tr -d '\n')"
+        echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+outputs:
+  matrix:
+    description: JSON array of {project,stack} pairs
+    value: ${{ steps.detect.outputs.matrix }}

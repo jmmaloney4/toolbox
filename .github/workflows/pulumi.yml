@@ -54,10 +54,7 @@ jobs:
       - uses: DeterminateSystems/flakehub-cache-action@main
       - name: Detect all (project, stack) pairs
         id: set-matrix
-        run: |
-          matrix=$(nix develop .#pulumi --command just detect-stacks | tail -n 1)
-          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
-        shell: bash
+        uses: jmmaloney4/toolbox/.github/actions/detect-pulumi-stacks@main
   pulumi-preview-and-deploy:
     name: "🔍☁️ pulumi preview + deploy"
     needs: detect-pulumi-stacks
