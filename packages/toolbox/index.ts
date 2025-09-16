@@ -1,2 +1,2 @@
 // Export pulumi components
-export * from "./pulumi";
+export * as pulumi from "./pulumi";
