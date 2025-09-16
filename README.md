@@ -4,11 +4,11 @@ Reusable GitHub Actions workflows, composite actions, and development environmen
 
 ## 📦 `@jmmaloney4/pulumi-components`
 
-- **Path**: `packages/pulumi-components`
+- **Path**: `packages/toolbox`
 - **Purpose**: Reusable Pulumi components for infrastructure management
 - **Installation**:
   ```bash
-  pnpm add "git+https://github.com/jmmaloney4/toolbox.git#path:/packages/pulumi-components"
+  pnpm add "git+https://github.com/jmmaloney4/toolbox.git#path:/packages/toolbox"
   ```
 
 ### Available Components
@@ -18,7 +18,7 @@ Reusable GitHub Actions workflows, composite actions, and development environmen
 Sets up GitHub Actions OIDC authentication with GCP, creating necessary service accounts and workload identity configuration.
 
 ```typescript
-import { GitHubOidcResource } from "@jmmaloney4/pulumi-components";
+import { GitHubOidcResource } from "@jmmaloney4/pulumi-components/pulumi";
 
 const githubOidc = new GitHubOidcResource("github-oidc", {
     repoOwner: "jmmaloney4",
@@ -28,7 +28,7 @@ const githubOidc = new GitHubOidcResource("github-oidc", {
 });
 ```
 
-See the [package documentation](packages/pulumi-components/README.md) for more details.
+See the [package documentation](packages/toolbox/README.md) for more details.
 
 ### Using `GitHubOidcResource` with `.github/workflows/pulumi.yml`
 
