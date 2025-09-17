@@ -26,6 +26,16 @@ export interface GithubActionsWorkloadIdentityProviderArgs {
  * Creates a GCP Workload Identity Provider for GitHub Actions and a Service Account
  * with the provided role bindings.
  *
+ * Audience configuration:
+ * - The provider's `oidc.allowedAudiences` includes the fully-qualified provider resource
+ *   URL (e.g., `https://iam.googleapis.com/projects/<proj>/locations/global/workloadIdentityPools/<pool>/providers/<provider>`).
+ *   When using `google-github-actions/auth@v2`, GitHub issues an ID token whose `aud` defaults
+ *   to this provider resource. Google requires that the token's audience match one of the
+ *   provider's allowed audiences, so this value must be present.
+ * - We also allow `https://github.com/<owner>` for compatibility with workflows that explicitly
+ *   request that audience (older guidance). If all callers use the default provider-resource
+ *   audience, this GitHub-owner audience can be removed to tighten scope.
+ *
  * Outputs:
  * - `serviceAccountEmail` — email of the created Service Account
  * - `workloadIdentityProviderResource` — full resource name of the provider
