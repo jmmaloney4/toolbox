@@ -36,7 +36,7 @@ compare_versions() {
   else
     # Use jq for version comparison
     jq -n --arg local "$local_ver" --arg published "$published_ver" '
-      def version_parts(v): v | split(".") | map(tonumber? // 0);
+      def version_parts(v): (v | split("-")[0]) | split(".") | map(tonumber? // 0);
       def compare_versions(a; b):
         (a | version_parts) as $a | (b | version_parts) as $b |
         if $a[0] > $b[0] then "major"
