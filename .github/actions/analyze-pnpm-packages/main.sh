@@ -72,7 +72,7 @@ fi
 MATRIX_ENTRIES=()
 for pkg_path in "${PKG_PATHS[@]}"; do
   name="$(get_pkg_json_field "$pkg_path" "name")"
-  [[ -n "$SCOPE" && "${name}" != ${SCOPE}/* ]] && continue
+  [[ -n "$SCOPE" && "${name}" != "${SCOPE}/*" ]] && continue
   
   local_ver="$(get_pkg_json_field "$pkg_path" "version")"
   
