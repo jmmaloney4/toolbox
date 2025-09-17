@@ -30,8 +30,7 @@ jobs:
         with:
           repository: ${{ inputs.repository }}
           ref: ${{ inputs.ref }}
-      - uses: DeterminateSystems/nix-installer-action@main
-      - uses: DeterminateSystems/flakehub-cache-action@main
+      - uses: jmmaloney4/workflows/.github/actions/nix-setup@main
       - uses: Leafwing-Studios/cargo-cache@43ec9a5bad6e7f174e7fc65dcf533de75ff65881 # v2.6.0
         with:
           sweep-cache: true
@@ -48,8 +47,7 @@ jobs:
         with:
           repository: ${{ inputs.repository }}
           ref: ${{ inputs.ref }}
-      - uses: DeterminateSystems/nix-installer-action@main
-      - uses: DeterminateSystems/flakehub-cache-action@main
+      - uses: jmmaloney4/workflows/.github/actions/nix-setup@main
       # restore cargo-check cache
       - uses: Leafwing-Studios/cargo-cache@43ec9a5bad6e7f174e7fc65dcf533de75ff65881 # v2.6.0
         with:
@@ -80,8 +78,7 @@ jobs:
         with:
           repository: ${{ inputs.repository }}
           ref: ${{ inputs.ref }}
-      - uses: DeterminateSystems/nix-installer-action@main
-      - uses: DeterminateSystems/flakehub-cache-action@main
+      - uses: jmmaloney4/workflows/.github/actions/nix-setup@main
       - uses: olix0r/cargo-action-fmt/setup@9269f3aa1ff01775d95efc97037e2cbdb41d9684 # v2.0.1
       - uses: Leafwing-Studios/cargo-cache@43ec9a5bad6e7f174e7fc65dcf533de75ff65881 # v2.6.0
         with:

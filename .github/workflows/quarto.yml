@@ -22,8 +22,7 @@ jobs:
       DIST: research/_site
     steps:
       - uses: actions/checkout@v4
-      - uses: DeterminateSystems/nix-installer-action@main
-      - uses: DeterminateSystems/flakehub-cache-action@main
+      - uses: jmmaloney4/workflows/.github/actions/nix-setup@main
       - name: Build site with Nix
         run: |
           nix develop -c quarto render ./research

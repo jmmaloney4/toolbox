@@ -1,0 +1,9 @@
+name: Nix Setup
+description: Install Nix and enable flakehub cache for GitHub Actions
+runs:
+  using: composite
+  steps:
+    - uses: DeterminateSystems/nix-installer-action@main
+    - uses: DeterminateSystems/flakehub-cache-action@main
+      with:
+        use-gha-cache: enabled

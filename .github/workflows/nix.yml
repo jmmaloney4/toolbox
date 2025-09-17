@@ -32,8 +32,7 @@ jobs:
         with:
           repository: ${{ inputs.repository }}
           ref: ${{ inputs.ref }}
-      - uses: DeterminateSystems/nix-installer-action@main
-      - uses: DeterminateSystems/flakehub-cache-action@main
+      - uses: jmmaloney4/workflows/.github/actions/nix-setup@main
       - name: compute build-needed matrix via nix-eval-jobs
         id: compute
         uses: jmmaloney4/workflows/.github/actions/compute-flake-build-matrix@main
@@ -54,8 +53,7 @@ jobs:
         with:
           repository: ${{ inputs.repository }}
           ref: ${{ inputs.ref }}
-      - uses: DeterminateSystems/nix-installer-action@main
-      - uses: DeterminateSystems/flakehub-cache-action@main
+      - uses: jmmaloney4/workflows/.github/actions/nix-setup@main
       - name: "🚀 build with nix-fast-build"
         if: ${{ matrix.noop != 'true' }}
         shell: 'nix -L shell nixpkgs#nix-fast-build -c bash {0}'
