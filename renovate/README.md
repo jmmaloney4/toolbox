@@ -24,17 +24,17 @@ To use these presets in your Renovate configuration, extend them using the GitHu
 ```json
 {
   "extends": [
-    "github>jmmaloney4/workflows//renovate:all"
+    "github>jmmaloney4/workflows//renovate/all.json"
   ]
 }
 ```
 
 ### Preset Resolution Examples
 
-- `github>jmmaloney4/workflows//renovate:default` → loads `renovate/default.json`
-- `github>jmmaloney4/workflows//renovate:all` → loads `renovate/all.json`
-- `github>jmmaloney4/workflows//renovate:nix` → loads `renovate/nix.json`
-- `github>jmmaloney4/workflows//renovate:security` → loads `renovate/security.json`
+- `github>jmmaloney4/workflows//renovate/default.json` → loads `renovate/default.json`
+- `github>jmmaloney4/workflows//renovate/all.json` → loads `renovate/all.json`
+- `github>jmmaloney4/workflows//renovate/nix.json` → loads `renovate/nix.json`
+- `github>jmmaloney4/workflows//renovate/security.json` → loads `renovate/security.json`
 
 ### Pinning to Releases
 
@@ -43,7 +43,7 @@ For production use, consider pinning to a specific release:
 ```json
 {
   "extends": [
-    "github>jmmaloney4/workflows//renovate:all#v1.0.0"
+    "github>jmmaloney4/workflows//renovate/all.json#v1.0.0"
   ]
 }
 ```
@@ -56,7 +56,7 @@ The presets are designed to be composable. Common combinations:
 ```json
 {
   "extends": [
-    "github>jmmaloney4/workflows//renovate:all"
+    "github>jmmaloney4/workflows//renovate/all.json"
   ]
 }
 ```
@@ -65,7 +65,7 @@ The presets are designed to be composable. Common combinations:
 ```json
 {
   "extends": [
-    "github>jmmaloney4/workflows//renovate:all"
+    "github>jmmaloney4/workflows//renovate/all.json"
   ]
 }
 ```
