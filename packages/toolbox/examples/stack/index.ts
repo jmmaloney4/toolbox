@@ -1,8 +1,5 @@
-import {
-	type GitHubOidcArgs,
-	GitHubOidcResource,
-} from "../../pulumi";
 import * as pulumi from "@pulumi/pulumi";
+import { type GitHubOidcArgs, GitHubOidcResource } from "../../pulumi";
 
 const config = new pulumi.Config();
 const wif = config.requireObject<GitHubOidcArgs>("wif");

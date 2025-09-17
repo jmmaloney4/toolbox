@@ -4,6 +4,7 @@
 	"lockFileMaintenance": {
 		"enabled": true,
 		"schedule": ["before 4:00 am on the first day of the month"],
-		"automerge": true
+		"automerge": true,
+		"packageRules": [{ "matchManagers": ["nix"], "allowedVersions": ">=0" }]
 	}
 }
