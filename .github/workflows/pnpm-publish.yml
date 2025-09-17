@@ -87,7 +87,7 @@ jobs:
           echo "- **Local:** \`${{ matrix.local_version }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Published:** \`${{ matrix.published_version }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Change:** \`${{ matrix.release_type }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Action:** \`${{ inputs.dry_run == 'true' && 'skip' || matrix.action }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Action:** \`${{ matrix.action }}\`" >> $GITHUB_STEP_SUMMARY
       
       - name: Publish package
         if: inputs.dry_run != true && matrix.action == 'publish'
