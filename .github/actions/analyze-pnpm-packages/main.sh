@@ -34,7 +34,12 @@ echo "| Package | Local | Published | Change | Action |" >> "$SUMMARY_FILE"
 echo "|---|---:|---:|---|---|" >> "$SUMMARY_FILE"
 
 # Find packages
-mapfile -t PKG_PATHS < <(find "${ROOT}/packages" -type f -name package.json -print0 | xargs -0 -n1 dirname | sort -u)
+if [[ ! -d "${ROOT}/packages" ]]; then
+  echo "Warning: packages directory not found at ${ROOT}/packages" >&2
+  PKG_PATHS=()
+else
+  mapfile -t PKG_PATHS < <(find "${ROOT}/packages" -type f -name package.json -print0 | xargs -0 -n1 dirname | sort -u)
+fi
 
 for pkg_path in "${PKG_PATHS[@]}"; do
   name="$(get_pkg_json_field "$pkg_path" "name")"
