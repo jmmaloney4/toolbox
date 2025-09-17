@@ -24,17 +24,29 @@ To use these presets in your Renovate configuration, extend them using the GitHu
 ```json
 {
   "extends": [
-    "github>jmmaloney4/workflows//renovate/all.json"
+    "github>jmmaloney4/toolbox//renovate/default.json",
+    "github>jmmaloney4/toolbox//renovate:nix",
+    "github>jmmaloney4/toolbox//renovate:security"
+  ]
+}
+```
+
+Alternatively, you can use the aggregate preset to include everything from this repository in one line:
+
+```json
+{
+  "extends": [
+    "github>jmmaloney4/toolbox//renovate/all.json"
   ]
 }
 ```
 
 ### Preset Resolution Examples
 
-- `github>jmmaloney4/workflows//renovate/default.json` → loads `renovate/default.json`
-- `github>jmmaloney4/workflows//renovate/all.json` → loads `renovate/all.json`
-- `github>jmmaloney4/workflows//renovate/nix.json` → loads `renovate/nix.json`
-- `github>jmmaloney4/workflows//renovate/security.json` → loads `renovate/security.json`
+- `github>jmmaloney4/toolbox//renovate/default.json` → loads `renovate/default.json`
+- `github>jmmaloney4/toolbox//renovate/all.json` → loads `renovate/all.json`
+- `github>jmmaloney4/toolbox//renovate/nix.json` → loads `renovate/nix.json`
+- `github>jmmaloney4/toolbox//renovate/security.json` → loads `renovate/security.json`
 
 ### Pinning to Releases
 
@@ -43,7 +55,17 @@ For production use, consider pinning to a specific release:
 ```json
 {
   "extends": [
-    "github>jmmaloney4/workflows//renovate/all.json#v1.0.0"
+    "github>jmmaloney4/toolbox//renovate/default.json#v1.0.0"
+  ]
+}
+```
+
+Or pin the aggregate preset:
+
+```json
+{
+  "extends": [
+    "github>jmmaloney4/toolbox//renovate/all.json#v1.0.0"
   ]
 }
 ```
@@ -56,7 +78,19 @@ The presets are designed to be composable. Common combinations:
 ```json
 {
   "extends": [
-    "github>jmmaloney4/workflows//renovate/all.json"
+    "github>jmmaloney4/toolbox//renovate/default.json",
+    "github>jmmaloney4/toolbox//renovate/security.json",
+    "github>jmmaloney4/toolbox//renovate/package-groups.json",
+    "github>jmmaloney4/toolbox//renovate/lock-maintenance.json"
+  ]
+}
+```
+Alternatively, use the single aggregate preset:
+
+```json
+{
+  "extends": [
+    "github>jmmaloney4/toolbox//renovate/all.json"
   ]
 }
 ```
@@ -65,7 +99,18 @@ The presets are designed to be composable. Common combinations:
 ```json
 {
   "extends": [
-    "github>jmmaloney4/workflows//renovate/all.json"
+    "github>jmmaloney4/toolbox//renovate/default.json",
+    "github>jmmaloney4/toolbox//renovate/nix.json",
+    "github>jmmaloney4/toolbox//renovate/pulumi.json"
+  ]
+}
+```
+Alternatively, use the single aggregate preset:
+
+```json
+{
+  "extends": [
+    "github>jmmaloney4/toolbox//renovate/all.json"
   ]
 }
 ```
