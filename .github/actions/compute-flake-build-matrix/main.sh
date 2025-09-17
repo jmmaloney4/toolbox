@@ -5,99 +5,91 @@ set -euo pipefail
 system="$(nix eval --impure --raw --expr 'builtins.currentSystem')"
 echo "System: $system"
 
-# Cache flake metadata once to avoid repeated 'nix flake show' calls
-flake_meta_json_tmp="$(mktemp)"
-nix -L flake show --json > "$flake_meta_json_tmp"
+# Set probe timeout from input or default
+PROBE_TIMEOUT_SECONDS="${PROBE_TIMEOUT_SECONDS:-180}"
 
-# Helper: stream all attributes for a category/system as JSON with cache status
-all_for() {
-  local category="$1"
-  local system_="$2"
-  local target=".#${category}.${system_}"
-
-  echo "nix-eval-jobs: $target" >&2
-
-  # Only evaluate categories that actually exist for this system; ignore others
-  local cat_exists sys_exists
-  cat_exists=$(nix -L eval --impure --raw --expr "let fl = builtins.getFlake (toString ./.); in if (builtins.hasAttr \"${category}\" fl) then \"1\" else \"0\"")
-  if [ "$cat_exists" != "1" ]; then
-    return 0
-  fi
-  sys_exists=$(nix -L eval --impure --raw --expr "let fl = builtins.getFlake (toString ./.); in if (builtins.hasAttr \"${system_}\" fl.${category}) then \"1\" else \"0\"")
-  if [ "$sys_exists" != "1" ]; then
-    return 0
-  fi
-
-  # Query cache status; fail fast on errors
-  if ! out=$(timeout "${PROBE_TIMEOUT_SECONDS}s" nix -L run nixpkgs#nix-eval-jobs -- --check-cache-status --flake "$target"); then
-    echo "::error title=Evaluation failed::nix-eval-jobs failed for $target" >&2
-    return 1
-  fi
-
-  # Emit JSON lines with cache status, full flake attribute, and store path
-  printf '%s' "$out" \
-    | nix -L run nixpkgs#jq -- -rc \
-        --arg category "$category" \
-        --arg system "$system_" '
-          {
-            category: $category,
-            system: $system,
-            name: (.attr // "default"),
-            flake_attr: (".#" + $category + "." + $system + "." + (.attr // "default")),
-            cached: ((.cacheStatus=="cached") or (.cached==true) or (.isCached==true)),
-            store_path: (.outputs.out // "unknown")
-          }
-        '
-}
-
-# Collect all outputs (for summary) into a temp file
 tmp_all="$(mktemp)"
-nix -L run nixpkgs#jq -- -r 'keys[]' "$flake_meta_json_tmp" \
-  | while IFS= read -r category; do
-      all_for "$category" "$system"
-    done > "$tmp_all"
+echo "Running nix-eval-jobs to detect flake outputs..." >&2
+nix run github:nix-community/nix-eval-jobs -- \
+  --flake . \
+  --check-cache-status \
+  --meta \
+  --force-recurse \
+  --select 'outputs: let system = "'"$system"'"; in builtins.listToAttrs (map (catName: let cat = builtins.getAttr catName outputs; in { name = catName; value = if builtins.isAttrs cat && builtins.hasAttr system cat then { ${system} = builtins.getAttr system cat; } else {}; }) (builtins.attrNames outputs))' > "$tmp_all"
 
-# Build an array of all detected outputs (for summary)
-all_outputs=$(nix -L run nixpkgs#jq -- -sc '[.[]]' "$tmp_all")
+# Transform nix-eval-jobs output to matrix format
+echo "Processing nix-eval-jobs output..." >&2
+all_outputs=$(nix -L run nixpkgs#jq -- -s -c '
+  # Parse each JSON object and extract matrix fields
+  map({
+    attr: .attr,
+    category: ((.attr | split(".") | .[0]) // "unknown"),
+    system: ((.attr | split(".") | .[1]) // "unknown"), 
+    name: ((.attr | split(".") | .[2]) // "default"),
+    flake_attr: (".#" + .attr),
+    cached: ((.cacheStatus == "cached") or (.cacheStatus == "local") or (.isCached == true)),
+    store_path: (.outputs.out // (.drvPath // "unknown"))
+  })
+' "$tmp_all")
+
 echo "All detected outputs: $all_outputs"
 
-# Build include array from only uncached outputs
-include_array=$(nix -L run nixpkgs#jq -- -sc 'map(select(.cached==false) | {category, system, name, flake_attr})' "$tmp_all")
+# Build include array from only uncached, buildable outputs  
+include_array=$(nix -L run nixpkgs#jq -- -c '
+  map(select(.cached == false))
+  # Add noop flag for categories we dont want to build
+  | map(
+      if (.category | test("^(packages|checks)$")) then .
+      else . + { noop: "true" }
+      end
+    )
+  # Extract only fields needed for the matrix
+  | map({category, system, name, flake_attr} + (if .noop then {noop: .noop} else {} end))
+' <<<"$all_outputs")
+
 echo "Computed include (uncached only): $include_array"
 
 # Compute boolean flag indicating whether there is any work to do
-has_work=$(nix -L run nixpkgs#jq -- -rc 'if (length>0) then "true" else "false" end' <<<"$include_array")
+has_work=$(nix -L run nixpkgs#jq -- -rc 'if (length > 0) then "true" else "false" end' <<<"$include_array")
 echo "Has work: $has_work"
 
 # Expose outputs for downstream jobs
 delim="MATRIX_INCLUDE_$(date +%s)"
-{
-  echo "matrix_include<<$delim"
-  echo "$include_array"
-  echo "$delim"
-} >> "$GITHUB_OUTPUT"
-echo "has_work=$has_work" >> "$GITHUB_OUTPUT"
+if [ -n "${GITHUB_OUTPUT:-}" ]; then
+  {
+    echo "matrix_include<<$delim"
+    echo "$include_array"
+    echo "$delim"
+  } >> "$GITHUB_OUTPUT"
+  echo "has_work=$has_work" >> "$GITHUB_OUTPUT"
+else
+  echo "GITHUB_OUTPUT not set, skipping GitHub Actions output"
+fi
 
 # Cleanup temp files
-rm -f "$tmp_all" "$flake_meta_json_tmp"
+rm -f "$tmp_all"
 
 # Write a human-readable summary to the GitHub Actions run summary
-{
-  echo "### Detected flake outputs"
-  if [ -n "$all_outputs" ] && [ "$all_outputs" != "null" ] && [ "$all_outputs" != "[]" ]; then
-    # Render a markdown table listing all outputs and whether they are cached
-    nix -L run nixpkgs#jq -- -rc '
-      ["| Category | System | Name | Attr | Store Path | Cached |",
-       "|---|---|---|---|---|---|"]
-      + ( .
-          | map("| " + .category + " | " + .system + " | **" + .name + "** | " + .flake_attr + " | `" + .store_path + "` | " + (if .cached then "📦  yes" else "🏗️  no" end) + " |")
-        )
-      | .[]
-    ' <<<"$all_outputs"
-  else
-    echo "No outputs detected for this system."
-  fi
-  echo
-} >> "$GITHUB_STEP_SUMMARY"
+if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+  {
+    echo "### Detected flake outputs"
+    if [ -n "$all_outputs" ] && [ "$all_outputs" != "null" ] && [ "$all_outputs" != "[]" ]; then
+      # Render a markdown table listing all outputs and whether they are cached
+      nix -L run nixpkgs#jq -- -rc '
+        ["| Category | System | Name | Attr | Store Path | Cached |",
+         "|---|---|---|---|---|---|"]
+        + ( .
+            | map("| " + .category + " | " + .system + " | **" + .name + "** | " + .flake_attr + " | `" + .store_path + "` | " + (if .cached then "📦  yes" else "🏗️  no" end) + " |")
+          )
+        | .[]
+      ' <<<"$all_outputs"
+    else
+      echo "No outputs detected for this system."
+    fi
+    echo
+  } >> "$GITHUB_STEP_SUMMARY"
+else
+  echo "GITHUB_STEP_SUMMARY not set, skipping summary output"
+fi
 
 
