@@ -93,10 +93,7 @@ for pkg_path in "${PKG_PATHS[@]}"; do
   # Compare versions and determine action
   classify="$(compare_versions "$local_ver" "$published_ver")"
   action="publish"
-  if [[ "$classify" == "same" || "$classify" == "downgrade" ]]; then
-    action="skip"
-  fi
-  if [[ "$DRY_RUN" == "true" ]]; then
+  if [[ "$DRY_RUN" == "true" || "$classify" == "same" || "$classify" == "downgrade" ]]; then
     action="skip"
   fi
   
