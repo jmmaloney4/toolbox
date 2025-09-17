@@ -1,8 +1,8 @@
 {
 	"extends": [
-		"github>jmmaloney4/workflows//renovate:default",
-		"github>jmmaloney4/workflows//renovate:security",
-		"github>jmmaloney4/workflows//renovate:package-groups",
-		"github>jmmaloney4/workflows//renovate:lock-maintenance"
+		"github>jmmaloney4/toolbox//renovate:default",
+		"github>jmmaloney4/toolbox//renovate:security",
+		"github>jmmaloney4/toolbox//renovate:package-groups",
+		"github>jmmaloney4/toolbox//renovate:lock-maintenance"
 	]
 }

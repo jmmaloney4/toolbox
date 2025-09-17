@@ -95,7 +95,7 @@ Calling from a workflow (reusable-safe):
 Do NOT use a local relative path (e.g., `./.github/actions/compute-example`) in reusable workflows. When this workflow is called from another repository, local paths may not resolve as intended. Always reference actions via repository path with a pinned ref:
 
 ```yaml
-- uses: jmmaloney4/workflows/.github/actions/compute-example@main
+- uses: jmmaloney4/toolbox/.github/actions/compute-example@main
 ```
 
 Guidelines:

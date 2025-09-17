@@ -44,7 +44,7 @@ links:
 
 - Centralizes image publish behavior; thin workflows; minimal secret handling.
 - Tagging remains consistent and branch-aware; no pushes occur if no `*-image` outputs succeed.
-- Requires composite actions to be hosted and pinned (e.g., `jmmaloney4/workflows@<ref>`), and `packages: write` permission declared.
+- Requires composite actions to be hosted and pinned (e.g., `jmmaloney4/toolbox@<ref>`), and `packages: write` permission declared.
 
 ## Alternatives
 
