@@ -1,31 +1,51 @@
 import * as gcp from "@pulumi/gcp";
 import * as pulumi from "@pulumi/pulumi";
+import { WorkloadIdentityPoolResource } from "./workload-identity-pool";
 
-export interface GitHubOidcArgs {
+/**
+ * Arguments for configuring a GitHub Actions Workload Identity Provider and service account.
+ *
+ * @remarks
+ * This component creates a Service Account and binds the specified IAM roles
+ * across one or more GCP projects. It also creates an OIDC provider in the
+ * provided Workload Identity Pool constrained to the GitHub repository (and
+ * optional ref) you specify.
+ */
+export interface GithubActionsWorkloadIdentityProviderArgs {
 	repoOwner: string;
 	repoName: string;
 	// Map each role to a list of project IDs to bind the role in
 	// Example: { "roles/storage.admin": ["my-prod","my-stage"], "roles/viewer": ["my-dev"] }
 	serviceAccountRoles: Record<string, string[]>;
 	limitToRef?: string;
+	/** Existing Workload Identity Pool to attach provider to */
+	pool: WorkloadIdentityPoolResource;
 }
 
-export class GitHubOidcResource extends pulumi.ComponentResource {
+/**
+ * Creates a GCP Workload Identity Provider for GitHub Actions and a Service Account
+ * with the provided role bindings.
+ *
+ * Outputs:
+ * - `serviceAccountEmail` — email of the created Service Account
+ * - `workloadIdentityProviderResource` — full resource name of the provider
+ */
+export class GithubActionsWorkloadIdentityProvider extends pulumi.ComponentResource {
 	public readonly serviceAccountEmail: pulumi.Output<string>;
 	public readonly workloadIdentityProviderResource: pulumi.Output<string>;
 
 	constructor(
 		name: string,
-		args: GitHubOidcArgs,
+		args: GithubActionsWorkloadIdentityProviderArgs,
 		opts?: pulumi.ComponentResourceOptions,
 	) {
-		super("custom:github:oidc", name, args, opts);
+		super("custom:github:actionsWorkloadIdentityProvider", name, args, opts);
 
 		// Create a service account for GitHub Actions
 		const serviceAccount = new gcp.serviceaccount.Account(
 			`${name}-sa`,
 			{
-				accountId: `gh-${args.repoOwner}-${args.repoName}-${pulumi.getStack()}`,
+				accountId: `sa-${args.repoOwner}-${args.repoName}-${pulumi.getStack()}`,
 				displayName: `GitHub Actions (${pulumi.getStack()})`,
 			},
 			{ parent: this },
@@ -53,22 +73,11 @@ export class GitHubOidcResource extends pulumi.ComponentResource {
 			}
 		}
 
-		// Create a Workload Identity Pool for GitHub
-		const pool = new gcp.iam.WorkloadIdentityPool(
-			`${name}-pool`,
-			{
-				workloadIdentityPoolId: `github-${pulumi.getStack()}`,
-				displayName: "GitHub Actions",
-				description: "Identity pool for GitHub Actions",
-			},
-			{ parent: this },
-		);
-
 		// Create a Workload Identity Provider for GitHub Actions
 		const provider = new gcp.iam.WorkloadIdentityPoolProvider(
 			`${name}-provider`,
 			{
-				workloadIdentityPoolId: pool.workloadIdentityPoolId,
+				workloadIdentityPoolId: args.pool.workloadIdentityPoolId,
 				workloadIdentityPoolProviderId: `github-${pulumi.getStack()}`,
 				displayName: "GitHub Actions provider",
 				description: "GitHub Actions provider",
@@ -96,7 +105,7 @@ export class GitHubOidcResource extends pulumi.ComponentResource {
 				serviceAccountId: serviceAccount.name,
 				role: "roles/iam.workloadIdentityUser",
 				members: [
-					pulumi.interpolate`principalSet://iam.googleapis.com/${pool.name}/attribute.repository/${args.repoOwner}/${args.repoName}`,
+					pulumi.interpolate`principalSet://iam.googleapis.com/${args.pool.name}/attribute.repository/${args.repoOwner}/${args.repoName}`,
 				],
 			},
 			{ parent: this },

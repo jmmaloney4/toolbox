@@ -1,10 +1,17 @@
 import * as pulumi from "@pulumi/pulumi";
-import { type GitHubOidcArgs, GitHubOidcResource } from "../../pulumi";
+import { type GithubActionsWorkloadIdentityProviderArgs, GithubActionsWorkloadIdentityProvider, WorkloadIdentityPoolResource } from "../../pulumi";
 
 const config = new pulumi.Config();
-const wif = config.requireObject<GitHubOidcArgs>("wif");
+const wif = config.requireObject<GithubActionsWorkloadIdentityProviderArgs>("wif");
 
-const githubOidc = new GitHubOidcResource("github-oidc", wif);
+// Example reusable pool defined in the stack
+const pool = new WorkloadIdentityPoolResource("github-pool", {
+    poolId: pulumi.interpolate`github-${pulumi.getStack()}`,
+    displayName: "GitHub Actions",
+    description: "Identity pool for GitHub Actions",
+});
+
+const githubOidc = new GithubActionsWorkloadIdentityProvider("github-oidc", { ...wif, pool });
 
 export const serviceAccountEmail = githubOidc.serviceAccountEmail;
 export const workloadIdentityProviderResource =

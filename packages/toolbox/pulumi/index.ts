@@ -1,2 +1,2 @@
-// Export GitHub OIDC components
-export * from "./github-oidc";
+export * from "./github-actions-identity-provider";
+export * from "./workload-identity-pool";
