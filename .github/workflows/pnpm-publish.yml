@@ -1,0 +1,71 @@
+name: '📦 pnpm-publish'
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        description: 'Runner label for all jobs'
+        required: true
+        type: string
+      repository:
+        description: 'Repository to checkout and build (owner/repo)'
+        required: true
+        type: string
+      ref:
+        description: 'Git ref to checkout and build'
+        required: true
+        type: string
+jobs:
+  detect-packages:
+    name: "🧱 detect pnpm packages"
+    runs-on: ${{ inputs.runs-on }}
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.repository }}
+          ref: ${{ inputs.ref }}
+      - name: Detect pnpm packages
+        id: set-matrix
+        run: |
+          # Find all package.json files in packages/* and create matrix
+          packages=$(find packages -name "package.json" -type f | jq -R -s -c 'split("\n")[:-1] | map(select(. != "")) | map({package_path: . | gsub("/package.json"; "")})')
+          echo "matrix=$packages" >> $GITHUB_OUTPUT
+  publish-packages:
+    name: "🚀 publish to GHCR"
+    needs: detect-packages
+    runs-on: ${{ inputs.runs-on }}
+    strategy:
+      fail-fast: false # Each package publishes independently
+      matrix:
+        include: ${{ fromJson(needs.detect-packages.outputs.matrix) }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.repository }}
+          ref: ${{ inputs.ref }}
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/flakehub-cache-action@main
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          registry-url: 'https://npm.pkg.github.com'
+      - name: Install dependencies
+        run: nix develop .#pulumi --command pnpm install --frozen-lockfile
+      - name: Build packages
+        run: nix develop .#pulumi --command pnpm build
+      - name: Publish package
+        run: nix develop .#pulumi --command pnpm publish --registry=https://npm.pkg.github.com
+        working-directory: ${{ matrix.package_path }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
