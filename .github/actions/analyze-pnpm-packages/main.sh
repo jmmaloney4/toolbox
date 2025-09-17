@@ -11,6 +11,14 @@ SCOPE="${A_SCOPE:-}"
 SUMMARY_FILE="${GITHUB_STEP_SUMMARY:-/dev/stdout}"
 OUT_FILE="${GITHUB_OUTPUT:-/dev/stdout}"
 
+# Verify jq is available
+if ! command -v jq >/dev/null 2>&1; then
+  echo "Error: jq is required but not available" >&2
+  exit 1
+fi
+
+echo "Using jq version: $(jq --version)" >&2
+
 # Helper functions
 urlencode() {
   python3 -c "import urllib.parse; print(urllib.parse.quote('$1', safe=''))"
@@ -18,7 +26,7 @@ urlencode() {
 
 get_pkg_json_field() {
   local path="$1" field="$2"
-  node -e "console.log(require('${path}/package.json')['${field}'] ?? '')"
+  jq -r ".${field} // empty" "${path}/package.json"
 }
 
 # Initialize matrix
@@ -60,17 +68,7 @@ for pkg_path in "${PKG_PATHS[@]}"; do
     set -e
     
     if [[ $rc -eq 0 && -n "$resp" ]]; then
-      published_ver="$(echo "$resp" | node -e "
-        let d='';
-        process.stdin.on('data',c=>d+=c).on('end',()=>{
-          try {
-            const j=JSON.parse(d);
-            console.log((j['dist-tags']&&j['dist-tags'].latest)||'Not found');
-          } catch {
-            console.log('Not found');
-          }
-        })
-      ")"
+      published_ver="$(echo "$resp" | jq -r '.dist-tags.latest // "Not found"')"
     fi
   fi
   
@@ -99,15 +97,15 @@ for pkg_path in "${PKG_PATHS[@]}"; do
   fi
   
   # Add to matrix
-  entry=$(node -e "console.log(JSON.stringify({
-    package_path: '${pkg_path}',
-    name: '${name}',
-    local_version: '${local_ver}',
-    published_version: '${published_ver}',
-    release_type: '${classify}',
-    action: '${action}'
-  }))")
-  MATRIX=$(node -e "let a=${MATRIX}; a.push(${entry}); console.log(JSON.stringify(a))")
+  entry=$(jq -n --arg path "$pkg_path" --arg name "$name" --arg local "$local_ver" --arg published "$published_ver" --arg classify "$classify" --arg action "$action" '{
+    package_path: $path,
+    name: $name,
+    local_version: $local,
+    published_version: $published,
+    release_type: $classify,
+    action: $action
+  }')
+  MATRIX=$(echo "$MATRIX" | jq --argjson entry "$entry" '. + [$entry]')
   
   # Add to summary
   echo "| ${name} | ${local_ver} | ${published_ver} | ${classify} | ${action} |" >> "$SUMMARY_FILE"
