@@ -1,0 +1,32 @@
+name: Analyze pnpm packages
+description: Detect packages, query GHCR for published versions, semver compare, emit matrix and summary
+inputs:
+  dry_run:
+    description: Run in dry-run mode
+    required: false
+    default: "false"
+  registry:
+    description: npm registry URL (GHCR)
+    required: false
+    default: "https://npm.pkg.github.com"
+  root:
+    description: repo root
+    required: false
+    default: "."
+  scope:
+    description: npm scope filter (e.g., @jmmaloney4); if set, only include scoped packages
+    required: false
+outputs:
+  matrix:
+    description: JSON matrix of packages and actions
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        A_DRY_RUN: ${{ inputs.dry_run }}
+        A_REGISTRY: ${{ inputs.registry }}
+        A_ROOT: ${{ inputs.root }}
+        A_SCOPE: ${{ inputs.scope }}
+        NODE_AUTH_TOKEN: ${{ env.NODE_AUTH_TOKEN }}
+      run: $GITHUB_ACTION_PATH/main.sh
