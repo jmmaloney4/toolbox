@@ -65,7 +65,7 @@ if [[ ! -d "${ROOT}/packages" ]]; then
   echo "Warning: packages directory not found at ${ROOT}/packages" >&2
   PKG_PATHS=()
 else
-  mapfile -t PKG_PATHS < <(find "${ROOT}/packages" -type f -name package.json -print0 | xargs -0 -n1 dirname | sort -u)
+  mapfile -t PKG_PATHS < <(find "${ROOT}/packages" -mindepth 2 -maxdepth 2 -name package.json -type f -printf '%h\n' | sort -u)
 fi
 
 # Build matrix entries
