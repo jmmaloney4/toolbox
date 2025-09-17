@@ -7,6 +7,7 @@ This directory contains composable Renovate presets that can be shared across pr
 ### Core Presets
 
 - **`default.json`** - Base Renovate configuration with common settings
+- **`all.json`** - Aggregate preset that includes all presets in this repo
 - **`security.json`** - Security-focused package rules and vulnerability handling
 - **`lock-maintenance.json`** - Lock file maintenance configuration
 - **`package-groups.json`** - Package groupings for common technology stacks
@@ -23,9 +24,7 @@ To use these presets in your Renovate configuration, extend them using the GitHu
 ```json
 {
   "extends": [
-    "github>jmmaloney4/workflows//renovate:default",
-    "github>jmmaloney4/workflows//renovate:nix",
-    "github>jmmaloney4/workflows//renovate:security"
+    "github>jmmaloney4/workflows//renovate:all"
   ]
 }
 ```
@@ -33,6 +32,7 @@ To use these presets in your Renovate configuration, extend them using the GitHu
 ### Preset Resolution Examples
 
 - `github>jmmaloney4/workflows//renovate:default` → loads `renovate/default.json`
+- `github>jmmaloney4/workflows//renovate:all` → loads `renovate/all.json`
 - `github>jmmaloney4/workflows//renovate:nix` → loads `renovate/nix.json`
 - `github>jmmaloney4/workflows//renovate:security` → loads `renovate/security.json`
 
@@ -43,7 +43,7 @@ For production use, consider pinning to a specific release:
 ```json
 {
   "extends": [
-    "github>jmmaloney4/workflows//renovate:default#v1.0.0"
+    "github>jmmaloney4/workflows//renovate:all#v1.0.0"
   ]
 }
 ```
@@ -56,10 +56,7 @@ The presets are designed to be composable. Common combinations:
 ```json
 {
   "extends": [
-    "github>jmmaloney4/workflows//renovate:default",
-    "github>jmmaloney4/workflows//renovate:security",
-    "github>jmmaloney4/workflows//renovate:package-groups",
-    "github>jmmaloney4/workflows//renovate:lock-maintenance"
+    "github>jmmaloney4/workflows//renovate:all"
   ]
 }
 ```
@@ -68,9 +65,7 @@ The presets are designed to be composable. Common combinations:
 ```json
 {
   "extends": [
-    "github>jmmaloney4/workflows//renovate:default",
-    "github>jmmaloney4/workflows//renovate:nix",
-    "github>jmmaloney4/workflows//renovate:pulumi"
+    "github>jmmaloney4/workflows//renovate:all"
   ]
 }
 ```

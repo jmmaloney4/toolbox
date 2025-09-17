@@ -1,0 +1,14 @@
+{
+	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
+	"description": "Aggregate preset that composes all presets in this repository",
+	"extends": [
+		"github>jmmaloney4/workflows//renovate:default",
+		"github>jmmaloney4/workflows//renovate:security",
+		"github>jmmaloney4/workflows//renovate:package-groups",
+		"github>jmmaloney4/workflows//renovate:lock-maintenance",
+		"github>jmmaloney4/workflows//renovate:nix",
+		"github>jmmaloney4/workflows//renovate:pulumi"
+	]
+}
+
+
