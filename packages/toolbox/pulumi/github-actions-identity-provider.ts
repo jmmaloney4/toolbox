@@ -1,6 +1,6 @@
 import * as gcp from "@pulumi/gcp";
 import * as pulumi from "@pulumi/pulumi";
-import { WorkloadIdentityPoolResource } from "./workload-identity-pool";
+import type { WorkloadIdentityPoolResource } from "./workload-identity-pool";
 
 /**
  * Arguments for configuring a GitHub Actions Workload Identity Provider and service account.
