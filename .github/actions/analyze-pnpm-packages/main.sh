@@ -21,7 +21,7 @@ echo "Using jq version: $(jq --version)" >&2
 
 # Helper functions
 urlencode() {
-  python3 -c "import urllib.parse; print(urllib.parse.quote('$1', safe=''))"
+  jq -r --arg input "$1" '$input | @uri'
 }
 
 get_pkg_json_field() {
@@ -29,8 +29,27 @@ get_pkg_json_field() {
   jq -r ".${field} // empty" "${path}/package.json"
 }
 
-# Initialize matrix
-MATRIX="[]"
+compare_versions() {
+  local local_ver="$1" published_ver="$2"
+  if [[ "$published_ver" == "Not found" ]]; then
+    echo "initial"
+  else
+    # Use jq for version comparison
+    jq -n --arg local "$local_ver" --arg published "$published_ver" '
+      def version_parts(v): v | split(".") | map(tonumber? // 0);
+      def compare_versions(a; b):
+        (a | version_parts) as $a | (b | version_parts) as $b |
+        if $a[0] > $b[0] then "major"
+        elif $a[0] < $b[0] then "downgrade"
+        elif $a[1] > $b[1] then "minor"
+        elif $a[1] < $b[1] then "downgrade"
+        elif $a[2] > $b[2] then "patch"
+        elif $a[2] < $b[2] then "downgrade"
+        else "same" end;
+      compare_versions($local; $published)
+    '
+  fi
+}
 
 # Start summary
 echo "# 📦 pnpm packages analysis" >> "$SUMMARY_FILE"
@@ -49,6 +68,8 @@ else
   mapfile -t PKG_PATHS < <(find "${ROOT}/packages" -type f -name package.json -print0 | xargs -0 -n1 dirname | sort -u)
 fi
 
+# Build matrix entries
+MATRIX_ENTRIES=()
 for pkg_path in "${PKG_PATHS[@]}"; do
   name="$(get_pkg_json_field "$pkg_path" "name")"
   [[ -n "$SCOPE" && "${name}" != ${SCOPE}/* ]] && continue
@@ -59,57 +80,42 @@ for pkg_path in "${PKG_PATHS[@]}"; do
   published_ver="Not found"
   if [[ -n "${NODE_AUTH_TOKEN:-}" ]]; then
     encoded="$(urlencode "${name}")"
-    set +e
     resp="$(curl -sfL \
       -H "Authorization: Bearer ${NODE_AUTH_TOKEN}" \
       -H "Accept: application/vnd.npm.install-v1+json" \
-      "${REG}/${encoded}" 2>/dev/null)"
-    rc=$?
-    set -e
+      "${REG}/${encoded}" 2>/dev/null || echo "")"
     
-    if [[ $rc -eq 0 && -n "$resp" ]]; then
+    if [[ -n "$resp" ]]; then
       published_ver="$(echo "$resp" | jq -r '.dist-tags.latest // "Not found"')"
     fi
   fi
   
-  # Semver comparison
-  classify="initial"
+  # Compare versions and determine action
+  classify="$(compare_versions "$local_ver" "$published_ver")"
   action="publish"
-  if [[ "$published_ver" != "Not found" ]]; then
-    IFS='.-' read -r lmaj lmin lpat _ <<<"${local_ver}"
-    IFS='.-' read -r pmaj pmin ppat _ <<<"${published_ver}"
-    
-    if [[ "$lmaj" == "$pmaj" && "$lmin" == "$pmin" && "$lpat" == "$ppat" ]]; then
-      classify="same"
-      action="skip"
-    elif (( lmaj < pmaj )) || (( lmaj==pmaj && lmin < pmin )) || (( lmaj==pmaj && lmin==pmin && lpat < ppat )); then
-      classify="downgrade"
-      action="skip"
-    else
-      if (( lmaj > pmaj )); then classify="major"
-      elif (( lmin > pmin )); then classify="minor"
-      else classify="patch"; fi
-    fi
+  if [[ "$classify" == "same" || "$classify" == "downgrade" ]]; then
+    action="skip"
   fi
-  
   if [[ "$DRY_RUN" == "true" ]]; then
     action="skip"
   fi
   
-  # Add to matrix
-  entry=$(jq -n --arg path "$pkg_path" --arg name "$name" --arg local "$local_ver" --arg published "$published_ver" --arg classify "$classify" --arg action "$action" '{
+  # Add to matrix entries
+  MATRIX_ENTRIES+=("$(jq -n --arg path "$pkg_path" --arg name "$name" --arg local "$local_ver" --arg published "$published_ver" --arg classify "$classify" --arg action "$action" '{
     package_path: $path,
     name: $name,
     local_version: $local,
     published_version: $published,
     release_type: $classify,
     action: $action
-  }')
-  MATRIX=$(echo "$MATRIX" | jq --argjson entry "$entry" '. + [$entry]')
+  }')")
   
   # Add to summary
   echo "| ${name} | ${local_ver} | ${published_ver} | ${classify} | ${action} |" >> "$SUMMARY_FILE"
 done
+
+# Build final matrix
+MATRIX="$(printf '%s\n' "${MATRIX_ENTRIES[@]}" | jq -s '.')"
 
 # Output matrix
 echo "matrix=${MATRIX}" >> "$OUT_FILE"
