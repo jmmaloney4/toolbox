@@ -3,10 +3,6 @@
 	"description": "Aggregate preset that composes all presets in this repository",
 	"extends": [
 		"github>jmmaloney4/toolbox//renovate/default.json",
-		"github>jmmaloney4/toolbox//renovate/security.json",
-		"github>jmmaloney4/toolbox//renovate/package-groups.json",
-		"github>jmmaloney4/toolbox//renovate/lock-maintenance.json",
-		"github>jmmaloney4/toolbox//renovate/nix.json",
-		"github>jmmaloney4/toolbox//renovate/pulumi.json"
+		"github>jmmaloney4/toolbox//renovate/lock-maintenance.json"
 	]
 }
