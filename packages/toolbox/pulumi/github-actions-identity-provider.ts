@@ -74,11 +74,12 @@ export class GithubActionsWorkloadIdentityProvider extends pulumi.ComponentResou
 		}
 
 		// Create a Workload Identity Provider for GitHub Actions
+		const providerId = `provider-${args.repoOwner}-${args.repoName}-${pulumi.getStack()}`;
 		const provider = new gcp.iam.WorkloadIdentityPoolProvider(
 			`${name}-provider`,
 			{
 				workloadIdentityPoolId: args.pool.workloadIdentityPoolId,
-				workloadIdentityPoolProviderId: `github-${pulumi.getStack()}`,
+				workloadIdentityPoolProviderId: providerId,
 				displayName: "GitHub Actions provider",
 				description: "GitHub Actions provider",
 				attributeMapping: {
@@ -89,7 +90,10 @@ export class GithubActionsWorkloadIdentityProvider extends pulumi.ComponentResou
 				},
 				oidc: {
 					issuerUri: "https://token.actions.githubusercontent.com",
-					allowedAudiences: [`https://github.com/${args.repoOwner}`],
+					allowedAudiences: [
+						pulumi.interpolate`https://iam.googleapis.com/${args.pool.name}/providers/${providerId}`,
+						`https://github.com/${args.repoOwner}`,
+					],
 				},
 				attributeCondition: args.limitToRef
 					? pulumi.interpolate`attribute.repository=="${args.repoOwner}/${args.repoName}" && attribute.ref=="${args.limitToRef}"`
