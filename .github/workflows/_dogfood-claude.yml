@@ -37,7 +37,7 @@ jobs:
          (contains(github.event.issue.title, 'claude review') || contains(github.event.issue.title, 'Claude review') || contains(github.event.issue.title, 'CLAUDE REVIEW'))))
     uses: jmmaloney4/toolbox/.github/workflows/claude.yml@main
     with:
-      runs-on: ubuntu-latest
+      runs-on: runs-on=${{ github.run_id }}/runner=1cpu-linux-arm64
       repository: ${{ github.repository }}
       ref: ${{ github.ref }}
     secrets:

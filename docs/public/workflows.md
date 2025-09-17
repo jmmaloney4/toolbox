@@ -33,7 +33,7 @@ jobs:
   rust:
     uses: jmmaloney4/toolbox/.github/workflows/rust.yml@main
     with:
-      runs-on: ubuntu-latest
+      runs-on: runs-on=${{ github.run_id }}/runner=2cpu-linux-x64
       repository: ${{ github.repository }}
       ref: ${{ github.ref }}
 ```
@@ -66,7 +66,7 @@ jobs:
   nix-build:
     uses: jmmaloney4/toolbox/.github/workflows/nix.yml@main
     with:
-      runs-on: ubuntu-latest
+      runs-on: runs-on=${{ github.run_id }}/runner=2cpu-linux-x64
       repository: ${{ github.repository }}
       ref: ${{ github.ref }}
 ```
@@ -112,7 +112,7 @@ jobs:
   pulumi:
     uses: jmmaloney4/toolbox/.github/workflows/pulumi.yml@main
     with:
-      runs-on: ubuntu-latest
+      runs-on: runs-on=${{ github.run_id }}/runner=1cpu-linux-x64
       repository: ${{ github.repository }}
       ref: ${{ github.ref }}
       google_workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
@@ -178,7 +178,7 @@ jobs:
          (contains(github.event.issue.title, 'claude review') || contains(github.event.issue.title, 'Claude review') || contains(github.event.issue.title, 'CLAUDE REVIEW'))))
     uses: jmmaloney4/toolbox/.github/workflows/claude.yml@main
     with:
-      runs-on: ubuntu-latest
+      runs-on: runs-on=${{ github.run_id }}/runner=1cpu-linux-arm64
       repository: ${{ github.repository }}
       ref: ${{ github.ref }}
     secrets:
@@ -233,7 +233,7 @@ jobs:
 
     uses: jmmaloney4/toolbox/.github/workflows/claude-review.yml@main
     with:
-      runs-on: ubuntu-latest
+      runs-on: runs-on=${{ github.run_id }}/runner=1cpu-linux-arm64
       repository: ${{ github.repository }}
       ref: ${{ github.ref }}
     secrets:
