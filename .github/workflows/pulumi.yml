@@ -63,7 +63,7 @@ jobs:
       matrix:
         include: ${{ fromJson(needs.detect-pulumi-stacks.outputs.matrix) }}
     concurrency:
-      group: ${{ github.event_name == 'workflow_call' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && 'pulumi-deploy-' + matrix.project + '-' + matrix.stack || 'pulumi-preview-' + matrix.project + '-' + matrix.stack + '-' + github.ref_name }}
+      group: ${{ github.event_name == 'workflow_call' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && format('pulumi-deploy-{0}-{1}', matrix.project, matrix.stack) || format('pulumi-preview-{0}-{1}-{2}', matrix.project, matrix.stack, github.ref_name) }}
       cancel-in-progress: false
     permissions:
       id-token: write
