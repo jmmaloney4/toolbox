@@ -14,33 +14,44 @@ on:
         description: 'Git ref to checkout and build'
         required: true
         type: string
+      dry_run:
+        description: 'Run in dry-run mode (show analysis without publishing)'
+        required: false
+        type: boolean
+        default: false
 jobs:
-  detect-packages:
-    name: "🧱 detect pnpm packages"
+  analyze:
+    name: "🧱 analyze pnpm packages"
     runs-on: ${{ inputs.runs-on }}
     permissions:
       contents: read
+      packages: read
     outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      matrix: ${{ steps.analyze.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
         with:
           repository: ${{ inputs.repository }}
           ref: ${{ inputs.ref }}
-      - name: Detect pnpm packages
-        id: set-matrix
-        run: |
-          # Find all package.json files in packages/* and create matrix
-          packages=$(find packages -name "package.json" -type f | jq -R -s -c 'split("\n")[:-1] | map(select(. != "")) | map({package_path: . | gsub("/package.json"; "")})')
-          echo "matrix=$packages" >> $GITHUB_OUTPUT
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Analyze packages (GHCR + semver)
+        id: analyze
+        uses: jmmaloney4/toolbox/.github/actions/analyze-pnpm-packages@main
+        with:
+          dry_run: ${{ inputs.dry_run }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   publish-packages:
     name: "🚀 publish to GHCR"
-    needs: detect-packages
+    needs: analyze
     runs-on: ${{ inputs.runs-on }}
     strategy:
       fail-fast: false # Each package publishes independently
       matrix:
-        include: ${{ fromJson(needs.detect-packages.outputs.matrix) }}
+        include: ${{ fromJson(needs.analyze.outputs.matrix) }}
     permissions:
       contents: read
       packages: write
@@ -64,7 +75,22 @@ jobs:
         run: nix develop .#pulumi --command pnpm install --frozen-lockfile
       - name: Build packages
         run: nix develop .#pulumi --command pnpm build
+      
+      - name: Summary (per-package)
+        run: |
+          echo "## 📦 Publish Plan for ${{ matrix.name }}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            echo "> **DRY RUN** - No publish will occur" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Path:** \`${{ matrix.package_path }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Local:** \`${{ matrix.local_version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Published:** \`${{ matrix.published_version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Change:** \`${{ matrix.release_type }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Action:** \`${{ inputs.dry_run == 'true' && 'skip' || matrix.action }}\`" >> $GITHUB_STEP_SUMMARY
+      
       - name: Publish package
+        if: inputs.dry_run != true && matrix.action == 'publish'
         run: nix develop .#pulumi --command pnpm publish --registry=https://npm.pkg.github.com
         working-directory: ${{ matrix.package_path }}
         env:
