@@ -25,7 +25,7 @@ export class GitHubOidcResource extends pulumi.ComponentResource {
 		const serviceAccount = new gcp.serviceaccount.Account(
 			`${name}-sa`,
 			{
-				accountId: pulumi.getStack(),
+				accountId: `github-actions-${args.repoOwner}-${args.repoName}-${pulumi.getStack()}`,
 				displayName: `GitHub Actions (${pulumi.getStack()})`,
 			},
 			{ parent: this },
