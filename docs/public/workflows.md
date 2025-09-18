@@ -85,7 +85,7 @@ jobs:
 #### Minimal consumer workflow (copy-paste)
 
 ```yaml
-name: '📦 pnpm-publish'
+name: '📦 pnpm'
 on:
   workflow_dispatch:
   push:
@@ -99,13 +99,13 @@ permissions:
   packages: write
 
 jobs:
-  pnpm-publish:
+  pnpm:
     uses: jmmaloney4/toolbox/.github/workflows/pnpm.yml@main
     with:
       runs-on: runs-on=${{ github.run_id }}/runner=2cpu-linux-x64
       repository: ${{ github.repository }}
       ref: ${{ github.ref }}
-      # Optional: dry_run: true
+      dry_run: ${{ !startsWith(github.ref, 'refs/tags/v') }}
 ```
 
 **Note**: This workflow automatically analyzes package versions and only publishes packages that have version changes. It uses the `analyze-pnpm-packages` action to determine which packages need publishing.
