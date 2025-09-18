@@ -66,6 +66,7 @@ if [[ ! -d "${ROOT}/packages" ]]; then
   PKG_PATHS=()
 else
   mapfile -t PKG_PATHS < <(find "${ROOT}/packages" -mindepth 2 -maxdepth 2 -name package.json -type f -printf '%h\n' | sort -u)
+  echo "Found ${#PKG_PATHS[@]} package(s): ${PKG_PATHS[*]}" >&2
 fi
 
 # Build matrix entries
@@ -112,10 +113,20 @@ for pkg_path in "${PKG_PATHS[@]}"; do
 done
 
 # Build final matrix
+echo "Building matrix from ${#MATRIX_ENTRIES[@]} entries" >&2
 if [[ ${#MATRIX_ENTRIES[@]} -eq 0 ]]; then
   MATRIX="[]"
+  echo "No packages found, using empty matrix" >&2
 else
   MATRIX="$(printf '%s\n' "${MATRIX_ENTRIES[@]}" | jq -s '.')"
+  echo "Generated matrix: $MATRIX" >&2
+fi
+
+# Ensure MATRIX is valid JSON
+if ! echo "$MATRIX" | jq empty 2>/dev/null; then
+  echo "Error: Invalid JSON matrix generated" >&2
+  echo "Matrix content: $MATRIX" >&2
+  MATRIX="[]"
 fi
 
 # Output matrix using GitHub Actions multiline format

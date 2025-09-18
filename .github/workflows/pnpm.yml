@@ -51,7 +51,7 @@ jobs:
     strategy:
       fail-fast: false # Each package publishes independently
       matrix:
-        include: ${{ fromJson(needs.analyze.outputs.matrix) }}
+        include: ${{ fromJson(needs.analyze.outputs.matrix || '[]') }}
     permissions:
       contents: read
       packages: write
