@@ -112,7 +112,11 @@ for pkg_path in "${PKG_PATHS[@]}"; do
 done
 
 # Build final matrix
-MATRIX="$(printf '%s\n' "${MATRIX_ENTRIES[@]}" | jq -s '.')"
+if [[ ${#MATRIX_ENTRIES[@]} -eq 0 ]]; then
+  MATRIX="[]"
+else
+  MATRIX="$(printf '%s\n' "${MATRIX_ENTRIES[@]}" | jq -s '.')"
+fi
 
 # Output matrix
 echo "matrix=${MATRIX}" >> "$OUT_FILE"
