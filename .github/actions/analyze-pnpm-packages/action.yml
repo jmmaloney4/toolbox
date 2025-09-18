@@ -19,10 +19,12 @@ inputs:
 outputs:
   matrix:
     description: JSON matrix of packages and actions
+    value: ${{ steps.analyze.outputs.matrix }}
 runs:
   using: composite
   steps:
-    - shell: bash
+    - id: analyze
+      shell: bash
       env:
         A_DRY_RUN: ${{ inputs.dry_run }}
         A_REGISTRY: ${{ inputs.registry }}
