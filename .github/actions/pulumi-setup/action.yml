@@ -10,7 +10,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: jmmaloney4/workflows/.github/actions/nix-setup@main
+    - uses: jmmaloney4/toolbox/.github/actions/nix-setup@main
     - uses: google-github-actions/auth@v2
       with:
         workload_identity_provider: ${{ inputs.google_workload_identity_provider }}
