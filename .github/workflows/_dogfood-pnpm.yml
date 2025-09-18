@@ -3,14 +3,12 @@ on:
   workflow_dispatch:
   push:
     branches:
-    - main
+      - main
     tags:
-    - 'v*'
-
+      - 'v*'
 permissions:
   contents: read
   packages: write
-
 jobs:
   pnpm:
     uses: jmmaloney4/toolbox/.github/workflows/pnpm.yml@main
