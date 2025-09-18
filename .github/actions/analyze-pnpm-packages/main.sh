@@ -131,5 +131,5 @@ if ! echo "$MATRIX" | jq empty 2>/dev/null; then
   MATRIX="[]"
 fi
 
-# Output matrix using simple format
-echo "matrix=${MATRIX}" >> "$OUT_FILE"
+# Output matrix using simple format (compress to single line)
+echo "matrix=$(echo "$MATRIX" | jq -c .)" >> "$OUT_FILE"
