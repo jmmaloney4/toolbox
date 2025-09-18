@@ -75,7 +75,6 @@ jobs:
         run: nix develop .#pulumi --command pnpm install --frozen-lockfile
       - name: Build packages
         run: nix develop .#pulumi --command pnpm build
-      
       - name: Summary (per-package)
         run: |
           echo "## 📦 Publish Plan for ${{ matrix.name }}" >> $GITHUB_STEP_SUMMARY
@@ -88,7 +87,6 @@ jobs:
           echo "- **Published:** \`${{ matrix.published_version }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Change:** \`${{ matrix.release_type }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Action:** \`${{ matrix.action }}\`" >> $GITHUB_STEP_SUMMARY
-      
       - name: Publish package
         if: inputs.dry_run != true && matrix.action == 'publish'
         run: nix develop .#pulumi --command pnpm publish --registry=https://npm.pkg.github.com
