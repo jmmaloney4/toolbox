@@ -98,15 +98,17 @@ for pkg_path in "${PKG_PATHS[@]}"; do
     action="skip"
   fi
   
-  # Add to matrix entries
-  MATRIX_ENTRIES+=("$(jq -n --arg path "$pkg_path" --arg name "$name" --arg local "$local_ver" --arg published "$published_ver" --arg classify "$classify" --arg action "$action" '{
-    package_path: $path,
-    name: $name,
-    local_version: $local,
-    published_version: $published,
-    release_type: $classify,
-    action: $action
-  }')")
+  # Add to matrix entries only if action is publish
+  if [[ "$action" == "publish" ]]; then
+    MATRIX_ENTRIES+=("$(jq -n --arg path "$pkg_path" --arg name "$name" --arg local "$local_ver" --arg published "$published_ver" --arg classify "$classify" --arg action "$action" '{
+      package_path: $path,
+      name: $name,
+      local_version: $local,
+      published_version: $published,
+      release_type: $classify,
+      action: $action
+    }')")
+  fi
   
   # Add to summary
   echo "| ${name} | ${local_ver} | ${published_ver} | ${classify} | ${action} |" >> "$SUMMARY_FILE"

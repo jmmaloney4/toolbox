@@ -48,11 +48,11 @@ jobs:
     name: "🚀 publish to GHCR"
     needs: analyze
     runs-on: ${{ inputs.runs-on }}
-    if: fromJson(needs.analyze.outputs.matrix || '[]') | select(.action == 'publish') | length > 0
+    if: fromJson(needs.analyze.outputs.matrix || '[]').length > 0
     strategy:
       fail-fast: false # Each package publishes independently
       matrix:
-        include: ${{ fromJson(needs.analyze.outputs.matrix || '[]') | select(.action == 'publish') }}
+        include: ${{ fromJson(needs.analyze.outputs.matrix || '[]') }}
     permissions:
       contents: read
       packages: write
