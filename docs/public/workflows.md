@@ -71,6 +71,45 @@ jobs:
       ref: ${{ github.ref }}
 ```
 
+### 📦 `pnpm.yml`
+
+- **Path**: `.github/workflows/pnpm.yml` (callable-only)
+- **Purpose**: Publish pnpm packages to GitHub Container Registry (GHCR) with automatic version analysis
+- **Required inputs**:
+  - **runs-on**: Runner label (e.g., `ubuntu-latest` or your self-hosted label)
+  - **repository**: Repository to checkout (`owner/repo`), typically `${{ github.repository }}`
+  - **ref**: Git ref to build, typically `${{ github.ref }}`
+- **Optional inputs**:
+  - **dry_run**: Run in dry-run mode (show analysis without publishing) - defaults to `false`
+
+#### Minimal consumer workflow (copy-paste)
+
+```yaml
+name: '📦 pnpm-publish'
+on:
+  workflow_dispatch:
+  push:
+    branches:
+    - main
+    tags:
+    - 'v*'
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  pnpm-publish:
+    uses: jmmaloney4/toolbox/.github/workflows/pnpm.yml@main
+    with:
+      runs-on: runs-on=${{ github.run_id }}/runner=2cpu-linux-x64
+      repository: ${{ github.repository }}
+      ref: ${{ github.ref }}
+      # Optional: dry_run: true
+```
+
+**Note**: This workflow automatically analyzes package versions and only publishes packages that have version changes. It uses the `analyze-pnpm-packages` action to determine which packages need publishing.
+
 ### ☁️ `pulumi.yml`
 
 - **Path**: `.github/workflows/pulumi.yml` (callable-only)
