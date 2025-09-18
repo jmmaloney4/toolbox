@@ -20,6 +20,9 @@ outputs:
   matrix:
     description: JSON matrix of packages and actions
     value: ${{ steps.analyze.outputs.matrix }}
+  has_packages:
+    description: Whether there are packages to publish (true/false)
+    value: ${{ steps.analyze.outputs.has_packages }}
 runs:
   using: composite
   steps:

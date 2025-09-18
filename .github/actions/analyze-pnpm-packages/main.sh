@@ -131,19 +131,20 @@ if ! echo "$MATRIX" | jq empty 2>/dev/null; then
   MATRIX="[]"
 fi
 
-# Output matrix using simple format (compress to single line)
+# Output matrix and has_packages flag
 COMPRESSED_MATRIX="$(echo "$MATRIX" | jq -c .)"
-echo "DEBUG: About to write matrix output" >&2
-echo "DEBUG: COMPRESSED_MATRIX=$COMPRESSED_MATRIX" >&2
-echo "DEBUG: GITHUB_OUTPUT=${GITHUB_OUTPUT:-unset}" >&2
-echo "DEBUG: OUT_FILE=$OUT_FILE" >&2
-echo "DEBUG: OUT_FILE exists: $(test -e "$OUT_FILE" && echo yes || echo no)" >&2
-echo "DEBUG: OUT_FILE writable: $(test -w "$OUT_FILE" && echo yes || echo no)" >&2
-echo "matrix=$COMPRESSED_MATRIX" >> "$OUT_FILE"
-echo "DEBUG: Matrix output written, checking file contents:" >&2
-if [[ -f "$OUT_FILE" ]]; then
-  echo "DEBUG: OUT_FILE contents:" >&2
-  tail -5 "$OUT_FILE" >&2
-else
-  echo "DEBUG: OUT_FILE does not exist after write" >&2
+HAS_PACKAGES="false"
+if [[ ${#MATRIX_ENTRIES[@]} -gt 0 ]]; then
+  HAS_PACKAGES="true"
 fi
+
+echo "DEBUG: About to write outputs" >&2
+echo "DEBUG: COMPRESSED_MATRIX=$COMPRESSED_MATRIX" >&2
+echo "DEBUG: HAS_PACKAGES=$HAS_PACKAGES" >&2
+
+{
+  echo "matrix=$COMPRESSED_MATRIX"
+  echo "has_packages=$HAS_PACKAGES"
+} >> "$OUT_FILE"
+
+echo "DEBUG: Outputs written" >&2

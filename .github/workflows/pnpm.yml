@@ -28,6 +28,7 @@ jobs:
       packages: read
     outputs:
       matrix: ${{ steps.analyze.outputs.matrix }}
+      has_packages: ${{ steps.analyze.outputs.has_packages }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -47,7 +48,7 @@ jobs:
       - name: Debug matrix output
         run: |
           echo "Matrix output:"
-          echo "${{ steps.analyze.outputs.matrix }}"
+          echo '${{ steps.analyze.outputs.matrix }}'
           echo ""
           echo "Matrix length:"
           echo "${{ fromJson(steps.analyze.outputs.matrix || '[]').length }}"
@@ -58,7 +59,7 @@ jobs:
     name: "🚀 publish to GHCR"
     needs: analyze
     runs-on: ${{ inputs.runs-on }}
-    if: fromJson(needs.analyze.outputs.matrix || '[]').length > 0
+    if: needs.analyze.outputs.has_packages == 'true'
     strategy:
       fail-fast: false # Each package publishes independently
       matrix:
