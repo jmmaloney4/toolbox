@@ -34,6 +34,10 @@ on:
         description: 'Whether the PR head comes from a fork'
         required: false
         type: boolean
+    # secrets:
+    #   NODE_AUTH_TOKEN:
+    #     description: 'GitHub Packages authentication token'
+    #     required: true
 jobs:
   detect-pulumi-stacks:
     name: "🧩 detect pulumi stacks"
@@ -66,6 +70,7 @@ jobs:
       group: ${{ github.event_name == 'workflow_call' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && format('pulumi-deploy-{0}-{1}', matrix.project, matrix.stack) || format('pulumi-preview-{0}-{1}-{2}', matrix.project, matrix.stack, github.ref_name) }}
       cancel-in-progress: false
     permissions:
+      packages: read
       id-token: write
       contents: read
       actions: write
@@ -89,10 +94,8 @@ jobs:
       - name: Configure .npmrc for GitHub Packages
         run: |
           echo "@jmmaloney4:registry=https://npm.pkg.github.com" >> ~/.npmrc
-          echo "//npm.pkg.github.com/:_authToken=\${NODE_AUTH_TOKEN}" >> ~/.npmrc
+          echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" >> ~/.npmrc
           echo "always-auth=true" >> ~/.npmrc
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # or a PAT for cross-org
       - name: Install pnpm dependencies
         if: ${{ hashFiles('pnpm-lock.yaml') != '' }}
         continue-on-error: true
