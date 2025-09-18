@@ -131,13 +131,5 @@ if ! echo "$MATRIX" | jq empty 2>/dev/null; then
   MATRIX="[]"
 fi
 
-# Output matrix using GitHub Actions multiline format
-if [ -n "${GITHUB_OUTPUT:-}" ]; then
-  {
-    echo "matrix<<MATRIX_DELIMITER"
-    echo "$MATRIX"
-    echo "MATRIX_DELIMITER"
-  } >> "$OUT_FILE"
-else
-  echo "matrix=${MATRIX}" >> "$OUT_FILE"
-fi
+# Output matrix using simple format
+echo "matrix=${MATRIX}" >> "$OUT_FILE"
