@@ -141,6 +141,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
   actions: write
   deployments: write
   id-token: write
