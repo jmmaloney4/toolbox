@@ -118,5 +118,13 @@ else
   MATRIX="$(printf '%s\n' "${MATRIX_ENTRIES[@]}" | jq -s '.')"
 fi
 
-# Output matrix
-echo "matrix=${MATRIX}" >> "$OUT_FILE"
+# Output matrix using GitHub Actions multiline format
+if [ -n "${GITHUB_OUTPUT:-}" ]; then
+  {
+    echo "matrix<<MATRIX_DELIMITER"
+    echo "$MATRIX"
+    echo "MATRIX_DELIMITER"
+  } >> "$OUT_FILE"
+else
+  echo "matrix=${MATRIX}" >> "$OUT_FILE"
+fi
