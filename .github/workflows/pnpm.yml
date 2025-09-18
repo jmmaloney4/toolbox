@@ -111,7 +111,7 @@ jobs:
           echo "- **Action:** \`${{ matrix.action }}\`" >> $GITHUB_STEP_SUMMARY
       - name: Publish package
         if: inputs.dry_run != true && matrix.action == 'publish'
-        run: nix develop --command pnpm publish --registry=https://npm.pkg.github.com
+        run: nix develop --command pnpm publish --registry=https://npm.pkg.github.com --no-git-checks
         working-directory: ${{ matrix.package_path }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
