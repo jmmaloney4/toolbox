@@ -132,4 +132,18 @@ if ! echo "$MATRIX" | jq empty 2>/dev/null; then
 fi
 
 # Output matrix using simple format (compress to single line)
-echo "matrix=$(echo "$MATRIX" | jq -c .)" >> "$OUT_FILE"
+COMPRESSED_MATRIX="$(echo "$MATRIX" | jq -c .)"
+echo "DEBUG: About to write matrix output" >&2
+echo "DEBUG: COMPRESSED_MATRIX=$COMPRESSED_MATRIX" >&2
+echo "DEBUG: GITHUB_OUTPUT=${GITHUB_OUTPUT:-unset}" >&2
+echo "DEBUG: OUT_FILE=$OUT_FILE" >&2
+echo "DEBUG: OUT_FILE exists: $(test -e "$OUT_FILE" && echo yes || echo no)" >&2
+echo "DEBUG: OUT_FILE writable: $(test -w "$OUT_FILE" && echo yes || echo no)" >&2
+echo "matrix=$COMPRESSED_MATRIX" >> "$OUT_FILE"
+echo "DEBUG: Matrix output written, checking file contents:" >&2
+if [[ -f "$OUT_FILE" ]]; then
+  echo "DEBUG: OUT_FILE contents:" >&2
+  tail -5 "$OUT_FILE" >&2
+else
+  echo "DEBUG: OUT_FILE does not exist after write" >&2
+fi
