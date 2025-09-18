@@ -48,7 +48,7 @@ jobs:
     name: "🚀 publish to GHCR"
     needs: analyze
     runs-on: ${{ inputs.runs-on }}
-    if: needs.analyze.outputs.matrix != '[]' && needs.analyze.outputs.matrix != ''
+    if: fromJson(needs.analyze.outputs.matrix || '[]') != []
     strategy:
       fail-fast: false # Each package publishes independently
       matrix:
