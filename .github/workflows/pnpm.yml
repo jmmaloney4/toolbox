@@ -94,9 +94,9 @@ jobs:
           node-version: 22
           registry-url: 'https://npm.pkg.github.com'
       - name: Install dependencies
-        run: nix develop .#pulumi --command pnpm install --frozen-lockfile
+        run: nix develop --command pnpm install --frozen-lockfile
       - name: Build packages
-        run: nix develop .#pulumi --command pnpm build
+        run: nix develop --command pnpm build
       - name: Summary (per-package)
         run: |
           echo "## 📦 Publish Plan for ${{ matrix.name }}" >> $GITHUB_STEP_SUMMARY
@@ -111,7 +111,7 @@ jobs:
           echo "- **Action:** \`${{ matrix.action }}\`" >> $GITHUB_STEP_SUMMARY
       - name: Publish package
         if: inputs.dry_run != true && matrix.action == 'publish'
-        run: nix develop .#pulumi --command pnpm publish --registry=https://npm.pkg.github.com
+        run: nix develop --command pnpm publish --registry=https://npm.pkg.github.com
         working-directory: ${{ matrix.package_path }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
