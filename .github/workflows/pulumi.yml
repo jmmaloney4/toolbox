@@ -85,6 +85,14 @@ jobs:
         with:
           google_workload_identity_provider: ${{ inputs.google_workload_identity_provider }}
           google_service_account_email: ${{ inputs.google_service_account_email }}
+       # Auth & registry for GitHub Packages (public or private still needs a token)
+      - name: Configure .npmrc for GitHub Packages
+        run: |
+          echo "@jmmaloney4:registry=https://npm.pkg.github.com" >> ~/.npmrc
+          echo "//npm.pkg.github.com/:_authToken=\${NODE_AUTH_TOKEN}" >> ~/.npmrc
+          echo "always-auth=true" >> ~/.npmrc
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # or a PAT for cross-org
       - name: Install pnpm dependencies
         if: ${{ hashFiles('pnpm-lock.yaml') != '' }}
         continue-on-error: true
