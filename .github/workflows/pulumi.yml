@@ -34,10 +34,10 @@ on:
         description: 'Whether the PR head comes from a fork'
         required: false
         type: boolean
-    # secrets:
-    #   NODE_AUTH_TOKEN:
-    #     description: 'GitHub Packages authentication token'
-    #     required: true
+        # secrets:
+        #   NODE_AUTH_TOKEN:
+        #     description: 'GitHub Packages authentication token'
+        #     required: true
 jobs:
   detect-pulumi-stacks:
     name: "🧩 detect pulumi stacks"
@@ -90,7 +90,7 @@ jobs:
         with:
           google_workload_identity_provider: ${{ inputs.google_workload_identity_provider }}
           google_service_account_email: ${{ inputs.google_service_account_email }}
-       # Auth & registry for GitHub Packages (public or private still needs a token)
+          # Auth & registry for GitHub Packages (public or private still needs a token)
       - name: Configure .npmrc for GitHub Packages
         run: |
           echo "@jmmaloney4:registry=https://npm.pkg.github.com" >> ~/.npmrc
