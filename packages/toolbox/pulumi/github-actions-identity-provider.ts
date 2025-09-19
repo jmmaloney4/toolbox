@@ -23,7 +23,13 @@ function generateServiceAccountId(repoOwner: string, repoName: string, stackName
 		throw new Error(`Stack name "${stackName}" exceeds 5 character limit for account ID generation`);
 	}
 
-	// Allocate remaining 25 characters: 15 for owner, 10 for repo
+	// Calculate available space: 32 - "sa-" - 2 dashes - stackName.length
+	// Format: sa-{owner}-{repo}-{stack}
+	const prefixLength = 3; // "sa-"
+	const separatorLength = 2; // 2 dashes (between owner-repo and repo-stack)
+	const availableLength = 32 - prefixLength - separatorLength - stackName.length;
+	
+	// Split available space: 15 for owner, 10 for repo (total 25)
 	const ownerLength = 15;
 	const repoLength = 10;
 
