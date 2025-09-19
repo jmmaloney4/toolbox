@@ -23,13 +23,8 @@ function generateServiceAccountId(repoOwner: string, repoName: string, stackName
 		throw new Error(`Stack name "${stackName}" exceeds 5 character limit for account ID generation`);
 	}
 
-	// Calculate available space: 32 - "sa-" - 2 dashes - stackName.length
 	// Format: sa-{owner}-{repo}-{stack}
-	const prefixLength = 3; // "sa-"
-	const separatorLength = 2; // 2 dashes (between owner-repo and repo-stack)
-	const availableLength = 32 - prefixLength - separatorLength - stackName.length;
-	
-	// Split available space: 15 for owner, 10 for repo (total 25)
+	// Allocate fixed lengths: 15 for owner, 10 for repo, 5 for stack (max)
 	const ownerLength = 15;
 	const repoLength = 10;
 
@@ -39,6 +34,41 @@ function generateServiceAccountId(repoOwner: string, repoName: string, stackName
 
 	// Generate account ID: "sa-" + owner(15) + "-" + repo(10) + "-" + stack(5) = 32 chars
 	return `sa-${truncatedOwner}-${truncatedRepo}-${stackName}`;
+}
+
+/**
+ * Generates a workload identity pool provider ID with length constraints.
+ * 
+ * Format: provider-{owner}-{repo}-{stack}
+ * - Total length: exactly 32 characters
+ * - Stack name: 5 characters maximum
+ * - Owner name: 12 characters maximum  
+ * - Repo name: 8 characters maximum
+ * 
+ * @param repoOwner - GitHub repository owner
+ * @param repoName - GitHub repository name
+ * @param stackName - Pulumi stack name
+ * @returns Provider ID (32 characters max)
+ * @throws Error if stack name exceeds 5 characters
+ */
+function generateProviderId(repoOwner: string, repoName: string, stackName: string): string {
+	// Validate stack name length
+	if (stackName.length > 5) {
+		throw new Error(`Stack name "${stackName}" exceeds 5 character limit for provider ID generation`);
+	}
+
+	// Format: provider-{owner}-{repo}-{stack}
+	// Allocate fixed lengths: 12 for owner, 8 for repo, 5 for stack (max)
+	// "provider-" = 9 chars, so 32 - 9 - 2 dashes - 5 stack = 16 chars for owner+repo
+	const ownerLength = 12;
+	const repoLength = 8;
+
+	// Truncate names to allocated lengths
+	const truncatedOwner = repoOwner.substring(0, ownerLength);
+	const truncatedRepo = repoName.substring(0, repoLength);
+
+	// Generate provider ID: "provider-" + owner(12) + "-" + repo(8) + "-" + stack(5) = 32 chars
+	return `provider-${truncatedOwner}-${truncatedRepo}-${stackName}`;
 }
 
 /**
@@ -123,7 +153,7 @@ export class GithubActionsWorkloadIdentityProvider extends pulumi.ComponentResou
 		}
 
 		// Create a Workload Identity Provider for GitHub Actions
-		const providerId = `provider-${args.repoOwner}-${args.repoName}-${pulumi.getStack()}`;
+		const providerId = generateProviderId(args.repoOwner, args.repoName, pulumi.getStack());
 		const provider = new gcp.iam.WorkloadIdentityPoolProvider(
 			`${name}-provider`,
 			{
