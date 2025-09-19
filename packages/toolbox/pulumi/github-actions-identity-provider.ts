@@ -3,6 +3,39 @@ import * as pulumi from "@pulumi/pulumi";
 import type { WorkloadIdentityPoolResource } from "./workload-identity-pool";
 
 /**
+ * Generates a service account ID with length constraints.
+ * 
+ * Format: sa-{owner}-{repo}-{stack}
+ * - Total length: exactly 32 characters
+ * - Stack name: 5 characters maximum
+ * - Owner name: 15 characters maximum  
+ * - Repo name: 10 characters maximum
+ * 
+ * @param repoOwner - GitHub repository owner
+ * @param repoName - GitHub repository name
+ * @param stackName - Pulumi stack name
+ * @returns Service account ID (32 characters max)
+ * @throws Error if stack name exceeds 5 characters
+ */
+function generateServiceAccountId(repoOwner: string, repoName: string, stackName: string): string {
+	// Validate stack name length
+	if (stackName.length > 5) {
+		throw new Error(`Stack name "${stackName}" exceeds 5 character limit for account ID generation`);
+	}
+
+	// Allocate remaining 25 characters: 15 for owner, 10 for repo
+	const ownerLength = 15;
+	const repoLength = 10;
+
+	// Truncate names to allocated lengths
+	const truncatedOwner = repoOwner.substring(0, ownerLength);
+	const truncatedRepo = repoName.substring(0, repoLength);
+
+	// Generate account ID: "sa-" + owner(15) + "-" + repo(10) + "-" + stack(5) = 32 chars
+	return `sa-${truncatedOwner}-${truncatedRepo}-${stackName}`;
+}
+
+/**
  * Arguments for configuring a GitHub Actions Workload Identity Provider and service account.
  *
  * @remarks
@@ -55,7 +88,7 @@ export class GithubActionsWorkloadIdentityProvider extends pulumi.ComponentResou
 		const serviceAccount = new gcp.serviceaccount.Account(
 			`${name}-sa`,
 			{
-				accountId: `sa-${args.repoOwner}-${args.repoName}-${pulumi.getStack()}`,
+				accountId: generateServiceAccountId(args.repoOwner, args.repoName, pulumi.getStack()),
 				displayName: `GitHub Actions (${pulumi.getStack()})`,
 			},
 			{ parent: this },
