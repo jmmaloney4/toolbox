@@ -63,7 +63,7 @@ jobs:
           set -euo pipefail
           cargo nextest run --config-file nextest.toml --profile ci --hide-progress-bar --test-threads 4
       - name: Test Report
-        uses: dorny/test-reporter@v2
+        uses: dorny/test-reporter@dc3a92680fcc15842eef52e8c4606ea7ce6bd3f3 # v2.1.1
         if: ${{ !cancelled() }}
         with:
           name: Rust tests
