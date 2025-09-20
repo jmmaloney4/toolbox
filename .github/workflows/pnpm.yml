@@ -34,10 +34,6 @@ jobs:
         with:
           repository: ${{ inputs.repository }}
           ref: ${{ inputs.ref }}
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
       - name: Analyze packages (GHCR + semver)
         id: analyze
         uses: jmmaloney4/toolbox/.github/actions/analyze-pnpm-packages@main
@@ -83,15 +79,6 @@ jobs:
           repository: ${{ inputs.repository }}
           ref: ${{ inputs.ref }}
       - uses: jmmaloney4/toolbox/.github/actions/nix-setup@main
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          registry-url: 'https://npm.pkg.github.com'
       - name: Install dependencies
         run: nix develop --command pnpm install --frozen-lockfile
       - name: Build packages
