@@ -39,7 +39,7 @@ jobs:
           fi
       - name: Deploy to Cloudflare Pages
         id: pages
-        uses: andykenward/github-actions-cloudflare-pages@v3.0.1
+        uses: andykenward/github-actions-cloudflare-pages@271dc9ded31dd29f5741cee160513a54b8f9b64e # v3.1.0
         with:
           cloudflare-api-token: ${{ secrets.CLOUDFLARE_PAGES_API_TOKEN }}
           cloudflare-account-id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
