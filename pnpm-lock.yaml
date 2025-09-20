@@ -11,8 +11,8 @@ importers:
   packages/toolbox:
     devDependencies:
       '@pulumi/gcp':
-        specifier: ^8.0.0
-        version: 8.41.1(typescript@5.9.2)
+        specifier: ^9.0.0
+        version: 9.0.0(typescript@5.9.2)
       '@pulumi/pulumi':
         specifier: ^3.0.0
         version: 3.196.0(typescript@5.9.2)
@@ -239,8 +239,8 @@ packages:
   '@protobufjs/utf8@1.1.0':
     resolution: {integrity: sha512-Vvn3zZrhQZkkBE8LSuW3em98c0FwgO4nxzv6OdSxPKJIEKY2bGbHn+mhGIPerzI4twdxaP8/0+06HBpwf345Lw==}
 
-  '@pulumi/gcp@8.41.1':
-    resolution: {integrity: sha512-cEuhyrys+h2HMMdAKIXT6QDjjMzQRDUDV9CytIw146lpXp2bACUr4NwMefX7LgzUW+ebs7t7YClU/sNbI3OaDw==}
+  '@pulumi/gcp@9.0.0':
+    resolution: {integrity: sha512-wAULabsoPE5dy14WSv4trb8lpLXxVS6wfo9BzTONqp9tD8sgh8P6orRGKsXqo7sIsaFghkIGAz6Ro24HU7V48g==}
 
   '@pulumi/pulumi@3.196.0':
     resolution: {integrity: sha512-rsNQEuRCNkJy1yMXzSTAt/8mLM+yoxOcRk3HbyOF7z6HyXPdHRlmzFcVdBXW01MGL5lZaw8QEDjlpqdTFydhvg==}
@@ -1503,7 +1503,7 @@ snapshots:
 
   '@protobufjs/utf8@1.1.0': {}
 
-  '@pulumi/gcp@8.41.1(typescript@5.9.2)':
+  '@pulumi/gcp@9.0.0(typescript@5.9.2)':
     dependencies:
       '@npmcli/package-json': 6.2.0
       '@pulumi/pulumi': 3.196.0(typescript@5.9.2)
