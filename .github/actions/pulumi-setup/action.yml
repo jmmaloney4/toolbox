@@ -11,7 +11,7 @@ runs:
   using: composite
   steps:
     - uses: jmmaloney4/toolbox/.github/actions/nix-setup@main
-    - uses: google-github-actions/auth@v2
+    - uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2.1.13
       with:
         workload_identity_provider: ${{ inputs.google_workload_identity_provider }}
         service_account: ${{ inputs.google_service_account_email }}
