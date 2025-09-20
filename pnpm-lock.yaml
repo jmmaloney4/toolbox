@@ -23,7 +23,7 @@ importers:
         specifier: ^3.0.0
         version: 3.196.0(typescript@5.9.2)
       '@types/node':
-        specifier: ^22.0.0
+        specifier: ^22.18.5
         version: 22.18.5
       rimraf:
         specifier: ^6.0.0
