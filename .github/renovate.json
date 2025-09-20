@@ -1,8 +1,0 @@
-{
-	"extends": [
-		"github>jmmaloney4/toolbox//renovate:default",
-		"github>jmmaloney4/toolbox//renovate:security",
-		"github>jmmaloney4/toolbox//renovate:package-groups",
-		"github>jmmaloney4/toolbox//renovate:lock-maintenance"
-	]
-}
