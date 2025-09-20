@@ -82,8 +82,7 @@ jobs:
         with:
           repository: ${{ inputs.repository }}
           ref: ${{ inputs.ref }}
-      - uses: DeterminateSystems/nix-installer-action@main
-      - uses: DeterminateSystems/flakehub-cache-action@main
+      - uses: jmmaloney4/toolbox/.github/actions/nix-setup@main
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
