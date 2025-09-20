@@ -4,23 +4,29 @@ import type { WorkloadIdentityPoolResource } from "./workload-identity-pool";
 
 /**
  * Generates a service account ID with length constraints.
- * 
+ *
  * Format: sa-{owner}-{repo}-{stack}
  * - Total length: exactly 32 characters
  * - Stack name: 5 characters maximum
- * - Owner name: 15 characters maximum  
+ * - Owner name: 15 characters maximum
  * - Repo name: 10 characters maximum
- * 
+ *
  * @param repoOwner - GitHub repository owner
  * @param repoName - GitHub repository name
  * @param stackName - Pulumi stack name
  * @returns Service account ID (32 characters max)
  * @throws Error if stack name exceeds 5 characters
  */
-function generateServiceAccountId(repoOwner: string, repoName: string, stackName: string): string {
+function generateServiceAccountId(
+	repoOwner: string,
+	repoName: string,
+	stackName: string,
+): string {
 	// Validate stack name length
 	if (stackName.length > 5) {
-		throw new Error(`Stack name "${stackName}" exceeds 5 character limit for account ID generation`);
+		throw new Error(
+			`Stack name "${stackName}" exceeds 5 character limit for account ID generation`,
+		);
 	}
 
 	// Format: sa-{owner}-{repo}-{stack}
@@ -38,23 +44,29 @@ function generateServiceAccountId(repoOwner: string, repoName: string, stackName
 
 /**
  * Generates a workload identity pool provider ID with length constraints.
- * 
+ *
  * Format: provider-{owner}-{repo}-{stack}
  * - Total length: exactly 32 characters
  * - Stack name: 5 characters maximum
- * - Owner name: 12 characters maximum  
+ * - Owner name: 12 characters maximum
  * - Repo name: 8 characters maximum
- * 
+ *
  * @param repoOwner - GitHub repository owner
  * @param repoName - GitHub repository name
  * @param stackName - Pulumi stack name
  * @returns Provider ID (32 characters max)
  * @throws Error if stack name exceeds 5 characters
  */
-function generateProviderId(repoOwner: string, repoName: string, stackName: string): string {
+function generateProviderId(
+	repoOwner: string,
+	repoName: string,
+	stackName: string,
+): string {
 	// Validate stack name length
 	if (stackName.length > 5) {
-		throw new Error(`Stack name "${stackName}" exceeds 5 character limit for provider ID generation`);
+		throw new Error(
+			`Stack name "${stackName}" exceeds 5 character limit for provider ID generation`,
+		);
 	}
 
 	// Format: provider-{owner}-{repo}-{stack}
@@ -124,7 +136,11 @@ export class GithubActionsWorkloadIdentityProvider extends pulumi.ComponentResou
 		const serviceAccount = new gcp.serviceaccount.Account(
 			`${name}-sa`,
 			{
-				accountId: generateServiceAccountId(args.repoOwner, args.repoName, pulumi.getStack()),
+				accountId: generateServiceAccountId(
+					args.repoOwner,
+					args.repoName,
+					pulumi.getStack(),
+				),
 				displayName: `GitHub Actions (${pulumi.getStack()})`,
 			},
 			{ parent: this },
@@ -153,7 +169,11 @@ export class GithubActionsWorkloadIdentityProvider extends pulumi.ComponentResou
 		}
 
 		// Create a Workload Identity Provider for GitHub Actions
-		const providerId = generateProviderId(args.repoOwner, args.repoName, pulumi.getStack());
+		const providerId = generateProviderId(
+			args.repoOwner,
+			args.repoName,
+			pulumi.getStack(),
+		);
 		const provider = new gcp.iam.WorkloadIdentityPoolProvider(
 			`${name}-provider`,
 			{
