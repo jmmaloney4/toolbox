@@ -79,6 +79,8 @@ jobs:
           repository: ${{ inputs.repository }}
           ref: ${{ inputs.ref }}
       - uses: jmmaloney4/toolbox/.github/actions/nix-setup@main
+        with:
+          runs-on: ${{ inputs.runs-on }}
       - name: Install dependencies
         run: nix develop --command pnpm install --frozen-lockfile
       - name: Build packages

@@ -55,6 +55,8 @@ jobs:
           repository: ${{ inputs.repository }}
           ref: ${{ inputs.ref }}
       - uses: jmmaloney4/toolbox/.github/actions/nix-setup@main
+        with:
+          runs-on: ${{ inputs.runs-on }}
       - name: Detect all (project, stack) pairs
         id: set-matrix
         uses: jmmaloney4/toolbox/.github/actions/detect-pulumi-stacks@main
