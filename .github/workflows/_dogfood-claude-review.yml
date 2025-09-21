@@ -27,7 +27,6 @@ jobs:
        !contains(github.event.comment.body, 'claude review is not needed'))
     uses: jmmaloney4/toolbox/.github/workflows/claude-review.yml@main
     with:
-      runs-on: runs-on=${{ github.run_id }}/runner=1cpu-linux-arm64
       repository: ${{ github.repository }}
       ref: ${{ github.ref }}
     secrets:
