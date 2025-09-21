@@ -9,7 +9,11 @@ runs:
   using: composite
   steps:
     - if: ${{ contains(inputs.runs-on, 'runner=') }} && ${{ contains(inputs.runs-on, 's3-cache') }}
-      uses: runs-on/actions@v2
+      uses: runs-on/action@v2
+      with:
+        show_costs: true
+        metrics: cpu,network,memory,disk,io
+        sccache: s3
     - uses: DeterminateSystems/nix-installer-action@main
     - uses: DeterminateSystems/flakehub-cache-action@main
       with:

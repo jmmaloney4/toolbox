@@ -35,10 +35,6 @@ on:
         description: 'Whether the PR head comes from a fork'
         required: false
         type: boolean
-        # secrets:
-        #   NODE_AUTH_TOKEN:
-        #     description: 'GitHub Packages authentication token'
-        #     required: true
 jobs:
   detect-pulumi-stacks:
     name: "🧩 detect pulumi stacks"
