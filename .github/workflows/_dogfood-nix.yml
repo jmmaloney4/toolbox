@@ -12,6 +12,6 @@ jobs:
   nix:
     uses: jmmaloney4/toolbox/.github/workflows/nix.yml@main
     with:
-      runs-on: runs-on=${{ github.run_id }}/runner=2cpu-linux-x64
+      runs-on: runs-on=${{ github.run_id }}/runner=2cpu-linux-x64/extras=s3-cache
       repository: ${{ github.repository }}
       ref: ${{ github.ref }}

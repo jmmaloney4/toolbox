@@ -1,8 +1,15 @@
 name: Nix Setup
 description: Install Nix and enable flakehub cache for GitHub Actions
+inputs:
+  runs-on:
+    description: Runner label to determine if runs-on/actions@v2 should be used
+    required: true
+    type: string
 runs:
   using: composite
   steps:
+    - if: ${{ contains(inputs.runs-on, 'runner=') }} && ${{ contains(inputs.runs-on, 's3-cache') }}
+      uses: runs-on/actions@v2
     - uses: DeterminateSystems/nix-installer-action@main
     - uses: DeterminateSystems/flakehub-cache-action@main
       with:

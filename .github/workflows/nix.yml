@@ -33,6 +33,8 @@ jobs:
           repository: ${{ inputs.repository }}
           ref: ${{ inputs.ref }}
       - uses: jmmaloney4/toolbox/.github/actions/nix-setup@main
+        with:
+          runs-on: ${{ inputs.runs-on }}
       - name: compute build-needed matrix via nix-eval-jobs
         id: compute
         uses: jmmaloney4/toolbox/.github/actions/compute-flake-build-matrix@main
@@ -54,6 +56,8 @@ jobs:
           repository: ${{ inputs.repository }}
           ref: ${{ inputs.ref }}
       - uses: jmmaloney4/toolbox/.github/actions/nix-setup@main
+        with:
+          runs-on: ${{ inputs.runs-on }}
       - name: "🚀 build with nix-fast-build"
         if: ${{ matrix.noop != 'true' }}
         shell: 'nix -L shell nixpkgs#nix-fast-build -c bash {0}'
