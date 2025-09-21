@@ -62,7 +62,7 @@ permissions:
   id-token: write
 
 jobs:
-  nix-build:
+  nix:
     uses: jmmaloney4/toolbox/.github/workflows/nix.yml@main
     with:
       repository: ${{ github.repository }}
