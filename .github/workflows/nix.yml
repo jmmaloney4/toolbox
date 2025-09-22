@@ -78,13 +78,13 @@ jobs:
         uses: jmmaloney4/toolbox/.github/actions/prepare-image-artifact@main
         with:
           package-name: ${{ matrix.name }}
-          image-name: ${{ matrix.name | replace('-image', '') }}
+          image-name: ${{ replace(matrix.name, '-image', '') }}
       - name: Upload image artifacts
         if: contains(matrix.name, '-image')
         uses: actions/upload-artifact@v4
         with:
-          name: image-${{ matrix.name | replace('-image', '') }}
-          path: image-${{ matrix.name | replace('-image', '') }}.env
+          name: image-${{ replace(matrix.name, '-image', '') }}
+          path: image-${{ replace(matrix.name, '-image', '') }}.env
   publish-images:
     if: always() && needs.build.result != 'skipped'
     needs: [detect, build]
@@ -106,5 +106,3 @@ jobs:
       uses: jmmaloney4/toolbox/.github/actions/push-ghcr-images@main
       with:
         ghcr-namespace: ${{ inputs.ghcr-namespace || github.repository }}
-        repository: ${{ inputs.repository }}
-        ref: ${{ inputs.ref }}
