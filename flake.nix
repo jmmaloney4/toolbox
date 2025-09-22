@@ -49,7 +49,13 @@
             config.jackpkgs.outputs.devShell
           ];
           buildInputs = with pkgs; [
+            nodejs_22
+            nodePackages.pnpm
           ];
+        };
+
+        checks = {
+          test = import ./nix/test-check.nix {inherit pkgs;};
         };
       };
     });
