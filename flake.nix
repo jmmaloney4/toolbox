@@ -35,6 +35,8 @@
         jackpkgs.flakeModule
       ];
 
+      jackpkgs.pulumi.enable = false;
+
       perSystem = {
         config,
         self',
