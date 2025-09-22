@@ -76,5 +76,4 @@ jobs:
         if: contains(matrix.name, '-image')
         uses: jmmaloney4/toolbox/.github/actions/push-ghcr-images@main
         with:
-          ghcr-namespace: ${{ inputs.ghcr-namespace || github.repository }}
           package-name: ${{ matrix.name }}

@@ -2,9 +2,10 @@ name: Push GHCR Images
 description: Pushes a specific built image to GHCR with git SHA tag.
 inputs:
   ghcr-namespace:
-    description: 'GHCR namespace (defaults to github.repository)'
+    description: 'GHCR namespace'
     required: false
     type: string
+    default: ${{ github.repository }}
   repository:
     description: 'Repository to operate on (defaults to github.repository)'
     required: false
