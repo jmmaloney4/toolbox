@@ -1,5 +1,5 @@
 name: Push GHCR Images
-description: Downloads image artifacts and pushes to GHCR with appropriate tags.
+description: Pushes a specific built image to GHCR with git SHA tag.
 inputs:
   ghcr-namespace:
     description: 'GHCR namespace (defaults to github.repository)'
@@ -13,6 +13,10 @@ inputs:
     description: 'Git ref for tagging (defaults to github.ref)'
     required: false
     type: string
+  package-name:
+    description: 'Name of the -image package to push'
+    required: true
+    type: string
 runs:
   using: "composite"
   steps:
@@ -22,3 +26,4 @@ runs:
       GHCR_NAMESPACE: ${{ inputs.ghcr-namespace }}
       REPOSITORY: ${{ inputs.repository }}
       REF: ${{ inputs.ref }}
+      PACKAGE_NAME: ${{ inputs.package-name }}

@@ -46,8 +46,8 @@ jobs:
         uses: jmmaloney4/toolbox/.github/actions/compute-flake-build-matrix@main
         with:
           probe-timeout-seconds: '180'
-  build:
-    name: "👷‍♂️ ${{ matrix.category }}.${{ matrix.system }}.${{ matrix.name }}"
+  build-and-publish:
+    name: "👷‍♂️ build and publish"
     needs: [detect]
     runs-on: ${{ inputs.runs-on }}
     if: ${{ needs.detect.outputs.has_work == 'true' }}
@@ -71,21 +71,10 @@ jobs:
           set -euo pipefail
           attr='${{ matrix.flake_attr }}'
           echo "Building via nix-fast-build: $attr"
-          # Build only missing (uncached) derivations, with CI-friendly logs and no out-link
           nix-fast-build --skip-cached --no-nom --no-link --flake "$attr"
-  publish-images:
-    if: always() && needs.build.result != 'skipped'
-    needs: [detect, build]
-    runs-on: ${{ inputs.runs-on }}
-    steps:
-    - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-      with:
-        repository: ${{ inputs.repository }}
-        ref: ${{ inputs.ref }}
-    - uses: jmmaloney4/toolbox/.github/actions/nix-setup@main
-      with:
-        runs-on: ${{ inputs.runs-on }}
-    - name: Push images to GHCR
-      uses: jmmaloney4/toolbox/.github/actions/push-ghcr-images@main
-      with:
-        ghcr-namespace: ${{ inputs.ghcr-namespace || github.repository }}
+      - name: Push image to GHCR
+        if: contains(matrix.name, '-image')
+        uses: jmmaloney4/toolbox/.github/actions/push-ghcr-images@main
+        with:
+          ghcr-namespace: ${{ inputs.ghcr-namespace || github.repository }}
+          package-name: ${{ matrix.name }}
