@@ -1,0 +1,24 @@
+name: Push GHCR Images
+description: Downloads image artifacts and pushes to GHCR with appropriate tags.
+inputs:
+  ghcr-namespace:
+    description: 'GHCR namespace (defaults to github.repository)'
+    required: false
+    type: string
+  repository:
+    description: 'Repository to operate on'
+    required: true
+    type: string
+  ref:
+    description: 'Git ref for tagging'
+    required: true
+    type: string
+runs:
+  using: "composite"
+  steps:
+  - shell: bash
+    run: $GITHUB_ACTION_PATH/main.sh
+    env:
+      GHCR_NAMESPACE: ${{ inputs.ghcr-namespace }}
+      REPOSITORY: ${{ inputs.repository }}
+      REF: ${{ inputs.ref }}
