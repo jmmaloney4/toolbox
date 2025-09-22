@@ -15,11 +15,16 @@ on:
         description: 'Git ref to checkout and build'
         required: true
         type: string
+      ghcr-namespace:
+        description: 'GHCR namespace for image publishing (defaults to github.repository)'
+        required: false
+        type: string
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 permissions:
   contents: read
+  packages: write
   id-token: write
 jobs:
   detect:
@@ -68,3 +73,38 @@ jobs:
           echo "Building via nix-fast-build: $attr"
           # Build only missing (uncached) derivations, with CI-friendly logs and no out-link
           nix-fast-build --skip-cached --no-nom --no-link --flake "$attr"
+      - name: Prepare image artifact
+        if: contains(matrix.name, '-image')
+        uses: jmmaloney4/toolbox/.github/actions/prepare-image-artifact@main
+        with:
+          package-name: ${{ matrix.name }}
+          image-name: ${{ matrix.name | replace('-image', '') }}
+      - name: Upload image artifacts
+        if: contains(matrix.name, '-image')
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-${{ matrix.name | replace('-image', '') }}
+          path: image-${{ matrix.name | replace('-image', '') }}.env
+  publish-images:
+    if: always() && needs.build.result != 'skipped'
+    needs: [detect, build]
+    runs-on: ${{ inputs.runs-on }}
+    steps:
+    - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      with:
+        repository: ${{ inputs.repository }}
+        ref: ${{ inputs.ref }}
+    - uses: jmmaloney4/toolbox/.github/actions/nix-setup@main
+      with:
+        runs-on: ${{ inputs.runs-on }}
+    - name: Download image artifacts
+      uses: actions/download-artifact@v4
+      with:
+        pattern: image-*
+        merge-multiple: true
+    - name: Push images to GHCR
+      uses: jmmaloney4/toolbox/.github/actions/push-ghcr-images@main
+      with:
+        ghcr-namespace: ${{ inputs.ghcr-namespace || github.repository }}
+        repository: ${{ inputs.repository }}
+        ref: ${{ inputs.ref }}
