@@ -9,7 +9,7 @@ runs:
   using: composite
   steps:
     - if: ${{ contains(inputs.runs-on, 'runner=') }} && ${{ contains(inputs.runs-on, 's3-cache') }}
-      uses: runs-on/action@v2
+      uses: runs-on/action@cd2b598b0515d39d78c38a02d529db87d2196d1e # v2.0.3
       with:
         show_costs: true
         metrics: cpu,network,memory,disk,io
