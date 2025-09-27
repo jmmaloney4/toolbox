@@ -36,6 +36,10 @@
       ];
 
       jackpkgs.pulumi.enable = false;
+      jackpkgs.fmt.jsonfmt.includes = [
+        "*.json"
+        "*.json5"
+      ];
 
       perSystem = {
         config,
