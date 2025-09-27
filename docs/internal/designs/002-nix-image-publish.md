@@ -1,7 +1,7 @@
 ---
 id: ADR-002
 title: Publish Nix flake *-image packages to GHCR post-build
-status: Proposed
+status: Accepted
 date: 2025-09-11
 deciders: [team-zeus]
 consulted: [platform, security]
@@ -9,7 +9,7 @@ tags: [nix, ghcr, ci, workflows]
 supersedes: []
 superseded_by: []
 links:
-  - pr: https://github.com/cavinsresearch/zeus/pull/318
+  - pr: https://github.com/jmmaloney4/toolbox/pull/33
   - guide: ../internal/designs/000-adr-template.md
   - workflow: ../../.github/workflows/nix.yml
 ---
@@ -22,34 +22,34 @@ links:
 
 ## Decision
 
-- Enhance the reusable `nix.yml` workflow to publish any successfully built `packages.*.*.<name>-image` output to GHCR using two composite actions, referenced by repository path (no local action paths), per `AGENTS.md` guidance.
-- The build job writes an artifact `image-<base>.env` when a `*-image` output succeeds, where `<base>` strips the `-image` suffix. The artifact contains:
-  - `RUN_ATTR=#<name>.passthru.copyTo`
-  - `IMAGE_NAME=<base>`
-- A post-matrix job downloads all `image-*.env` files and pushes to GHCR:
-  - Primary destination: `docker://ghcr.io/<namespace>/<IMAGE_NAME>:git-<sha>`
-  - Additional tags:
-    - `latest` when pushing from `main`
-    - `pr-<number>` for pull request events
+- Enhance the reusable `nix.yml` workflow to publish successfully built `packages.*.*.<name>-image` outputs to GHCR using a simplified composite action approach.
+- Image discovery and publishing are handled in a single streamlined process:
+  - The build job uses `nix eval` to discover successful `*-image` packages and their `copyTo` attributes
+  - Images are pushed directly using `nix run .#<name>.passthru.copyTo` with git SHA tagging
+  - Primary destination: `docker://ghcr.io/<namespace>/<image-name>:git-<sha>`
 - Authentication uses `--dest-creds "${GITHUB_ACTOR}:${GITHUB_TOKEN}"` and requires `permissions: packages: write` on the workflow.
 - The reusable workflow remains fully parameterized:
   - `runs-on`: runner label for all jobs (caller-specified)
   - `repository`, `ref`: caller context for checkout in every job
-  - Optional `ghcr-namespace` defaults to the caller’s `${{ github.repository }}` if not provided
+  - Optional `ghcr-namespace` defaults to the caller's `${{ github.repository }}` if not provided
 - Implementation follows the composable-actions pattern:
-  - `prepare-image-artifact`: emits the `.env` descriptor on successful image builds
-  - `push-ghcr-images`: downloads descriptors and performs pushes via `nix run .#…passthru.copyTo`
+  - `push-ghcr-images`: single composite action that discovers and pushes images using nix commands directly
 
 ## Consequences
 
-- Centralizes image publish behavior; thin workflows; minimal secret handling.
-- Tagging remains consistent and branch-aware; no pushes occur if no `*-image` outputs succeed.
+- **Simplified Architecture**: Single composite action reduces complexity and potential failure points compared to the original two-action approach.
+- **Direct Nix Integration**: Uses nix commands directly instead of intermediate artifacts, making the workflow more reliable and easier to debug.
+- **Git SHA Tagging**: Simplified tagging strategy focuses on immutable git SHA tags, removing complex conditional tagging logic.
+- **Centralized Image Discovery**: The push action discovers successful builds using nix commands rather than relying on separate artifact creation.
+- **Minimal Dependencies**: Reduced reliance on artifact storage and download, making the workflow more self-contained.
 - Requires composite actions to be hosted and pinned (e.g., `jmmaloney4/toolbox@<ref>`), and `packages: write` permission declared.
 
-## Alternatives
+## Alternatives Considered
 
+- **Original Two-Action Approach**: Initially designed with separate `prepare-image-artifact` and `push-ghcr-images` actions using `.env` artifacts, but simplified to single action for better reliability.
 - Inline shell within `nix.yml`: harder to maintain; violates our composable actions guideline.
 - Use non-Nix push tooling: diverges from `passthru.copyTo` and Nix-native flow.
+- Complex conditional tagging: considered but simplified to git SHA only for better traceability.
 - Multi-arch manifest assembly: deferred; can be layered later if needed.
 
 ## Security/Privacy/Compliance
@@ -61,8 +61,9 @@ links:
 
 - Add retry/backoff inside the push composite action later if registry flakiness is observed.
 - Ensure image base includes minimal tooling needed in GH Actions contexts (e.g., `coreutils`, `git`, `nix`).
-- Continue scanning all `.env` descriptors; fail the job if any individual push fails.
+- The push action discovers successful builds using nix commands and fails fast if no images are found to push.
+- Error handling focuses on nix command failures rather than artifact parsing issues.
 
 ## Status transitions
 
-- Status: Proposed. Upon acceptance, implement the two composite actions and wire them into `nix.yml` per this ADR. Link the implementation PRs here once merged.
+- Status: Accepted. Implemented in PR #33 with simplified approach using single composite action instead of the originally planned two-action approach. The implementation uses direct nix command integration rather than artifact-based discovery for improved reliability and maintainability.
