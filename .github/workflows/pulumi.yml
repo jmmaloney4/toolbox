@@ -97,7 +97,6 @@ jobs:
           echo "always-auth=true" >> ~/.npmrc
       - name: Install pnpm dependencies
         if: ${{ hashFiles('pnpm-lock.yaml') != '' }}
-        continue-on-error: true
         run: nix develop .#pulumi --command pnpm install --frozen-lockfile
         shell: bash
       - name: derive artifact-safe name
