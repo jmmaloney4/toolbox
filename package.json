@@ -8,5 +8,9 @@
 		"build": "pnpm -r build",
 		"clean": "pnpm -r clean"
 	},
-	"devDependencies": {}
+	"devDependencies": {
+		"typescript": "^5.4.0",
+		"rimraf": "^6.0.0",
+		"@types/node": "^22.18.6"
+	}
 }
