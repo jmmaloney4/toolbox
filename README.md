@@ -39,7 +39,7 @@ jobs:
 Install the Pulumi package:
 
 ```bash
-pnpm add "git+https://github.com/jmmaloney4/toolbox.git#path:/packages/toolbox"
+pnpm add @jmmaloney4/sector7
 ```
 
 Use the GitHubOidcResource component:
