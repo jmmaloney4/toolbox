@@ -4,7 +4,7 @@
 	"description": "Reusable Pulumi components for infrastructure management",
 	"license": "MPL-2.0",
 	"publishConfig": {
-		"access": "private"
+		"access": "public"
 	},
 	"type": "commonjs",
 	"main": "dist/index.js",
