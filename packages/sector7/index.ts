@@ -1,2 +1,1 @@
-// Export pulumi components
-export * as pulumi from "./pulumi";
+export * as iam from "./iam";

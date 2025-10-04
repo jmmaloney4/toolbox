@@ -1,4 +1,4 @@
-# @jmmaloney4/toolbox
+# @jmmaloney4/sector7
 
 Reusable Pulumi components for infrastructure management.
 
@@ -31,7 +31,7 @@ A component that sets up GitHub Actions OIDC authentication with Google Cloud Pl
 
 ```typescript
 import * as pulumi from "@pulumi/pulumi";
-import { GitHubOidcResource } from "@jmmaloney4/toolbox/pulumi";
+import { GitHubOidcResource } from "@jmmaloney4/sector7/iam";
 
 const githubOidc = new GitHubOidcResource("github-oidc", {
     repoOwner: "jmmaloney4",

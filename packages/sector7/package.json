@@ -17,9 +17,9 @@
 			"types": "./dist/index.d.ts",
 			"default": "./dist/index.js"
 		},
-		"./pulumi": {
-			"types": "./dist/pulumi/index.d.ts",
-			"default": "./dist/pulumi/index.js"
+		"./iam": {
+			"types": "./dist/iam/index.d.ts",
+			"default": "./dist/iam/index.js"
 		}
 	},
 	"files": [

@@ -5,7 +5,7 @@ Reusable GitHub Actions workflows, composite actions, and development environmen
 ## 📚 Documentation
 
 - **[GitHub Actions Workflows](docs/public/workflows.md)** - Reusable workflows for Rust, Nix, Pulumi, and Claude AI
-- **[Pulumi Components](docs/public/pulumi.md)** - `@jmmaloney4/toolbox` package with reusable Pulumi components
+- **[Pulumi Components](docs/public/pulumi.md)** - `@jmmaloney4/sector7` package with reusable Pulumi components
 - **[Renovate Presets](docs/public/renovate.md)** - Composable Renovate configurations for dependency management
 
 ## 🚀 Quick Start
@@ -45,7 +45,7 @@ pnpm add "git+https://github.com/jmmaloney4/toolbox.git#path:/packages/toolbox"
 Use the GitHubOidcResource component:
 
 ```typescript
-import { GitHubOidcResource } from "@jmmaloney4/toolbox/pulumi";
+import { GitHubOidcResource } from "@jmmaloney4/sector7/iam";
 
 const githubOidc = new GitHubOidcResource("github-oidc", {
     repoOwner: "jmmaloney4",

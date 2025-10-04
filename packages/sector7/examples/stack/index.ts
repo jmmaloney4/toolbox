@@ -3,7 +3,7 @@ import {
 	GithubActionsWorkloadIdentityProvider,
 	type GithubActionsWorkloadIdentityProviderArgs,
 	WorkloadIdentityPoolResource,
-} from "../../pulumi";
+} from "../../iam";
 
 const config = new pulumi.Config();
 const wif =
