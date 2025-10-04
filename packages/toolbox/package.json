@@ -3,6 +3,12 @@
 	"version": "0.2.3",
 	"description": "Reusable Pulumi components for infrastructure management",
 	"license": "MPL-2.0",
+	"engines": {
+		"node": ">=20"
+	},
+	"publishConfig": {
+		"access": "private"
+	},
 	"type": "commonjs",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
@@ -22,16 +28,13 @@
 	"scripts": {
 		"clean": "rimraf dist",
 		"build": "tsc -p tsconfig.json",
-		"prepare": "pnpm run build"
+		"prepack": "pnpm run build"
 	},
 	"peerDependencies": {
 		"@pulumi/pulumi": "^3.0.0",
 		"@pulumi/gcp": "^9.0.0"
 	},
 	"devDependencies": {
-		"typescript": "^5.4.0",
-		"rimraf": "^6.0.0",
-		"@types/node": "^22.18.6",
 		"@pulumi/pulumi": "^3.196.0",
 		"@pulumi/gcp": "^9.0.0"
 	}
