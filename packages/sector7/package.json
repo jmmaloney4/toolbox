@@ -32,7 +32,7 @@
 		"@pulumi/gcp": "^9.0.0"
 	},
 	"devDependencies": {
-		"@pulumi/pulumi": "^3.196.0",
+		"@pulumi/pulumi": "^3.197.0",
 		"@pulumi/gcp": "^9.0.0"
 	}
 }
