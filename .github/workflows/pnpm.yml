@@ -107,10 +107,9 @@ jobs:
         if: inputs.dry_run != true && matrix.action == 'publish'
         run: |
           echo "Configuring npm for GitHub registry authentication..."
-          echo "//npm.pkg.github.com/:_authToken=\${NODE_AUTH_TOKEN}" > ${{ matrix.package_path }}/.npmrc
-          echo "registry=https://npm.pkg.github.com" >> ${{ matrix.package_path }}/.npmrc
-          echo "Contents of .npmrc:"
-          cat ${{ matrix.package_path }}/.npmrc
+          echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" > ${{ matrix.package_path }}/.npmrc
+          echo "@${{ github.repository_owner }}:registry=https://npm.pkg.github.com" >> ${{ matrix.package_path }}/.npmrc
+          echo "✅ Authentication configured for ${{ github.repository_owner }} packages"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish package
@@ -119,3 +118,9 @@ jobs:
         working-directory: ${{ matrix.package_path }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Cleanup authentication
+        if: inputs.dry_run != true && matrix.action == 'publish'
+        run: |
+          echo "Cleaning up authentication files..."
+          rm -f ${{ matrix.package_path }}/.npmrc
+          echo "✅ Cleanup completed"
