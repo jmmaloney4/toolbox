@@ -103,9 +103,28 @@ jobs:
           echo "- **Published:** \`${{ matrix.published_version }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Change:** \`${{ matrix.release_type }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Action:** \`${{ matrix.action }}\`" >> $GITHUB_STEP_SUMMARY
+      - name: Configure npm authentication
+        if: inputs.dry_run != true && matrix.action == 'publish'
+        run: |
+          echo "Configuring npm for GitHub registry authentication..."
+          echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" > ${{ matrix.package_path }}/.npmrc
+          echo "@${{ github.repository_owner }}:registry=https://npm.pkg.github.com" >> ${{ matrix.package_path }}/.npmrc
+          if [ ! -f "${{ matrix.package_path }}/.npmrc" ]; then
+            echo "❌ Failed to create .npmrc file"
+            exit 1
+          fi
+          echo "✅ Authentication configured for ${{ github.repository_owner }} packages"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish package
         if: inputs.dry_run != true && matrix.action == 'publish'
-        run: nix develop --command pnpm publish --registry=https://npm.pkg.github.com --no-git-checks
+        run: nix develop --command pnpm publish --no-git-checks
         working-directory: ${{ matrix.package_path }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Cleanup authentication
+        if: inputs.dry_run != true && matrix.action == 'publish'
+        run: |
+          echo "Cleaning up authentication files..."
+          rm -f ${{ matrix.package_path }}/.npmrc
+          echo "✅ Cleanup completed"
