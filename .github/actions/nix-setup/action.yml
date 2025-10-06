@@ -16,5 +16,6 @@ runs:
         sccache: s3
     - uses: DeterminateSystems/nix-installer-action@main
     - uses: DeterminateSystems/flakehub-cache-action@main
-      with:
-        use-gha-cache: enabled
+      # TODO: Fix this
+      # with:
+        # use-gha-cache: enabled
