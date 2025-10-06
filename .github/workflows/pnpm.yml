@@ -109,6 +109,10 @@ jobs:
           echo "Configuring npm for GitHub registry authentication..."
           echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" > ${{ matrix.package_path }}/.npmrc
           echo "@${{ github.repository_owner }}:registry=https://npm.pkg.github.com" >> ${{ matrix.package_path }}/.npmrc
+          if [ ! -f "${{ matrix.package_path }}/.npmrc" ]; then
+            echo "❌ Failed to create .npmrc file"
+            exit 1
+          fi
           echo "✅ Authentication configured for ${{ github.repository_owner }} packages"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
