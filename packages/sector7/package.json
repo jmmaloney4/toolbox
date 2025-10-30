@@ -17,6 +17,10 @@
 		"./iam": {
 			"types": "./dist/iam/index.d.ts",
 			"default": "./dist/iam/index.js"
+		},
+		"./workersite": {
+			"types": "./dist/workersite/index.d.ts",
+			"default": "./dist/workersite/index.js"
 		}
 	},
 	"files": [
@@ -29,10 +33,12 @@
 	},
 	"peerDependencies": {
 		"@pulumi/pulumi": "^3.0.0",
+		"@pulumi/cloudflare": "^5.0.0",
 		"@pulumi/gcp": "^9.0.0"
 	},
 	"devDependencies": {
 		"@pulumi/pulumi": "^3.197.0",
+		"@pulumi/cloudflare": "^5.0.0",
 		"@pulumi/gcp": "^9.0.0"
 	}
 }
