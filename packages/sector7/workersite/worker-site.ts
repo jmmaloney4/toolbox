@@ -3,15 +3,33 @@ import * as pulumi from "@pulumi/pulumi";
 import { generateWorkerScript } from "./worker-site-script";
 
 /**
- * Arguments for creating a WorkerSite component (Phase 1 MVP).
+ * Path access configuration.
+ */
+export interface PathConfig {
+	/**
+	 * Path pattern (e.g., "/blog/*", "/research/*").
+	 * Supports wildcards.
+	 */
+	pattern: pulumi.Input<string>;
+
+	/**
+	 * Access level for this path.
+	 * - "public": Allow everyone
+	 * - "github-org": Require GitHub organization membership
+	 */
+	access: "public" | "github-org";
+}
+
+/**
+ * Arguments for creating a WorkerSite component (Phase 2).
  *
  * @remarks
- * Phase 1 MVP is intentionally limited to:
- * - Single domain via WorkerRoute
- * - Exactly 2 paths: one public (`/blog/*`), one restricted (`/research/*`)
- * - R2 backend only
- * - No caching (Cache API requires custom domains, deferred to Phase 2)
- * - No SPA fallback (deferred to Phase 3)
+ * Phase 2 features:
+ * - Multiple domains via WorkerDomain (with automatic DNS)
+ * - Flexible path-level access control (any number of paths)
+ * - R2 backend with Cache API
+ * - Configurable cache TTL
+ * - Automatic DNS record creation
  */
 export interface WorkerSiteArgs {
 	/**
@@ -20,7 +38,7 @@ export interface WorkerSiteArgs {
 	accountId: pulumi.Input<string>;
 
 	/**
-	 * Cloudflare zone ID for the domain (required for WorkerRoute).
+	 * Cloudflare zone ID for the domain (required for DNS and Access).
 	 */
 	zoneId: pulumi.Input<string>;
 
@@ -30,10 +48,10 @@ export interface WorkerSiteArgs {
 	name: pulumi.Input<string>;
 
 	/**
-	 * Domain to bind the Worker to (e.g., "site.example.com").
-	 * Phase 1 MVP: Single domain only.
+	 * Domains to bind the Worker to (e.g., ["site.example.com", "www.site.example.com"]).
+	 * DNS records will be automatically created for each domain.
 	 */
-	domain: pulumi.Input<string>;
+	domains: pulumi.Input<string>[];
 
 	/**
 	 * R2 bucket configuration.
@@ -65,32 +83,41 @@ export interface WorkerSiteArgs {
 
 	/**
 	 * GitHub organization name(s) for restricted path access.
-	 * Members of these organizations will be allowed to access restricted paths.
+	 * Members of these organizations will be allowed to access paths with access: "github-org".
 	 */
 	githubOrganizations: pulumi.Input<string>[];
 
 	/**
-	 * Public path pattern (e.g., "/blog/*").
-	 * Phase 1 MVP: Single public path.
+	 * Path access configurations.
+	 * Each path gets its own Access Application and Policy.
+	 *
+	 * @example
+	 * ```typescript
+	 * paths: [
+	 *   { pattern: "/blog/*", access: "public" },
+	 *   { pattern: "/research/*", access: "github-org" },
+	 *   { pattern: "/admin/*", access: "github-org" },
+	 * ]
+	 * ```
 	 */
-	publicPath: pulumi.Input<string>;
+	paths: PathConfig[];
 
 	/**
-	 * Restricted path pattern (e.g., "/research/*").
-	 * Phase 1 MVP: Single restricted path.
+	 * Cache TTL in seconds for static assets.
+	 * @default 31536000 (1 year)
 	 */
-	restrictedPath: pulumi.Input<string>;
+	cacheTtlSeconds?: pulumi.Input<number>;
 }
 
 /**
  * WorkerSite component for hosting static sites on Cloudflare Workers with Zero Trust access control.
  *
  * @remarks
- * Phase 1 MVP implementation with:
- * - R2-backed Worker serving static files
- * - Single domain via WorkerRoute
- * - Two paths: one public, one restricted to GitHub org members
- * - Basic Access integration
+ * Phase 2 implementation with:
+ * - R2-backed Worker serving static files with Cache API
+ * - Multiple domains via WorkerDomain (automatic DNS creation)
+ * - Flexible path-level access control
+ * - GitHub organization-based authentication
  *
  * @example
  * ```typescript
@@ -98,15 +125,18 @@ export interface WorkerSiteArgs {
  *   accountId: "abc123",
  *   zoneId: "xyz789",
  *   name: "docs-site",
- *   domain: "docs.example.com",
+ *   domains: ["docs.example.com", "www.docs.example.com"],
  *   r2Bucket: {
  *     bucketName: "docs-site-assets",
  *     create: true,
  *   },
  *   githubIdentityProviderId: "github-idp-id",
  *   githubOrganizations: ["my-org"],
- *   publicPath: "/blog/*",
- *   restrictedPath: "/research/*",
+ *   paths: [
+ *     { pattern: "/blog/*", access: "public" },
+ *     { pattern: "/research/*", access: "github-org" },
+ *   ],
+ *   cacheTtlSeconds: 86400, // 1 day
  * });
  * ```
  */
@@ -122,34 +152,29 @@ export class WorkerSite extends pulumi.ComponentResource {
 	public readonly worker: cloudflare.WorkerScript;
 
 	/**
-	 * The Worker route binding the Worker to the domain.
+	 * Worker domains binding the Worker to custom domains.
 	 */
-	public readonly route: cloudflare.WorkerRoute;
+	public readonly workerDomains: cloudflare.WorkerDomain[];
 
 	/**
-	 * Access Application for the public path.
+	 * DNS records for the domains.
 	 */
-	public readonly publicAccessApp: cloudflare.AccessApplication;
+	public readonly dnsRecords: cloudflare.Record[];
 
 	/**
-	 * Access Policy for the public path (allow everyone).
+	 * Access Applications for each path.
 	 */
-	public readonly publicAccessPolicy: cloudflare.AccessPolicy;
+	public readonly accessApplications: cloudflare.AccessApplication[];
 
 	/**
-	 * Access Application for the restricted path.
+	 * Access Policies for each path.
 	 */
-	public readonly restrictedAccessApp: cloudflare.AccessApplication;
+	public readonly accessPolicies: cloudflare.AccessPolicy[];
 
 	/**
-	 * Access Policy for the restricted path (GitHub org members).
+	 * The domains bound to the Worker.
 	 */
-	public readonly restrictedAccessPolicy: cloudflare.AccessPolicy;
-
-	/**
-	 * The domain bound to the Worker.
-	 */
-	public readonly boundDomain: pulumi.Output<string>;
+	public readonly boundDomains: pulumi.Output<string[]>;
 
 	/**
 	 * The Worker name.
@@ -181,8 +206,9 @@ export class WorkerSite extends pulumi.ComponentResource {
 			? this.bucket.name
 			: pulumi.output(args.r2Bucket.bucketName);
 
-		// 2. Create Worker script
+		// 2. Create Worker script with Cache API support
 		const bucketBinding = "R2_BUCKET";
+		const cacheTtl = args.cacheTtlSeconds ?? 31536000; // Default 1 year
 		const scriptContent = generateWorkerScript(bucketBinding);
 
 		this.worker = new cloudflare.WorkerScript(
@@ -197,103 +223,121 @@ export class WorkerSite extends pulumi.ComponentResource {
 						bucketName: bucketName,
 					},
 				],
-			},
-			resourceOpts,
-		);
-
-		// 3. Create Worker route
-		this.route = new cloudflare.WorkerRoute(
-			`${name}-route`,
-			{
-				zoneId: args.zoneId,
-				pattern: pulumi.interpolate`${args.domain}/*`,
-				scriptName: this.worker.name,
-			},
-			resourceOpts,
-		);
-
-		// 4. Create Access Application for public path
-		this.publicAccessApp = new cloudflare.AccessApplication(
-			`${name}-public-app`,
-			{
-				zoneId: args.zoneId,
-				name: pulumi.interpolate`${args.name}-public`,
-				domain: pulumi.interpolate`${args.domain}${args.publicPath}`,
-				type: "self_hosted",
-				sessionDuration: "24h",
-			},
-			resourceOpts,
-		);
-
-		// 5. Create Access Policy for public path (allow everyone)
-		this.publicAccessPolicy = new cloudflare.AccessPolicy(
-			`${name}-public-policy`,
-			{
-				applicationId: this.publicAccessApp.id,
-				zoneId: args.zoneId,
-				name: "Allow everyone",
-				decision: "allow",
-				precedence: 1,
-				includes: [
+				plainTextBindings: [
 					{
-						everyone: true,
+						name: "CACHE_TTL_SECONDS",
+						text: pulumi.output(cacheTtl).apply((ttl) => ttl.toString()),
 					},
 				],
 			},
 			resourceOpts,
 		);
 
-		// 6. Create Access Application for restricted path
-		this.restrictedAccessApp = new cloudflare.AccessApplication(
-			`${name}-restricted-app`,
-			{
-				zoneId: args.zoneId,
-				name: pulumi.interpolate`${args.name}-restricted`,
-				domain: pulumi.interpolate`${args.domain}${args.restrictedPath}`,
-				type: "self_hosted",
-				sessionDuration: "24h",
-			},
-			resourceOpts,
-		);
+		// 3. Create Worker domains and DNS records for each domain
+		this.workerDomains = [];
+		this.dnsRecords = [];
 
-		// 7. Create Access Policy for restricted path (GitHub org members)
-		// Note: We need to create one include per GitHub org
-		this.restrictedAccessPolicy = new cloudflare.AccessPolicy(
-			`${name}-restricted-policy`,
-			{
-				applicationId: this.restrictedAccessApp.id,
-				zoneId: args.zoneId,
-				name: "GitHub org members",
-				decision: "allow",
-				precedence: 1,
-				includes: pulumi
-					.all([args.githubOrganizations, args.githubIdentityProviderId])
-					.apply(
-						([orgs, idpId]) =>
-							orgs.map((org) => ({
-								github: {
-									identityProviderId: idpId,
-									name: org,
-								},
-							})) as any,
-					),
-			},
-			resourceOpts,
-		);
+		pulumi.output(args.domains).apply((domains) => {
+			for (let i = 0; i < domains.length; i++) {
+				const domain = domains[i];
+
+				// Create DNS record (AAAA with Workers placeholder)
+				const dnsRecord = new cloudflare.Record(
+					`${name}-dns-${i}`,
+					{
+						zoneId: args.zoneId,
+						name: domain,
+						type: "AAAA",
+						value: "100::", // Workers placeholder IPv6
+						proxied: true, // Enable Cloudflare proxy
+					},
+					resourceOpts,
+				);
+				this.dnsRecords.push(dnsRecord);
+
+				// Create Worker domain binding
+				const workerDomain = new cloudflare.WorkerDomain(
+					`${name}-domain-${i}`,
+					{
+						accountId: args.accountId,
+						hostname: domain,
+						service: this.worker.name,
+						zoneId: args.zoneId,
+					},
+					{ ...resourceOpts, dependsOn: [dnsRecord] },
+				);
+				this.workerDomains.push(workerDomain);
+			}
+		});
+
+		// 4. Create Access Applications and Policies for each path
+		this.accessApplications = [];
+		this.accessPolicies = [];
+
+		for (let i = 0; i < args.paths.length; i++) {
+			const pathConfig = args.paths[i];
+			const primaryDomain = pulumi.output(args.domains).apply((d) => d[0]);
+
+			// Create Access Application
+			const app = new cloudflare.AccessApplication(
+				`${name}-app-${i}`,
+				{
+					zoneId: args.zoneId,
+					name: pulumi.interpolate`${args.name}-${pathConfig.pattern}`,
+					domain: pulumi.interpolate`${primaryDomain}${pathConfig.pattern}`,
+					type: "self_hosted",
+					sessionDuration: "24h",
+				},
+				resourceOpts,
+			);
+			this.accessApplications.push(app);
+
+			// Create Access Policy based on access type
+			const policyIncludes =
+				pathConfig.access === "public"
+					? [{ everyone: true }]
+					: pulumi
+							.all([args.githubOrganizations, args.githubIdentityProviderId])
+							.apply(
+								([orgs, idpId]) =>
+									orgs.map((org) => ({
+										github: {
+											identityProviderId: idpId,
+											name: org,
+										},
+									})) as any,
+							);
+
+			const policy = new cloudflare.AccessPolicy(
+				`${name}-policy-${i}`,
+				{
+					applicationId: app.id,
+					zoneId: args.zoneId,
+					name:
+						pathConfig.access === "public"
+							? "Allow everyone"
+							: "GitHub org members",
+					decision: "allow",
+					precedence: i + 1,
+					includes: policyIncludes,
+				},
+				resourceOpts,
+			);
+			this.accessPolicies.push(policy);
+		}
 
 		// Outputs
-		this.boundDomain = pulumi.output(args.domain);
+		this.boundDomains = pulumi.output(args.domains);
 		this.workerName = this.worker.name;
 
 		this.registerOutputs({
 			bucket: this.bucket,
 			worker: this.worker,
-			route: this.route,
-			publicAccessApp: this.publicAccessApp,
-			publicAccessPolicy: this.publicAccessPolicy,
-			restrictedAccessApp: this.restrictedAccessApp,
-			restrictedAccessPolicy: this.restrictedAccessPolicy,
-			boundDomain: this.boundDomain,
+			workerDomains: this.workerDomains,
+			dnsRecords: this.dnsRecords,
+			accessApplications: this.accessApplications,
+			accessPolicies: this.accessPolicies,
+			boundDomains: this.boundDomains,
 			workerName: this.workerName,
 		});
 	}
