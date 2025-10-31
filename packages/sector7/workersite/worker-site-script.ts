@@ -54,7 +54,7 @@ export default {
 		}
 
 		// 6. Build response with metadata
-		response = createResponse(object, 200, 'MISS', env);
+		response = createResponse(object, objectKey, 200, 'MISS', env);
 
 		// 7. Async cache storage (non-blocking)
 		// Clone response because R2 body streams are single-use
@@ -67,7 +67,7 @@ export default {
 /**
  * Create HTTP Response from R2 object with proper headers
  */
-function createResponse(object, status, cacheStatus, env) {
+function createResponse(object, objectKey, status, cacheStatus, env) {
 	const headers = new Headers();
 
 	// Content-Type from R2 metadata
@@ -75,7 +75,7 @@ function createResponse(object, status, cacheStatus, env) {
 		headers.set('Content-Type', object.httpMetadata.contentType);
 	} else {
 		// Fallback based on file extension
-		const contentType = guessContentType(object.key);
+		const contentType = guessContentType(objectKey);
 		headers.set('Content-Type', contentType);
 	}
 

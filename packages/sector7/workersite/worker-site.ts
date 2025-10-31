@@ -66,7 +66,7 @@ export interface WorkerSiteArgs {
 		 * Create the R2 bucket if it doesn't exist.
 		 * @default false
 		 */
-		create?: pulumi.Input<boolean>;
+		create?: boolean;
 
 		/**
 		 * Optional prefix for object keys in R2.
@@ -191,7 +191,7 @@ export class WorkerSite extends pulumi.ComponentResource {
 		const resourceOpts = { parent: this };
 
 		// 1. Create or reference R2 bucket
-		if (pulumi.output(args.r2Bucket.create).apply((c) => c === true)) {
+		if (args.r2Bucket.create === true) {
 			this.bucket = new cloudflare.R2Bucket(
 				`${name}-bucket`,
 				{
@@ -270,60 +270,64 @@ export class WorkerSite extends pulumi.ComponentResource {
 			}
 		});
 
-		// 4. Create Access Applications and Policies for each path
+		// 4. Create Access Applications and Policies for each (domain, path) combination
 		this.accessApplications = [];
 		this.accessPolicies = [];
 
-		for (let i = 0; i < args.paths.length; i++) {
-			const pathConfig = args.paths[i];
-			const primaryDomain = pulumi.output(args.domains).apply((d) => d[0]);
+		let policyPrecedence = 1;
+		for (let domainIdx = 0; domainIdx < args.domains.length; domainIdx++) {
+			const domain = args.domains[domainIdx];
 
-			// Create Access Application
-			const app = new cloudflare.AccessApplication(
-				`${name}-app-${i}`,
-				{
-					zoneId: args.zoneId,
-					name: pulumi.interpolate`${args.name}-${pathConfig.pattern}`,
-					domain: pulumi.interpolate`${primaryDomain}${pathConfig.pattern}`,
-					type: "self_hosted",
-					sessionDuration: "24h",
-				},
-				resourceOpts,
-			);
-			this.accessApplications.push(app);
+			for (let pathIdx = 0; pathIdx < args.paths.length; pathIdx++) {
+				const pathConfig = args.paths[pathIdx];
 
-			// Create Access Policy based on access type
-			const policyIncludes =
-				pathConfig.access === "public"
-					? [{ everyone: true }]
-					: pulumi
-							.all([args.githubOrganizations, args.githubIdentityProviderId])
-							.apply(
-								([orgs, idpId]) =>
-									orgs.map((org) => ({
-										github: {
-											identityProviderId: idpId,
-											name: org,
-										},
-									})) as any,
-							);
+				// Create Access Application
+				const app = new cloudflare.AccessApplication(
+					`${name}-app-d${domainIdx}-p${pathIdx}`,
+					{
+						zoneId: args.zoneId,
+						name: pulumi.interpolate`${args.name}-${domain}-${pathConfig.pattern}`,
+						domain: pulumi.interpolate`${domain}${pathConfig.pattern}`,
+						type: "self_hosted",
+						sessionDuration: "24h",
+					},
+					resourceOpts,
+				);
+				this.accessApplications.push(app);
 
-			const policy = new cloudflare.AccessPolicy(
-				`${name}-policy-${i}`,
-				{
-					applicationId: app.id,
-					zoneId: args.zoneId,
-					name:
-						pathConfig.access === "public"
-							? "Allow everyone"
-							: "GitHub org members",
-					decision: "allow",
-					precedence: i + 1,
-					includes: policyIncludes,
-				},
-				resourceOpts,
-			);
-			this.accessPolicies.push(policy);
+				// Create Access Policy based on access type
+				const policyIncludes =
+					pathConfig.access === "public"
+						? [{ everyone: true }]
+						: pulumi
+								.all([args.githubOrganizations, args.githubIdentityProviderId])
+								.apply(
+									([orgs, idpId]) =>
+										orgs.map((org) => ({
+											github: {
+												identityProviderId: idpId,
+												name: org,
+											},
+										})) as any,
+								);
+
+				const policy = new cloudflare.AccessPolicy(
+					`${name}-policy-d${domainIdx}-p${pathIdx}`,
+					{
+						applicationId: app.id,
+						zoneId: args.zoneId,
+						name:
+							pathConfig.access === "public"
+								? "Allow everyone"
+								: "GitHub org members",
+						decision: "allow",
+						precedence: policyPrecedence++,
+						includes: policyIncludes,
+					},
+					resourceOpts,
+				);
+				this.accessPolicies.push(policy);
+			}
 		}
 
 		// Outputs
