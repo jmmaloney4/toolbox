@@ -449,7 +449,7 @@ export default {
         // SPA mode: return index.html with 200 for client-side routing
         object = await env.R2_BUCKET.get('index.html');
         if (object) {
-          response = createResponse(object, 200, 'MISS');
+          response = createResponse(object, 'index.html', 200, 'MISS', env);
           ctx.waitUntil(cache.put(cacheKey, response.clone()));
           return response;
         }
@@ -459,7 +459,7 @@ export default {
     }
 
     // 6. Build response with metadata
-    response = createResponse(object, 200, 'MISS');
+    response = createResponse(object, objectKey, 200, 'MISS', env);
 
     // 7. Async cache storage (non-blocking)
     ctx.waitUntil(cache.put(cacheKey, response.clone()));
@@ -473,8 +473,10 @@ export default {
  */
 function createResponse(
   object: R2ObjectBody,
+  objectKey: string,
   status: number,
-  cacheStatus: string
+  cacheStatus: string,
+  env: Env
 ): Response {
   const headers = new Headers();
 
@@ -483,7 +485,7 @@ function createResponse(
     headers.set('Content-Type', object.httpMetadata.contentType);
   } else {
     // Fallback based on file extension
-    const contentType = guessContentType(object.key);
+    const contentType = guessContentType(objectKey);
     headers.set('Content-Type', contentType);
   }
 
@@ -491,7 +493,7 @@ function createResponse(
   headers.set('ETag', object.httpEtag);
 
   // Cache-Control with configurable TTL
-  const maxAge = parseInt(process.env.CACHE_TTL_SECONDS || '31536000');
+  const maxAge = parseInt(env.CACHE_TTL_SECONDS || '31536000');
   headers.set('Cache-Control', `public, max-age=${maxAge}, immutable`);
 
   // Last-Modified
