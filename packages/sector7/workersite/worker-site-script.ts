@@ -7,9 +7,13 @@
  * Generate the Worker script code for serving static files from R2 with Cache API.
  *
  * @param bucketBinding - The R2 bucket binding name (e.g., "R2_BUCKET")
+ * @param prefix - Optional prefix to prepend to all R2 object keys
  * @returns The Worker script code as a string
  */
-export function generateWorkerScript(bucketBinding: string): string {
+export function generateWorkerScript(
+	bucketBinding: string,
+	prefix?: string,
+): string {
 	return `
 /**
  * WorkerSite - Static file server with R2 backend and Cache API
@@ -28,6 +32,9 @@ export default {
 		if (objectKey === '' || objectKey.endsWith('/')) {
 			objectKey += 'index.html';
 		}
+
+		// 2.5. Prepend prefix if configured
+		${prefix ? `objectKey = '${prefix}/' + objectKey;` : '// No prefix configured'}
 
 		// 3. Cache API check (requires custom domain)
 		const cache = caches.default;

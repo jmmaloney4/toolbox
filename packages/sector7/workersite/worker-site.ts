@@ -232,7 +232,12 @@ export class WorkerSite extends pulumi.ComponentResource {
 		// 2. Create Worker script with Cache API support
 		const bucketBinding = "R2_BUCKET";
 		const cacheTtl = args.cacheTtlSeconds ?? 31536000; // Default 1 year
-		const scriptContent = generateWorkerScript(bucketBinding);
+		const prefix = args.r2Bucket.prefix
+			? pulumi.output(args.r2Bucket.prefix)
+			: undefined;
+		const scriptContent = prefix
+			? prefix.apply((p) => generateWorkerScript(bucketBinding, p))
+			: generateWorkerScript(bucketBinding);
 
 		this.worker = new cloudflare.WorkerScript(
 			`${name}-worker`,
