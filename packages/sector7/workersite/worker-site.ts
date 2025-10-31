@@ -307,7 +307,7 @@ export class WorkerSite extends pulumi.ComponentResource {
 												identityProviderId: idpId,
 												name: org,
 											},
-										})) as any,
+										})) as cloudflare.types.input.AccessPolicyInclude[],
 								);
 
 				const policy = new cloudflare.AccessPolicy(
