@@ -100,7 +100,7 @@ function createResponse(object, objectKey, status, cacheStatus, env) {
 /**
  * Guess content type from file extension
  */
-function guessContentType(key) {
+function guessContentType(key: string): string {
 	// Get the basename (after last '/')
 	const base = key.substring(key.lastIndexOf('/') + 1);
 	const dot = base.lastIndexOf('.');
