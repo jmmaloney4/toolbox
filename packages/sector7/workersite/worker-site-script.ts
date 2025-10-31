@@ -31,7 +31,7 @@ export default {
 
 		// 3. Cache API check (requires custom domain)
 		const cache = caches.default;
-		const cacheKey = new Request(url.toString(), request);
+		const cacheKey = new Request(url.toString(), { method: 'GET' });
 		let response = await cache.match(cacheKey);
 
 		if (response) {
