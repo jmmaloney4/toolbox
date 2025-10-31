@@ -188,6 +188,29 @@ export class WorkerSite extends pulumi.ComponentResource {
 	) {
 		super("sector7:cloudflare:WorkerSite", name, {}, opts);
 
+		// Input validation
+		if (!args.domains || args.domains.length === 0) {
+			throw new Error("WorkerSite requires at least one domain");
+		}
+
+		if (!args.paths || args.paths.length === 0) {
+			throw new Error("WorkerSite requires at least one path configuration");
+		}
+
+		const githubOrgPaths = args.paths.filter((p) => p.access === "github-org");
+		if (githubOrgPaths.length > 0) {
+			if (!args.githubIdentityProviderId) {
+				throw new Error(
+					"githubIdentityProviderId is required when using github-org access",
+				);
+			}
+			if (!args.githubOrganizations || args.githubOrganizations.length === 0) {
+				throw new Error(
+					"githubOrganizations must not be empty when using github-org access",
+				);
+			}
+		}
+
 		const resourceOpts = { parent: this };
 
 		// 1. Create or reference R2 bucket
