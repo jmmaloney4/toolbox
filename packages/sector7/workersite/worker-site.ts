@@ -237,38 +237,37 @@ export class WorkerSite extends pulumi.ComponentResource {
 		this.workerDomains = [];
 		this.dnsRecords = [];
 
-		pulumi.output(args.domains).apply((domains) => {
-			for (let i = 0; i < domains.length; i++) {
-				const domain = domains[i];
+		// Create resources declaratively (not inside apply()) so Pulumi tracks them
+		for (let i = 0; i < args.domains.length; i++) {
+			const domain = args.domains[i];
 
-				// Create DNS record (AAAA with Workers placeholder)
-				const dnsRecord = new cloudflare.Record(
-					`${name}-dns-${i}`,
-					{
-						zoneId: args.zoneId,
-						name: domain,
-						type: "AAAA",
-						value: "100::", // Workers placeholder IPv6
-						proxied: true, // Enable Cloudflare proxy
-					},
-					resourceOpts,
-				);
-				this.dnsRecords.push(dnsRecord);
+			// Create DNS record (AAAA with Workers placeholder)
+			const dnsRecord = new cloudflare.Record(
+				`${name}-dns-${i}`,
+				{
+					zoneId: args.zoneId,
+					name: domain,
+					type: "AAAA",
+					value: "100::", // Workers placeholder IPv6
+					proxied: true, // Enable Cloudflare proxy
+				},
+				resourceOpts,
+			);
+			this.dnsRecords.push(dnsRecord);
 
-				// Create Worker domain binding
-				const workerDomain = new cloudflare.WorkerDomain(
-					`${name}-domain-${i}`,
-					{
-						accountId: args.accountId,
-						hostname: domain,
-						service: this.worker.name,
-						zoneId: args.zoneId,
-					},
-					{ ...resourceOpts, dependsOn: [dnsRecord] },
-				);
-				this.workerDomains.push(workerDomain);
-			}
-		});
+			// Create Worker domain binding
+			const workerDomain = new cloudflare.WorkerDomain(
+				`${name}-domain-${i}`,
+				{
+					accountId: args.accountId,
+					hostname: domain,
+					service: this.worker.name,
+					zoneId: args.zoneId,
+				},
+				{ ...resourceOpts, dependsOn: [dnsRecord] },
+			);
+			this.workerDomains.push(workerDomain);
+		}
 
 		// 4. Create Access Applications and Policies for each (domain, path) combination
 		this.accessApplications = [];
