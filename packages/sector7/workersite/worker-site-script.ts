@@ -26,8 +26,13 @@ export function generateWorkerScript(
  * Phase 2: Edge caching with configurable TTL
  */
 
+interface Env {
+	${bucketBinding}: R2Bucket;
+	CACHE_TTL_SECONDS: string;
+}
+
 export default {
-	async fetch(request, env, ctx) {
+	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
 		try {
 			const url = new URL(request.url);
 
@@ -90,7 +95,7 @@ export default {
 /**
  * Create HTTP Response from R2 object with proper headers
  */
-function createResponse(object, objectKey, status, cacheStatus, env) {
+function createResponse(object: R2ObjectBody, objectKey: string, status: number, cacheStatus: string, env: Env): Response {
 	const headers = new Headers();
 
 	// Content-Type from R2 metadata
