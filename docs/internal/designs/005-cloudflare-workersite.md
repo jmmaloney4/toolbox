@@ -32,10 +32,14 @@ links:
   - Creating the GitHub Access Identity Provider in Cloudflare (assumed to exist; the component accepts its ID).
 
 # Decision
+We adopt the **R2-backed Worker pattern** for static site hosting with Zero Trust access control.
+
 1) Build a Pulumi TypeScript ComponentResource named `WorkerSite` that:
    - Hosts static assets from R2 (default) or KV (optional) and serves them via a Worker script.
    - Binds one or more domains either via Worker Custom Domains (preferred) or Worker Routes fallback.
    - Configures Cloudflare Zero Trust on a per‑subpath basis by creating Access Applications and Policies.
+
+   **Rationale**: This approach provides full control over static asset serving with standard Cloudflare Workers patterns (R2 bindings, Cache API, custom response headers) while integrating seamlessly with Cloudflare Access for path-level authorization.
 
 2) Access model:
    - For each protected path pattern (e.g., `/research/*`), create an Access Application targeting the primary domain and subpath. Where provider support allows, set `domain: "<hostname><path-pattern>"` (e.g., `site.example.com/research/*`). If path scoping at the application level is not supported or proves unreliable, create distinct applications per path and apply policies accordingly.
@@ -78,18 +82,23 @@ links:
   - Cons: Reinvents Access; higher security burden.
 
 # Security / Privacy / Compliance
-- Use least‑privilege Cloudflare API tokens:
+- **API Token Permissions** - Use least-privilege Cloudflare API tokens:
   - Required: Account → Workers Scripts: Edit; R2: Edit (if creating buckets); Zero Trust Access: Edit.
-  - Optional: Zone → DNS: Edit (only if managing explicit records).
-- No secrets are embedded in the Worker; bindings use Cloudflare‑managed credentials.
-- The GitHub IdP MUST exist in the account; we pass its `identity_provider_id` and constrain org membership in policies.
-- Log access decisions via Cloudflare Access; do not store PII in logs.
+  - Optional: Zone → DNS: Edit (only if managing explicit records via `manageDns: true`).
+- **Worker Credentials**: No secrets are embedded in the Worker; bindings use Cloudflare-managed credentials for R2/KV access.
+- **GitHub IdP Prerequisite**: The GitHub Identity Provider MUST exist in the Cloudflare account before deployment; we pass its `identity_provider_id` and constrain org membership in Access policies.
+- **Access Enforcement Model**: Cloudflare Access enforces authorization at the edge BEFORE requests reach the Worker. The Worker does NOT implement auth logic; all authorization is handled by Access Applications and Policies created via Pulumi.
+- **Optional JWT Validation**: For defense-in-depth, the Worker MAY validate the `Cf-Access-Jwt-Assertion` header using the `jose` library, but this is NOT required for security since Access already blocks unauthorized requests.
+- **Audit Logging**: Log access decisions via Cloudflare Access audit logs; do not store PII in Worker logs. Access provides detailed audit trails for all authentication and authorization events.
+- **Public Paths**: Even "public" paths should be configured as Access Applications with `include: everyone` policies for consistent audit logging and future policy flexibility.
 
 # Operational Notes
-- Cost: Workers and R2 pricing apply; cache effectiveness impacts egress.
-- Limits: Worker CPU/runtime limits and R2 request rates; size large assets appropriately.
-- Observability: Use Request CF‑Ray IDs, Access logs, and add minimal logging in the Worker for cache misses.
-- Rollouts/backouts: Version the Worker script; safe to roll back by re‑deploying prior asset manifest and script.
+- **Cost**: Workers and R2 pricing apply; cache effectiveness impacts egress. R2 Class A operations (PUT, GET) cost $0.36/million requests. Edge cache with long TTLs (1 year for immutable assets) minimizes R2 requests.
+- **Limits**: Worker CPU time (50ms free tier, 30s paid), Worker memory (128MB), and R2 request rates. Size large assets appropriately or use streaming for files exceeding memory limits.
+- **Cache API requirement**: Cache API only works with custom domains (not `*.workers.dev`). Phase 1 MVP uses WorkerRoute without caching; Phase 2+ adds caching with custom domains.
+- **Observability**: Use CF-Ray IDs from request headers, Cloudflare Access logs for authorization events, and add `X-Cache-Status` headers (HIT/MISS) in the Worker for cache debugging.
+- **Rollouts/backouts**: Version the Worker script via Pulumi; safe to roll back by re-deploying prior asset manifest and script. R2 objects are immutable once uploaded; use content hashing in filenames for cache busting.
+- **DNS propagation**: When using `manageDns: true`, DNS changes may take minutes to propagate. Worker Custom Domains also require DNS validation before activation.
 
 # Status Transitions
 - New ADR; no supersessions.
@@ -105,10 +114,31 @@ links:
   - Optional: `cloudflare.Record` when `manageDns: true` and Custom Domains require DNS
 - CI uploads assets to R2/KV and bumps a content hash used by the Worker for cache busting.
 
+## Worker Script Architecture
+The Worker serves static files from R2 using this standard pattern:
+- **Path normalization**: Remove leading `/`, append `index.html` for directory paths
+- **Cache API**: Check `caches.default` before R2 fetch (requires custom domain, not `*.workers.dev`)
+- **R2 fetch**: Use `env.R2_BUCKET.get(objectKey)` with null check for 404
+- **Response headers**: Set Content-Type from R2 httpMetadata, ETag, Cache-Control
+- **Async cache storage**: Use `ctx.waitUntil(cache.put())` to avoid blocking response
+- **SPA fallback** (Phase 3): Return `index.html` for 404s when enabled
+- **Error handling**: Return 404 for missing objects (or fallback to index.html in SPA mode)
+
+## Access Integration Model
+**Key finding**: Cloudflare Access sits **in front** of the Worker at the edge. The Pulumi component creates Access Applications and Policies that enforce authorization **before** requests reach the Worker. The Worker does NOT need to implement authorization logic.
+
+**Optional JWT validation**: For defense-in-depth, the Worker MAY validate the `Cf-Access-Jwt-Assertion` header using the `jose` library, but this is not required for basic functionality since Access already enforces policies.
+
+**Public keys**: Access uses signing keys at `https://<team-name>.cloudflareaccess.com/cdn-cgi/access/certs` that rotate every 6 weeks. Use `createRemoteJWKSet` from `jose` for automatic key refresh.
+
 # References
-- Cloudflare Workers: custom domains and routes
-- Cloudflare Access: applications and policy rules (GitHub org includes)
-- Pulumi Cloudflare provider: Workers, R2, Access resources
+- [Cloudflare Workers Static Assets](https://developers.cloudflare.com/workers/static-assets/) - Official documentation for serving static assets with Workers
+- [Cloudflare R2 Workers API](https://developers.cloudflare.com/r2/api/workers/workers-api-usage/) - R2 bindings and API reference for Workers
+- [Cloudflare R2 Cache API Example](https://developers.cloudflare.com/r2/examples/cache-api/) - Using Cache API with R2 objects
+- [Cloudflare Access JWT Validation](https://developers.cloudflare.com/cloudflare-one/identity/authorization-cookie/validating-json/) - Validating Access JWTs in applications
+- [Cloudflare Worker Custom Domains](https://developers.cloudflare.com/workers/platform/triggers/custom-domains/) - Binding custom domains to Workers
+- [Cloudflare Worker Routes](https://developers.cloudflare.com/workers/platform/triggers/routes/) - Using routes to trigger Workers
+- [Pulumi Cloudflare Provider](https://www.pulumi.com/registry/packages/cloudflare/) - Pulumi resources for Workers, R2, and Access
 
 ---
 
@@ -168,17 +198,170 @@ export interface WorkerSiteOutputs {
   - Order by declaration to set policy/application precedence as needed.
 
 ## Appendix C — Implementation Plan
-- Phase 1 (MVP)
-  - Component scaffold and minimal R2-backed Worker that serves static assets.
-  - Bind one domain via `WorkerRoute` (broadest compatibility).
-  - Single public path (`/blog/*`) and single restricted path (`/research/*`).
-- Phase 2
-  - Add `WorkerDomain` support and optional DNS management flag.
-  - Multiple domains and multiple path policies.
-  - KV backend option.
-- Phase 3
-  - Cache control knobs and observability (cf-ray echo, cache status headers).
-  - SPA routing helpers and not-found strategies.
+
+### Phase 1: MVP (Core Functionality)
+
+**Scope:**
+- R2-backed Worker serving static files
+- Single domain via WorkerRoute (broadest compatibility)
+- Exactly 2 paths: one public (`/blog/*`), one restricted (`/research/*`)
+- Basic Access integration with GitHub org policies
+
+**Pulumi Component Resources:**
+- `cloudflare.R2Bucket` (or reference existing)
+- `cloudflare.WorkerScript` with R2 binding
+- `cloudflare.WorkerRoute` pattern: `<domain>/*`
+- 2x `cloudflare.AccessApplication` (one per path pattern)
+- 2x `cloudflare.AccessPolicy` (public + GitHub org)
+
+**Worker Script Features:**
+- Path normalization (remove leading `/`)
+- Directory index (append `index.html` for paths ending in `/`)
+- R2 object fetch with `env.R2_BUCKET.get(objectKey)`
+- Null check for 404 handling
+- Content-Type from `object.httpMetadata.contentType`
+- ETag header from `object.httpEtag`
+- Basic error responses (404 for missing objects)
+- **NO caching** (Cache API requires custom domain, deferred to Phase 2)
+- **NO SPA fallback** (deferred to Phase 3)
+
+**Access Configuration:**
+- **Public path** (`/blog/*`):
+  - Application: `domain: <hostname>`, `path: /blog/*` (if path scoping supported)
+  - Policy: `include: [{ everyone: {} }]`
+- **Restricted path** (`/research/*`):
+  - Application: `domain: <hostname>`, `path: /research/*`
+  - Policy: `include: [{ github: { identity_provider_id: <id>, name: <org> } }]`
+
+**Acceptance Criteria:**
+- Deploy component to test Cloudflare zone
+- Upload sample files to R2: `blog/index.html`, `research/data.json`
+- Verify `/blog/*` accessible without authentication
+- Verify `/research/*` requires GitHub org membership via Access
+- Verify 404 response for non-existent paths
+- Verify directory index works (`/blog/` → `/blog/index.html`)
+
+**Limitations:**
+- Single domain only (array iteration deferred to Phase 2)
+- Hardcoded to 2 paths (flexible `paths[]` array deferred to Phase 2)
+- No DNS management (`manageDns` flag not implemented)
+- Uses WorkerRoute only (WorkerDomain deferred to Phase 2)
+
+---
+
+### Phase 2: Full Feature Set
+
+**Adds:**
+- Multiple domains support (iterate `domains[]` array)
+- Multiple path policies (iterate `paths[]` array)
+- WorkerDomain preference (feature flag `preferWorkerDomains`)
+- Optional DNS management (`manageDns: true` creates `cloudflare.Record`)
+- KV backend option (`assets.backend === 'kv'`)
+- **Cache API integration** (now possible with custom domains)
+
+**Worker Script Enhancements:**
+- Cache API check: `cache.match(cacheKey)` before R2 fetch
+- Async cache storage: `ctx.waitUntil(cache.put(cacheKey, response.clone()))`
+- KV namespace binding support as alternative to R2
+- Cache-Control headers with configurable TTL
+- Response cloning before caching (R2 body streams are single-use)
+
+**Pulumi Enhancements:**
+- Conditional `cloudflare.WorkerDomain` vs `cloudflare.WorkerRoute`:
+  ```ts
+  if (args.preferWorkerDomains) {
+    new cloudflare.WorkerDomain(...);
+  } else {
+    new cloudflare.WorkerRoute(...);
+  }
+  ```
+- Conditional `cloudflare.Record` (A/AAAA) when `manageDns: true`:
+  ```ts
+  if (args.manageDns && args.preferWorkerDomains) {
+    new cloudflare.Record({
+      type: 'AAAA',
+      value: '100::', // Workers placeholder
+      proxied: true,
+    });
+  }
+  ```
+- Loop over `paths[]` to create multiple Access Applications/Policies
+- Support for `assets.backend === 'kv'` with KV namespace bindings
+
+**Cache API Implementation:**
+```ts
+const cache = caches.default;
+const cacheKey = new Request(url.toString(), request);
+let response = await cache.match(cacheKey);
+
+if (!response) {
+  const object = await env.R2_BUCKET.get(objectKey);
+  response = createResponse(object, objectKey, 200, 'MISS', env);
+  ctx.waitUntil(cache.put(cacheKey, response.clone()));
+}
+return response;
+```
+
+**DNS Management Logic:**
+- Only create DNS records when both `manageDns: true` AND `preferWorkerDomains: true`
+- Create AAAA record pointing to `100::` (Workers placeholder IPv6)
+- Set `proxied: true` to enable Cloudflare proxy
+
+**Acceptance Criteria:**
+- Deploy with multiple domains (`example.com`, `www.example.com`)
+- Verify all domains bound correctly via WorkerDomain
+- Deploy with `manageDns: true` and verify DNS records created
+- Test Cache API: first request misses cache, second hits
+- Verify multiple path policies work correctly
+- Test KV backend option as alternative to R2
+
+---
+
+### Phase 3: DX & Performance
+
+**Adds:**
+- SPA fallback mode (`assets.spaFallback: true`)
+- Custom cache TTL configuration (`assets.cacheTtlSeconds`)
+- Observability headers (cf-ray echo, cache status)
+- Custom 404 page support
+- Range request support for large files
+
+**Worker Script Enhancements:**
+```ts
+// SPA fallback
+if (!object && env.SPA_FALLBACK === 'true') {
+  object = await env.R2_BUCKET.get('index.html');
+  if (object) {
+    response = createResponse(object, 'index.html', 200, 'MISS', env); // Return 200, not 404
+  }
+}
+
+// Observability (CF-Ray echo)
+// Note: X-Cache-Status is already set by createResponse based on cache hit/miss
+headers.set('CF-Ray', request.headers.get('cf-ray') || 'unknown');
+
+// Custom cache TTL
+const maxAge = env.CACHE_TTL_SECONDS || 31536000;
+headers.set('Cache-Control', `public, max-age=${maxAge}, immutable`);
+```
+
+**Pulumi Additions:**
+- `assets.spaFallback` → Worker environment variable `SPA_FALLBACK`
+- `assets.cacheTtlSeconds` → Worker environment variable `CACHE_TTL_SECONDS`
+- Optional `assets.notFoundPage` for custom 404 handling
+
+**Performance Features:**
+- Configurable cache TTL (default: 1 year for immutable assets)
+- SPA mode returns `index.html` with 200 status for client-side routing
+- Cache status headers for debugging (`X-Cache-Status: HIT|MISS`)
+- CF-Ray echo for request tracing
+
+**Acceptance Criteria:**
+- Test SPA fallback: verify `/app/route` returns `index.html` with 200
+- Verify custom cache TTL reflected in Cache-Control header
+- Check observability headers in response
+- Measure cache hit rate improvement
+- Test custom 404 page if configured
 
 ## Appendix D — Risks & Mitigations
 - Provider drift for `WorkerDomain` and Access path targeting
@@ -201,8 +384,9 @@ const site = new WorkerSite("docs-site", {
   zoneId,
   name: "docs-site",
   assets: { backend: "r2", r2: { bucketName: "docs-site", create: true, prefix: "public/" }, spaFallback: false },
-  domains: ["site.example.com"],
+  domains: ["site.example.com", "www.site.example.com"],
   preferWorkerDomains: true,
+  manageDns: true,
   githubIdentityProviderId: cfGithubIdpId,
   githubOrganizations: ["acme-org"],
   paths: [
@@ -211,6 +395,189 @@ const site = new WorkerSite("docs-site", {
   ],
 });
 ```
+
+## Appendix G — Complete Worker Script Example
+
+This is the reference implementation for the R2-backed static site Worker (Phase 2+):
+
+```ts
+/**
+ * WorkerSite - Static file server with R2 backend and Cache API
+ * Generated by WorkerSite Pulumi component
+ */
+
+export interface Env {
+  R2_BUCKET: R2Bucket;
+  SPA_FALLBACK?: string;
+  CACHE_TTL_SECONDS?: string;
+}
+
+export default {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const url = new URL(request.url);
+
+    // 1. Path normalization
+    let objectKey = url.pathname.slice(1); // Remove leading /
+
+    // 2. Directory index handling
+    if (objectKey === '' || objectKey.endsWith('/')) {
+      objectKey += 'index.html';
+    }
+
+    // 3. Cache API check (requires custom domain)
+    const cache = caches.default;
+    const cacheKey = new Request(url.toString(), request);
+    let response = await cache.match(cacheKey);
+
+    if (response) {
+      // Cache hit - add debug header
+      const headers = new Headers(response.headers);
+      headers.set('X-Cache-Status', 'HIT');
+      return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers,
+      });
+    }
+
+    // 4. Cache miss - fetch from R2
+    let object = await env.R2_BUCKET.get(objectKey);
+
+    // 5. Handle 404 with optional SPA fallback
+    if (!object) {
+      if (env.SPA_FALLBACK === 'true') {
+        // SPA mode: return index.html with 200 for client-side routing
+        object = await env.R2_BUCKET.get('index.html');
+        if (object) {
+          response = createResponse(object, 'index.html', 200, 'MISS', env);
+          ctx.waitUntil(cache.put(cacheKey, response.clone()));
+          return response;
+        }
+      }
+      // No fallback or fallback failed
+      return new Response('Not Found', { status: 404 });
+    }
+
+    // 6. Build response with metadata
+    response = createResponse(object, objectKey, 200, 'MISS', env);
+
+    // 7. Async cache storage (non-blocking)
+    ctx.waitUntil(cache.put(cacheKey, response.clone()));
+
+    return response;
+  },
+};
+
+/**
+ * Create HTTP Response from R2 object with proper headers
+ */
+function createResponse(
+  object: R2ObjectBody,
+  objectKey: string,
+  status: number,
+  cacheStatus: string,
+  env: Env
+): Response {
+  const headers = new Headers();
+
+  // Content-Type from R2 metadata
+  if (object.httpMetadata?.contentType) {
+    headers.set('Content-Type', object.httpMetadata.contentType);
+  } else {
+    // Fallback based on file extension
+    const contentType = guessContentType(objectKey);
+    headers.set('Content-Type', contentType);
+  }
+
+  // ETag for cache validation
+  headers.set('ETag', object.httpEtag);
+
+  // Cache-Control with configurable TTL
+  const maxAge = parseInt(env.CACHE_TTL_SECONDS || '31536000');
+  headers.set('Cache-Control', `public, max-age=${maxAge}, immutable`);
+
+  // Last-Modified
+  if (object.uploaded) {
+    headers.set('Last-Modified', object.uploaded.toUTCString());
+  }
+
+  // Observability headers
+  headers.set('X-Cache-Status', cacheStatus);
+
+  return new Response(object.body, { status, headers });
+}
+
+/**
+ * Guess content type from file extension
+ */
+function guessContentType(key: string): string {
+  // Get the basename (after last '/')
+  const base = key.substring(key.lastIndexOf('/') + 1);
+  const dot = base.lastIndexOf('.');
+  const ext = (dot > 0) ? base.substring(dot + 1).toLowerCase() : '';
+  const types: Record<string, string> = {
+    html: 'text/html; charset=utf-8',
+    css: 'text/css; charset=utf-8',
+    js: 'application/javascript; charset=utf-8',
+    json: 'application/json; charset=utf-8',
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    gif: 'image/gif',
+    svg: 'image/svg+xml',
+    ico: 'image/x-icon',
+    woff: 'font/woff',
+    woff2: 'font/woff2',
+    ttf: 'font/ttf',
+    eot: 'application/vnd.ms-fontobject',
+    pdf: 'application/pdf',
+    txt: 'text/plain; charset=utf-8',
+  };
+  return types[ext || ''] || 'application/octet-stream';
+}
+```
+
+**Phase 1 Simplification:**
+For MVP, remove:
+- Cache API logic (lines 27-42, 65)
+- SPA fallback logic (lines 51-60)
+- `X-Cache-Status` header
+- `CACHE_TTL_SECONDS` environment variable
+
+Phase 1 script focuses on basic R2 fetch, directory index, and response headers.
+
+## Appendix H — Critical Requirements & Gotchas
+
+### Cache API
+- **Requires custom domain**: Cache API will NOT work on `*.workers.dev` or dashboard previews
+- **Must clone response**: R2 body streams are single-use; always use `response.clone()` before `cache.put()`
+- **Cache key construction**: Use `new Request(url.toString(), request)` for proper cache keying
+
+### Cloudflare Access
+- **JWT header name**: Use `Cf-Access-Jwt-Assertion` header (not the `CF_Authorization` cookie)
+- **Public keys rotate**: Access rotates signing keys every 6 weeks; use `createRemoteJWKSet` from `jose` library for automatic refresh
+- **Public key location**: `https://<team-name>.cloudflareaccess.com/cdn-cgi/access/certs`
+- **Worker validation optional**: Access enforces policies at the edge BEFORE requests reach the Worker; JWT validation in Worker is defense-in-depth, not required
+
+### R2 Integration
+- **Body stream limitation**: `request.body` can only be accessed once; use `request.clone()` if multiple accesses needed
+- **Null check required**: `env.R2_BUCKET.get()` returns `null` for missing objects (not 404 Response)
+- **httpMetadata structure**: Content-Type stored in `object.httpMetadata.contentType`, may be undefined
+
+### DNS Management
+- **AAAA record for Workers**: Use placeholder IPv6 `100::` with `proxied: true`
+- **Only with WorkerDomain**: DNS management only makes sense when using Worker Custom Domains, not Routes
+- **Zone must be on Cloudflare**: Domain must already be managed by Cloudflare nameservers
+
+### Security
+- **No auth logic in Worker**: Authorization is enforced by Access policies created via Pulumi; Worker does NOT implement auth
+- **R2 bucket security**: Without Access or Worker auth logic, R2 bucket is publicly exposed via Worker
+- **API token permissions**: Minimum required: Account → Workers Scripts: Edit, R2: Edit, Zero Trust Access: Edit
+
+### Performance
+- **Workers CPU limits**: 50ms CPU time for free tier, 30s for paid (mainly impacts first request)
+- **R2 request costs**: $0.36 per million Class A operations; cache aggressively
+- **Edge cache effectiveness**: Long cache TTLs (1 year for immutable assets) minimize R2 requests
 
 
 
