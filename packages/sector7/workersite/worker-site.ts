@@ -331,7 +331,12 @@ export class WorkerSite extends pulumi.ComponentResource {
 					`${name}-app-d${domainIdx}-p${pathIdx}`,
 					{
 						zoneId: args.zoneId,
-						name: pulumi.interpolate`${args.name}-${domain}-${pathConfig.pattern}`,
+						name: pulumi
+							.all([args.name, domain, pathConfig.pattern])
+							.apply(
+								([n, d, p]) =>
+									`${n}-${d}-${p.replace(/\//g, "-").replace(/\*/g, "all")}`,
+							),
 						domain: pulumi.interpolate`${domain}${pathConfig.pattern}`,
 						type: "self_hosted",
 						sessionDuration: "24h",
