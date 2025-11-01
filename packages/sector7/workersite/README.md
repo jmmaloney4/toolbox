@@ -151,6 +151,7 @@ Phase 2 automatically creates DNS records for all domains:
 | `zoneId` | `string` | Yes | Cloudflare zone ID |
 | `name` | `string` | Yes | Name for Worker and resources |
 | `domains` | `string[]` | Yes | Domains to bind (e.g., `["docs.example.com", "www.docs.example.com"]`) |
+| `manageDns` | `boolean` | No | Automatically create DNS records for domains (default: true) |
 | `r2Bucket.bucketName` | `string` | Yes | R2 bucket name |
 | `r2Bucket.create` | `boolean` | No | Create bucket if not exists (default: false) |
 | `r2Bucket.prefix` | `string` | No | Optional object key prefix |

@@ -49,9 +49,16 @@ export interface WorkerSiteArgs {
 
 	/**
 	 * Domains to bind the Worker to (e.g., ["site.example.com", "www.site.example.com"]).
-	 * DNS records will be automatically created for each domain.
+	 * DNS records will be automatically created for each domain unless manageDns is false.
 	 */
 	domains: pulumi.Input<string>[];
+
+	/**
+	 * Automatically create DNS records for domains.
+	 * Creates AAAA records pointing to 100:: (Workers placeholder).
+	 * @default true
+	 */
+	manageDns?: boolean;
 
 	/**
 	 * R2 bucket configuration.
@@ -265,25 +272,36 @@ export class WorkerSite extends pulumi.ComponentResource {
 		this.workerDomains = [];
 		this.dnsRecords = [];
 
+		// Default manageDns to true if not specified
+		const shouldManageDns = args.manageDns !== false;
+
 		// Create resources declaratively (not inside apply()) so Pulumi tracks them
 		for (let i = 0; i < args.domains.length; i++) {
 			const domain = args.domains[i];
 
-			// Create DNS record (AAAA with Workers placeholder)
-			const dnsRecord = new cloudflare.Record(
-				`${name}-dns-${i}`,
-				{
-					zoneId: args.zoneId,
-					name: domain,
-					type: "AAAA",
-					value: "100::", // Workers placeholder IPv6
-					proxied: true, // Enable Cloudflare proxy
-				},
-				resourceOpts,
-			);
-			this.dnsRecords.push(dnsRecord);
+			let dnsRecord: cloudflare.Record | undefined;
+
+			// Create DNS record if manageDns is enabled (default: true)
+			if (shouldManageDns) {
+				dnsRecord = new cloudflare.Record(
+					`${name}-dns-${i}`,
+					{
+						zoneId: args.zoneId,
+						name: domain,
+						type: "AAAA",
+						value: "100::", // Workers placeholder IPv6
+						proxied: true, // Enable Cloudflare proxy
+					},
+					resourceOpts,
+				);
+				this.dnsRecords.push(dnsRecord);
+			}
 
 			// Create Worker domain binding
+			const workerDomainOpts = dnsRecord
+				? { ...resourceOpts, dependsOn: [dnsRecord] }
+				: resourceOpts;
+
 			const workerDomain = new cloudflare.WorkerDomain(
 				`${name}-domain-${i}`,
 				{
@@ -292,7 +310,7 @@ export class WorkerSite extends pulumi.ComponentResource {
 					service: this.worker.name,
 					zoneId: args.zoneId,
 				},
-				{ ...resourceOpts, dependsOn: [dnsRecord] },
+				workerDomainOpts,
 			);
 			this.workerDomains.push(workerDomain);
 		}
