@@ -345,7 +345,10 @@ export class WorkerSite extends pulumi.ComponentResource {
 					pathConfig.access === "public"
 						? [{ everyone: true }]
 						: pulumi
-								.all([args.githubOrganizations, args.githubIdentityProviderId])
+								.all([
+									pulumi.all(args.githubOrganizations),
+									args.githubIdentityProviderId,
+								])
 								.apply(
 									([orgs, idpId]) =>
 										orgs.map((org) => ({
