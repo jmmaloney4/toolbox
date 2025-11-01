@@ -336,8 +336,8 @@ if (!object && env.SPA_FALLBACK === 'true') {
   }
 }
 
-// Observability
-headers.set('X-Cache-Status', cachedResponse ? 'HIT' : 'MISS');
+// Observability (CF-Ray echo)
+// Note: X-Cache-Status is already set by createResponse based on cache hit/miss
 headers.set('CF-Ray', request.headers.get('cf-ray') || 'unknown');
 
 // Custom cache TTL
