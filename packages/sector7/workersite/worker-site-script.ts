@@ -34,7 +34,7 @@ export default {
 		}
 
 		// 2.5. Prepend prefix if configured
-		${prefix ? `objectKey = '${prefix}/' + objectKey;` : '// No prefix configured'}
+		${prefix ? `objectKey = '${prefix}/' + objectKey;` : "// No prefix configured"}
 
 		// 3. Cache API check (requires custom domain)
 		const cache = caches.default;
@@ -107,7 +107,7 @@ function createResponse(object, objectKey, status, cacheStatus, env) {
 /**
  * Guess content type from file extension
  */
-function guessContentType(key: string): string {
+function guessContentType(key) {
 	// Get the basename (after last '/')
 	const base = key.substring(key.lastIndexOf('/') + 1);
 	const dot = base.lastIndexOf('.');
