@@ -511,7 +511,10 @@ function createResponse(
  * Guess content type from file extension
  */
 function guessContentType(key: string): string {
-  const ext = key.split('.').pop()?.toLowerCase();
+  // Get the basename (after last '/')
+  const base = key.substring(key.lastIndexOf('/') + 1);
+  const dot = base.lastIndexOf('.');
+  const ext = (dot > 0) ? base.substring(dot + 1).toLowerCase() : '';
   const types: Record<string, string> = {
     html: 'text/html; charset=utf-8',
     css: 'text/css; charset=utf-8',
