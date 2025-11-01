@@ -128,6 +128,8 @@ Access Applications support wildcards in paths:
 
 You can configure as many paths as needed. Each path gets its own Access Application and Policy.
 
+**Note on precedence**: The order of paths in the `paths` array is important. It determines the precedence of the Cloudflare Access policies, with paths appearing earlier in the array having higher precedence (a lower precedence number). You should generally order your paths from most specific to least specific.
+
 ## DNS Management
 
 Phase 2 automatically creates DNS records for all domains:
