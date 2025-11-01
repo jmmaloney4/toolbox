@@ -296,7 +296,7 @@ let response = await cache.match(cacheKey);
 
 if (!response) {
   const object = await env.R2_BUCKET.get(objectKey);
-  response = createResponse(object);
+  response = createResponse(object, objectKey, 200, 'MISS', env);
   ctx.waitUntil(cache.put(cacheKey, response.clone()));
 }
 return response;
@@ -332,7 +332,7 @@ return response;
 if (!object && env.SPA_FALLBACK === 'true') {
   object = await env.R2_BUCKET.get('index.html');
   if (object) {
-    response = createResponse(object, 200); // Return 200, not 404
+    response = createResponse(object, 'index.html', 200, 'MISS', env); // Return 200, not 404
   }
 }
 
