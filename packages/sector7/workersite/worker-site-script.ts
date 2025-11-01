@@ -14,6 +14,11 @@ export function generateWorkerScript(
 	bucketBinding: string,
 	prefix?: string,
 ): string {
+	// Sanitize prefix to prevent code injection
+	const sanitizedPrefix = prefix
+		? JSON.stringify(prefix).slice(1, -1)
+		: undefined;
+
 	return `
 /**
  * WorkerSite - Static file server with R2 backend and Cache API
@@ -34,7 +39,7 @@ export default {
 		}
 
 		// 2.5. Prepend prefix if configured
-		${prefix ? `objectKey = '${prefix}/' + objectKey;` : "// No prefix configured"}
+		${sanitizedPrefix ? `objectKey = '${sanitizedPrefix}/' + objectKey;` : "// No prefix configured"}
 
 		// 3. Cache API check (requires custom domain)
 		const cache = caches.default;
