@@ -28,51 +28,62 @@ export function generateWorkerScript(
 
 export default {
 	async fetch(request, env, ctx) {
-		const url = new URL(request.url);
+		try {
+			const url = new URL(request.url);
 
-		// 1. Path normalization - remove leading slash
-		let objectKey = url.pathname.slice(1);
+			// 1. Path normalization - remove leading slash
+			let objectKey = url.pathname.slice(1);
 
-		// 2. Directory index handling
-		if (objectKey === '' || objectKey.endsWith('/')) {
-			objectKey += 'index.html';
-		}
+			// 2. Directory index handling
+			if (objectKey === '' || objectKey.endsWith('/')) {
+				objectKey += 'index.html';
+			}
 
-		// 2.5. Prepend prefix if configured
-		${sanitizedPrefix ? `objectKey = '${sanitizedPrefix}/' + objectKey;` : "// No prefix configured"}
+			// 2.5. Prepend prefix if configured
+			${sanitizedPrefix ? `objectKey = '${sanitizedPrefix}/' + objectKey;` : "// No prefix configured"}
 
-		// 3. Cache API check (requires custom domain)
-		const cache = caches.default;
-		const cacheKey = new Request(url.toString(), { method: 'GET' });
-		let response = await cache.match(cacheKey);
+			// 3. Cache API check (requires custom domain)
+			const cache = caches.default;
+			const cacheKey = new Request(url.toString(), { method: 'GET' });
+			let response = await cache.match(cacheKey);
 
-		if (response) {
-			// Cache HIT - return immediately with debug header
-			const headers = new Headers(response.headers);
-			headers.set('X-Cache-Status', 'HIT');
-			return new Response(response.body, {
-				status: response.status,
-				statusText: response.statusText,
-				headers,
+			if (response) {
+				// Cache HIT - return immediately with debug header
+				const headers = new Headers(response.headers);
+				headers.set('X-Cache-Status', 'HIT');
+				return new Response(response.body, {
+					status: response.status,
+					statusText: response.statusText,
+					headers,
+				});
+			}
+
+			// 4. Cache MISS - fetch from R2
+			const object = await env.${bucketBinding}.get(objectKey);
+
+			// 5. Handle 404
+			if (!object) {
+				return new Response('Not Found', { status: 404 });
+			}
+
+			// 6. Build response with metadata
+			response = createResponse(object, objectKey, 200, 'MISS', env);
+
+			// 7. Async cache storage (non-blocking)
+			// Clone response because R2 body streams are single-use
+			ctx.waitUntil(cache.put(cacheKey, response.clone()));
+
+			return response;
+		} catch (error) {
+			// Log error for debugging (visible in Workers logs)
+			console.error('WorkerSite error:', error);
+
+			// Return 500 error to client
+			return new Response('Internal Server Error', {
+				status: 500,
+				headers: { 'Content-Type': 'text/plain' }
 			});
 		}
-
-		// 4. Cache MISS - fetch from R2
-		const object = await env.${bucketBinding}.get(objectKey);
-
-		// 5. Handle 404
-		if (!object) {
-			return new Response('Not Found', { status: 404 });
-		}
-
-		// 6. Build response with metadata
-		response = createResponse(object, objectKey, 200, 'MISS', env);
-
-		// 7. Async cache storage (non-blocking)
-		// Clone response because R2 body streams are single-use
-		ctx.waitUntil(cache.put(cacheKey, response.clone()));
-
-		return response;
 	},
 };
 
