@@ -334,7 +334,7 @@ export const githubIdpId = site.githubIdp?.id;
 
 ## Related
 
-- **Issue**: #89
+- **Issue**: #51
 - **Repository**: `@jmmaloney4/sector7`
 - **Module**: `WorkerSite` component
 - **Resources**:
@@ -348,5 +348,5 @@ export const githubIdpId = site.githubIdp?.id;
 
 Author: Claude Code
 Date: 2025-11-04
-Issue: jmmaloney4/jackpkgs#89
+Issue: #51 (transferred from jmmaloney4/jackpkgs#89)
 PR: #TBD
