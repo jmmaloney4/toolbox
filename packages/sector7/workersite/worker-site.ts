@@ -21,6 +21,30 @@ export interface PathConfig {
 }
 
 /**
+ * Configuration for auto-creating a GitHub Identity Provider in Cloudflare Access.
+ */
+export interface GitHubOAuthConfig {
+	/**
+	 * GitHub OAuth App Client ID.
+	 * Obtain from GitHub OAuth App settings.
+	 */
+	clientId: pulumi.Input<string>;
+
+	/**
+	 * GitHub OAuth App Client Secret.
+	 * Obtain from GitHub OAuth App settings.
+	 * Store securely using Pulumi secrets.
+	 */
+	clientSecret: pulumi.Input<string>;
+
+	/**
+	 * Name for the Identity Provider in Cloudflare Access.
+	 * @default "GitHub"
+	 */
+	idpName?: pulumi.Input<string>;
+}
+
+/**
  * Arguments for creating a WorkerSite component (Phase 2).
  *
  * @remarks
@@ -85,14 +109,27 @@ export interface WorkerSiteArgs {
 	/**
 	 * GitHub Identity Provider ID in Cloudflare Access.
 	 * This must already exist in your Cloudflare account.
+	 * Only required when using paths with access: "github-org".
+	 * @optional
 	 */
-	githubIdentityProviderId: pulumi.Input<string>;
+	githubIdentityProviderId?: pulumi.Input<string>;
 
 	/**
 	 * GitHub organization name(s) for restricted path access.
 	 * Members of these organizations will be allowed to access paths with access: "github-org".
+	 * Only required when using paths with access: "github-org".
+	 * @optional
 	 */
-	githubOrganizations: pulumi.Input<string>[];
+	githubOrganizations?: pulumi.Input<string>[];
+
+	/**
+	 * Auto-create a GitHub Identity Provider in Cloudflare Access.
+	 * Mutually exclusive with githubIdentityProviderId.
+	 * Use this to automatically create an IDP instead of referencing an existing one.
+	 * Only required when using paths with access: "github-org".
+	 * @optional
+	 */
+	githubOAuthConfig?: GitHubOAuthConfig;
 
 	/**
 	 * Path access configurations.
@@ -179,6 +216,12 @@ export class WorkerSite extends pulumi.ComponentResource {
 	public readonly accessPolicies: cloudflare.AccessPolicy[];
 
 	/**
+	 * Auto-created GitHub Identity Provider (if githubOAuthConfig was provided).
+	 * Undefined if using an existing IDP via githubIdentityProviderId.
+	 */
+	public readonly githubIdp?: cloudflare.ZeroTrustAccessIdentityProvider;
+
+	/**
 	 * The domains bound to the Worker.
 	 */
 	public readonly boundDomains: pulumi.Output<string[]>;
@@ -204,21 +247,57 @@ export class WorkerSite extends pulumi.ComponentResource {
 			throw new Error("WorkerSite requires at least one path configuration");
 		}
 
-		const githubOrgPaths = args.paths.filter((p) => p.access === "github-org");
-		if (githubOrgPaths.length > 0) {
-			if (!args.githubIdentityProviderId) {
+		// Validate mutual exclusivity of GitHub IDP options
+		if (args.githubIdentityProviderId && args.githubOAuthConfig) {
+			throw new Error(
+				"Cannot specify both githubIdentityProviderId and githubOAuthConfig. " +
+				"Use githubIdentityProviderId to reference an existing IDP, " +
+				"or githubOAuthConfig to auto-create a new IDP.",
+			);
+		}
+
+		const needsGithubAuth = args.paths.some((p) => p.access === "github-org");
+		if (needsGithubAuth) {
+			if (!args.githubIdentityProviderId && !args.githubOAuthConfig) {
 				throw new Error(
-					"githubIdentityProviderId is required when using github-org access",
+					"GitHub authentication required when using 'github-org' access. " +
+					"Provide either githubIdentityProviderId (to reference an existing IDP) " +
+					"or githubOAuthConfig (to auto-create a new IDP).",
 				);
 			}
 			if (!args.githubOrganizations || args.githubOrganizations.length === 0) {
 				throw new Error(
-					"githubOrganizations must not be empty when using github-org access",
+					"githubOrganizations is required and must not be empty when using 'github-org' access",
 				);
 			}
 		}
 
 		const resourceOpts = { parent: this };
+
+		// Auto-create GitHub Identity Provider if githubOAuthConfig is provided
+		let githubIdpId: pulumi.Output<string> | undefined;
+		if (needsGithubAuth) {
+			if (args.githubOAuthConfig) {
+				this.githubIdp = new cloudflare.ZeroTrustAccessIdentityProvider(
+					`${name}-github-idp`,
+					{
+						accountId: args.accountId,
+						name: args.githubOAuthConfig.idpName || "GitHub",
+						type: "github",
+						configs: [
+							{
+								clientId: args.githubOAuthConfig.clientId,
+								clientSecret: args.githubOAuthConfig.clientSecret,
+							},
+						],
+					},
+					resourceOpts,
+				);
+				githubIdpId = this.githubIdp.id;
+			} else if (args.githubIdentityProviderId) {
+				githubIdpId = pulumi.output(args.githubIdentityProviderId);
+			}
+		}
 
 		// 1. Create or reference R2 bucket
 		if (args.r2Bucket.create === true) {
@@ -351,8 +430,8 @@ export class WorkerSite extends pulumi.ComponentResource {
 						? [{ everyone: true }]
 						: pulumi
 								.all([
-									pulumi.all(args.githubOrganizations),
-									args.githubIdentityProviderId,
+									pulumi.all(args.githubOrganizations!), // Safe: validated above
+									githubIdpId!, // Safe: set above when needsGithubAuth is true
 								])
 								.apply(
 									([orgs, idpId]) =>
