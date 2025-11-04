@@ -4,67 +4,203 @@ A Pulumi ComponentResource for hosting static sites on Cloudflare Workers with Z
 
 ## Features
 
-**Phase 2 (Current):**
 - R2-backed Worker serving static files with Cache API
 - Multiple domains via WorkerDomain
 - Automatic DNS record creation
 - Flexible path-level access control (any number of paths)
-- GitHub organization-based authentication
+- Per-path GitHub organization requirements (granular access control)
+- GitHub organization-based authentication via external IDP
+- IDP sharing across multiple sites and stacks
 - Edge caching with configurable TTL
 - Automatic content-type detection
 - ETag and observability headers (X-Cache-Status)
 
-**Future Phases:**
-- Phase 3: SPA fallback, custom 404 pages, range request support
+**Future Enhancements:**
+- SPA fallback, custom 404 pages, range request support
 
 ## Prerequisites
 
 1. **Cloudflare Account**: You need a Cloudflare account with:
    - A zone (domain) configured and using Cloudflare nameservers
-   - Zero Trust enabled
-   - GitHub Identity Provider configured in Cloudflare Access
+   - Zero Trust enabled (only required for sites with `github-org` access paths)
 
-2. **GitHub Identity Provider**: Create this in Cloudflare Access first:
-   - Go to Zero Trust → Settings → Authentication
-   - Add GitHub as a login method
-   - Note the Identity Provider ID (you'll need this)
+2. **GitHub Identity Provider** (optional, only for sites with `github-org` access):
+   - Create a `cloudflare.ZeroTrustAccessIdentityProvider` resource in your Pulumi stack
+   - Requires a GitHub OAuth app (see [GitHub OAuth App Setup](#github-oauth-app-setup))
+   - Can be shared across multiple WorkerSites and even across stacks
+   - Not needed for public-only sites
 
 ## Usage
+
+### Option 1: Public-Only Site (No Authentication)
+
+For sites that don't require any authentication:
 
 ```typescript
 import * as workersite from "@jmmaloney4/sector7/workersite";
 
-const site = new workersite.WorkerSite("docs-site", {
+const site = new workersite.WorkerSite("public-docs", {
   accountId: "your-cloudflare-account-id",
   zoneId: "your-cloudflare-zone-id",
-  name: "docs-site",
-
-  // Multiple domains supported
-  domains: ["docs.example.com", "www.docs.example.com"],
+  name: "public-docs",
+  domains: ["docs.example.com"],
 
   r2Bucket: {
-    bucketName: "docs-site-assets",
-    create: true,  // Create the bucket if it doesn't exist
+    bucketName: "public-docs-assets",
+    create: true,
   },
 
-  githubIdentityProviderId: "your-github-idp-id",
-  githubOrganizations: ["your-org"],
-
-  // Flexible paths - any number supported
+  // All paths are public - no GitHub config needed!
   paths: [
-    { pattern: "/blog/*", access: "public" },
-    { pattern: "/docs/*", access: "public" },
-    { pattern: "/research/*", access: "github-org" },
-    { pattern: "/admin/*", access: "github-org" },
+    { pattern: "/*", access: "public" },
   ],
 
-  // Optional: Configure cache TTL (default: 1 year)
   cacheTtlSeconds: 86400, // 1 day
 });
+```
 
-// Export useful outputs
-export const workerName = site.workerName;
-export const boundDomains = site.boundDomains;
+### Option 2: Site with GitHub Authentication (Standalone IDP)
+
+For sites requiring GitHub org authentication, create the IDP separately:
+
+**Prerequisites**: Manually create a GitHub OAuth app ([see instructions](#github-oauth-app-setup))
+
+```typescript
+import * as cloudflare from "@pulumi/cloudflare";
+import * as pulumi from "@pulumi/pulumi";
+import * as workersite from "@jmmaloney4/sector7/workersite";
+
+const config = new pulumi.Config();
+
+// Create a standalone GitHub IDP (can be shared across multiple sites)
+const githubIdp = new cloudflare.ZeroTrustAccessIdentityProvider("github-idp", {
+  accountId: config.require("cloudflareAccountId"),
+  name: "GitHub",
+  type: "github",
+  configs: [{
+    clientId: config.requireSecret("githubClientId"),
+    clientSecret: config.requireSecret("githubClientSecret"),
+  }],
+});
+
+const site = new workersite.WorkerSite("internal-docs", {
+  accountId: config.require("cloudflareAccountId"),
+  zoneId: config.require("cloudflareZoneId"),
+  name: "internal-docs",
+  domains: ["internal.example.com"],
+
+  r2Bucket: {
+    bucketName: "internal-docs-assets",
+    create: true,
+  },
+
+  // Reference the IDP
+  githubIdentityProviderId: githubIdp.id,
+
+  // Per-path organization control
+  paths: [
+    { pattern: "/public/*", access: "public" },
+    { pattern: "/engineering/*", access: "github-org", organizations: ["my-org-eng"] },
+    { pattern: "/shared/*", access: "github-org", organizations: ["my-org-eng", "my-org-leadership"] },
+  ],
+});
+
+// Export the IDP ID for potential reuse in other stacks
+export const githubIdpId = githubIdp.id;
+```
+
+### Option 3: Sharing IDP Across Multiple Sites
+
+The same GitHub IDP can be shared across multiple WorkerSites:
+
+```typescript
+import * as cloudflare from "@pulumi/cloudflare";
+import * as workersite from "@jmmaloney4/sector7/workersite";
+
+// Create one IDP for all sites
+const githubIdp = new cloudflare.ZeroTrustAccessIdentityProvider("github-idp", {
+  accountId: accountId,
+  name: "GitHub - Shared",
+  type: "github",
+  configs: [{ clientId: "...", clientSecret: "..." }],
+});
+
+// Site 1: Engineering org only
+const engineeringSite = new workersite.WorkerSite("engineering-site", {
+  accountId: accountId,
+  zoneId: zoneId,
+  domains: ["engineering.example.com"],
+  r2Bucket: { bucketName: "engineering-site", create: true },
+  githubIdentityProviderId: githubIdp.id,  // Shared IDP
+  paths: [
+    { pattern: "/*", access: "github-org", organizations: ["my-org-engineering"] },
+  ],
+});
+
+// Site 2: Different org, same IDP
+const marketingSite = new workersite.WorkerSite("marketing-site", {
+  accountId: accountId,
+  zoneId: zoneId,
+  domains: ["marketing.example.com"],
+  r2Bucket: { bucketName: "marketing-site", create: true },
+  githubIdentityProviderId: githubIdp.id,  // Same IDP!
+  paths: [
+    { pattern: "/*", access: "github-org", organizations: ["my-org-marketing"] },
+  ],
+});
+```
+
+### Option 4: IDP from Another Stack (Stack References)
+
+For large organizations, create the IDP in an infrastructure stack and reference it in application stacks:
+
+**Infrastructure Stack** (`infra/index.ts`):
+```typescript
+import * as cloudflare from "@pulumi/cloudflare";
+import * as pulumi from "@pulumi/pulumi";
+
+const config = new pulumi.Config();
+
+const githubIdp = new cloudflare.ZeroTrustAccessIdentityProvider("github-idp", {
+  accountId: config.require("cloudflareAccountId"),
+  name: "GitHub - Shared",
+  type: "github",
+  configs: [{
+    clientId: config.requireSecret("githubClientId"),
+    clientSecret: config.requireSecret("githubClientSecret"),
+  }],
+});
+
+// Export for other stacks
+export const githubIdpId = githubIdp.id;
+export const cloudflareAccountId = config.require("cloudflareAccountId");
+export const cloudflareZoneId = config.require("cloudflareZoneId");
+```
+
+**Application Stack** (`app/index.ts`):
+```typescript
+import * as pulumi from "@pulumi/pulumi";
+import * as workersite from "@jmmaloney4/sector7/workersite";
+
+// Reference infrastructure stack
+const infraStack = new pulumi.StackReference("infra", {
+  name: "organization/infra/production",
+});
+
+const site = new workersite.WorkerSite("app-site", {
+  accountId: infraStack.getOutput("cloudflareAccountId"),
+  zoneId: infraStack.getOutput("cloudflareZoneId"),
+  domains: ["app.example.com"],
+  r2Bucket: { bucketName: "app-site", create: true },
+
+  // Reference IDP from infrastructure stack
+  githubIdentityProviderId: infraStack.getOutput("githubIdpId"),
+
+  paths: [
+    { pattern: "/public/*", access: "public" },
+    { pattern: "/app/*", access: "github-org", organizations: ["my-org"] },
+  ],
+});
 ```
 
 ## Architecture
@@ -143,6 +279,38 @@ Phase 2 automatically creates DNS records for all domains:
 - Zone must use Cloudflare nameservers
 - DNS propagation may take a few minutes
 
+## GitHub OAuth App Setup
+
+If using Option 2 (auto-create IDP via `githubOAuthConfig`), you must first manually create a GitHub OAuth application.
+
+### Steps:
+
+1. **Get your Cloudflare Access team name**:
+   - Go to Cloudflare Dashboard → Zero Trust → Settings
+   - Note your team name (e.g., `mycompany`)
+   - Your callback URL will be: `https://<team-name>.cloudflareaccess.com/cdn-cgi/access/callback`
+
+2. **Create GitHub OAuth App**:
+   - For organization apps: `https://github.com/organizations/<org-name>/settings/applications`
+   - For personal apps: `https://github.com/settings/developers`
+   - Click "New OAuth App"
+   - **Application name**: `Cloudflare Access - <your-site>`
+   - **Homepage URL**: Your site's URL
+   - **Authorization callback URL**: `https://<team-name>.cloudflareaccess.com/cdn-cgi/access/callback`
+   - Click "Register application"
+
+3. **Get credentials**:
+   - Note the **Client ID** (shown immediately)
+   - Generate a **Client Secret** (copy immediately, won't be shown again)
+
+4. **Store credentials securely**:
+   ```bash
+   pulumi config set --secret githubClientId <client-id>
+   pulumi config set --secret githubClientSecret <client-secret>
+   ```
+
+For detailed instructions, see [ADR-006](../../docs/internal/designs/006-sector7-optional-github-auth.md).
+
 ## Configuration Reference
 
 ### WorkerSiteArgs
@@ -157,17 +325,21 @@ Phase 2 automatically creates DNS records for all domains:
 | `r2Bucket.bucketName` | `string` | Yes | R2 bucket name |
 | `r2Bucket.create` | `boolean` | No | Create bucket if not exists (default: false) |
 | `r2Bucket.prefix` | `string` | No | Optional object key prefix |
-| `githubIdentityProviderId` | `string` | Yes | GitHub IdP ID from Cloudflare Access |
-| `githubOrganizations` | `string[]` | Yes | GitHub org names for restricted access |
+| `githubIdentityProviderId` | `string` | Conditional* | GitHub IDP ID (create separately using `cloudflare.ZeroTrustAccessIdentityProvider`) |
 | `paths` | `PathConfig[]` | Yes | Path access configurations (see below) |
 | `cacheTtlSeconds` | `number` | No | Cache TTL in seconds (default: 31536000 = 1 year) |
+
+\* **Conditional**: Only required when at least one path has `access: "github-org"`.
 
 ### PathConfig
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `pattern` | `string` | Yes | Path pattern (e.g., `/blog/*`) |
+| `pattern` | `string` | Yes | Path pattern (e.g., `/blog/*`, `/research/*`) |
 | `access` | `"public" \| "github-org"` | Yes | Access level: public (everyone) or github-org (org members) |
+| `organizations` | `string[]` | Conditional* | GitHub organization names (e.g., `["my-org-eng", "my-org-leadership"]`) |
+
+\* **Conditional**: Required when `access` is `"github-org"`. Members of ANY of these organizations will be granted access (OR logic).
 
 ## Troubleshooting
 

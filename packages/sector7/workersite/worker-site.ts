@@ -18,18 +18,27 @@ export interface PathConfig {
 	 * - "github-org": Require GitHub organization membership
 	 */
 	access: "public" | "github-org";
+
+	/**
+	 * GitHub organizations allowed to access this path.
+	 * Required when access is "github-org".
+	 * Members of ANY of these organizations will be granted access (OR logic).
+	 * @example ["my-org-engineering", "my-org-leadership"]
+	 */
+	organizations?: pulumi.Input<string>[];
 }
 
 /**
- * Arguments for creating a WorkerSite component (Phase 2).
+ * Arguments for creating a WorkerSite component.
  *
  * @remarks
- * Phase 2 features:
+ * Features:
  * - Multiple domains via WorkerDomain (with automatic DNS)
- * - Flexible path-level access control (any number of paths)
+ * - Per-path access control with granular organization requirements
  * - R2 backend with Cache API
  * - Configurable cache TTL
  * - Automatic DNS record creation
+ * - Optional GitHub authentication via external IDP
  */
 export interface WorkerSiteArgs {
 	/**
@@ -84,26 +93,40 @@ export interface WorkerSiteArgs {
 
 	/**
 	 * GitHub Identity Provider ID in Cloudflare Access.
-	 * This must already exist in your Cloudflare account.
+	 * Optional - only required when at least one path uses "github-org" access.
+	 *
+	 * Create a GitHub IDP separately using cloudflare.ZeroTrustAccessIdentityProvider
+	 * and pass its ID here. The same IDP can be shared across multiple WorkerSites
+	 * and even across stacks via stack references.
+	 *
+	 * @example
+	 * ```typescript
+	 * const githubIdp = new cloudflare.ZeroTrustAccessIdentityProvider("github", {
+	 *   accountId: accountId,
+	 *   name: "GitHub",
+	 *   type: "github",
+	 *   configs: [{ clientId: "...", clientSecret: "..." }],
+	 * });
+	 *
+	 * const site = new WorkerSite("site", {
+	 *   // ...
+	 *   githubIdentityProviderId: githubIdp.id,
+	 * });
+	 * ```
 	 */
-	githubIdentityProviderId: pulumi.Input<string>;
-
-	/**
-	 * GitHub organization name(s) for restricted path access.
-	 * Members of these organizations will be allowed to access paths with access: "github-org".
-	 */
-	githubOrganizations: pulumi.Input<string>[];
+	githubIdentityProviderId?: pulumi.Input<string>;
 
 	/**
 	 * Path access configurations.
 	 * Each path gets its own Access Application and Policy.
+	 * Paths with "github-org" access must specify their allowed organizations.
 	 *
 	 * @example
 	 * ```typescript
 	 * paths: [
 	 *   { pattern: "/blog/*", access: "public" },
-	 *   { pattern: "/research/*", access: "github-org" },
-	 *   { pattern: "/admin/*", access: "github-org" },
+	 *   { pattern: "/engineering/*", access: "github-org", organizations: ["my-org-eng"] },
+	 *   { pattern: "/shared/*", access: "github-org", organizations: ["my-org-eng", "my-org-leadership"] },
 	 * ]
 	 * ```
 	 */
@@ -120,30 +143,36 @@ export interface WorkerSiteArgs {
  * WorkerSite component for hosting static sites on Cloudflare Workers with Zero Trust access control.
  *
  * @remarks
- * Phase 2 implementation with:
+ * Features:
  * - R2-backed Worker serving static files with Cache API
  * - Multiple domains via WorkerDomain (automatic DNS creation)
- * - Flexible path-level access control
- * - GitHub organization-based authentication
+ * - Per-path access control with granular organization requirements
+ * - GitHub organization-based authentication via external IDP
+ * - IDP sharing across multiple sites and stacks
  *
  * @example
  * ```typescript
+ * // Create a shared GitHub IDP (can be in a separate stack)
+ * const githubIdp = new cloudflare.ZeroTrustAccessIdentityProvider("github", {
+ *   accountId: "abc123",
+ *   name: "GitHub",
+ *   type: "github",
+ *   configs: [{ clientId: "...", clientSecret: "..." }],
+ * });
+ *
  * const site = new WorkerSite("docs-site", {
  *   accountId: "abc123",
  *   zoneId: "xyz789",
  *   name: "docs-site",
- *   domains: ["docs.example.com", "www.docs.example.com"],
- *   r2Bucket: {
- *     bucketName: "docs-site-assets",
- *     create: true,
- *   },
- *   githubIdentityProviderId: "github-idp-id",
- *   githubOrganizations: ["my-org"],
+ *   domains: ["docs.example.com"],
+ *   r2Bucket: { bucketName: "docs-site-assets", create: true },
+ *   githubIdentityProviderId: githubIdp.id,
  *   paths: [
  *     { pattern: "/blog/*", access: "public" },
- *     { pattern: "/research/*", access: "github-org" },
+ *     { pattern: "/engineering/*", access: "github-org", organizations: ["my-org-eng"] },
+ *     { pattern: "/shared/*", access: "github-org", organizations: ["my-org-eng", "my-org-leadership"] },
  *   ],
- *   cacheTtlSeconds: 86400, // 1 day
+ *   cacheTtlSeconds: 86400,
  * });
  * ```
  */
@@ -204,21 +233,46 @@ export class WorkerSite extends pulumi.ComponentResource {
 			throw new Error("WorkerSite requires at least one path configuration");
 		}
 
-		const githubOrgPaths = args.paths.filter((p) => p.access === "github-org");
-		if (githubOrgPaths.length > 0) {
+		// Validate GitHub authentication requirements
+		const pathsNeedingAuth = args.paths.filter((p) => p.access === "github-org");
+
+		if (pathsNeedingAuth.length > 0) {
+			// Ensure IDP is provided
 			if (!args.githubIdentityProviderId) {
 				throw new Error(
-					"githubIdentityProviderId is required when using github-org access",
+					"githubIdentityProviderId is required when at least one path uses 'github-org' access. " +
+					"Create a GitHub IDP using cloudflare.ZeroTrustAccessIdentityProvider and pass its ID.",
 				);
 			}
-			if (!args.githubOrganizations || args.githubOrganizations.length === 0) {
-				throw new Error(
-					"githubOrganizations must not be empty when using github-org access",
-				);
+
+			// Ensure each path with github-org access has organizations specified
+			for (const pathConfig of pathsNeedingAuth) {
+				const pattern = pulumi.output(pathConfig.pattern);
+				const orgs = pathConfig.organizations;
+
+				if (!orgs) {
+					throw new Error(
+						`Path "${pattern}" has access "github-org" but no organizations specified. ` +
+						`Add organizations: ["org1", "org2"] to the path configuration.`,
+					);
+				}
+
+				// Check if organizations array is empty (if it's a concrete value)
+				if (Array.isArray(orgs) && orgs.length === 0) {
+					throw new Error(
+						`Path "${pattern}" has access "github-org" but organizations array is empty. ` +
+						`Specify at least one organization.`,
+					);
+				}
 			}
 		}
 
 		const resourceOpts = { parent: this };
+
+		// Convert githubIdentityProviderId to Output if provided
+		const githubIdpId = args.githubIdentityProviderId
+			? pulumi.output(args.githubIdentityProviderId)
+			: undefined;
 
 		// 1. Create or reference R2 bucket
 		if (args.r2Bucket.create === true) {
@@ -351,8 +405,8 @@ export class WorkerSite extends pulumi.ComponentResource {
 						? [{ everyone: true }]
 						: pulumi
 								.all([
-									pulumi.all(args.githubOrganizations),
-									args.githubIdentityProviderId,
+									pulumi.all(pathConfig.organizations!), // Safe: validated above
+									githubIdpId!, // Safe: validated above when pathsNeedingAuth.length > 0
 								])
 								.apply(
 									([orgs, idpId]) =>
