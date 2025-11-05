@@ -24,7 +24,7 @@ importers:
         specifier: ^5.0.0
         version: 5.49.1(typescript@5.9.3)
       '@pulumi/gcp':
-        specifier: ^9.0.0
+        specifier: ^9.3.0
         version: 9.3.0(typescript@5.9.3)
       '@pulumi/pulumi':
         specifier: ^3.197.0
