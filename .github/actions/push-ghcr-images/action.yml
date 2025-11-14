@@ -1,0 +1,30 @@
+name: Push GHCR Images
+description: Pushes a specific built image to GHCR with git SHA tag.
+inputs:
+  ghcr-namespace:
+    description: 'GHCR namespace'
+    required: false
+    type: string
+    default: ${{ github.repository }}
+  repository:
+    description: 'Repository to operate on (defaults to github.repository)'
+    required: false
+    type: string
+  ref:
+    description: 'Git ref for tagging (defaults to github.ref)'
+    required: false
+    type: string
+  package-name:
+    description: 'Name of the -image package to push'
+    required: true
+    type: string
+runs:
+  using: "composite"
+  steps:
+  - shell: bash
+    run: $GITHUB_ACTION_PATH/main.sh
+    env:
+      GHCR_NAMESPACE: ${{ inputs.ghcr-namespace }}
+      REPOSITORY: ${{ inputs.repository }}
+      REF: ${{ inputs.ref }}
+      PACKAGE_NAME: ${{ inputs.package-name }}
