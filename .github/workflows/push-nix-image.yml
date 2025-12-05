@@ -1,0 +1,148 @@
+name: '🛳️ push nix image'
+
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        description: 'Runner label for the job (e.g., ubuntu-latest)'
+        required: true
+        type: string
+      package-name:
+        description: 'Nix package name (e.g., zeus-image, ci-image)'
+        required: true
+        type: string
+      registry:
+        description: 'Container registry host'
+        required: false
+        type: string
+        default: 'ghcr.io'
+      namespace:
+        description: 'Registry namespace (e.g., org/repo)'
+        required: true
+        type: string
+      image-name:
+        description: 'Override image name (defaults to package-name without -image)'
+        required: false
+        type: string
+      tags:
+        description: 'Comma-separated list of tags (e.g., latest,v1.0.0,pr-123)'
+        required: true
+        type: string
+      system:
+        description: 'Nix system'
+        required: false
+        type: string
+        default: 'x86_64-linux'
+      repository:
+        description: 'Repository to checkout'
+        required: true
+        type: string
+      ref:
+        description: 'Git ref to checkout'
+        required: true
+        type: string
+    secrets:
+      REGISTRY_USERNAME:
+        description: 'Registry username (defaults to github.actor when unset)'
+        required: false
+      REGISTRY_PASSWORD:
+        description: 'Registry password or token'
+        required: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  push-image:
+    name: '🛠️ build and push nix image'
+    runs-on: ${{ inputs.runs-on }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          repository: ${{ inputs.repository }}
+          ref: ${{ inputs.ref }}
+
+      - name: Setup Nix
+        uses: jmmaloney4/toolbox/.github/actions/nix-setup@main
+        with:
+          runs-on: ${{ inputs.runs-on }}
+
+      - name: Determine image name
+        id: image-name
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          override='${{ inputs.image-name }}'
+          if [[ -n "$override" ]]; then
+            echo "name=$override" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          image_name='${{ inputs.package-name }}'
+          image_name="${image_name%-image}"
+          echo "name=$image_name" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push image
+        env:
+          REGISTRY: ${{ inputs.registry }}
+          NAMESPACE: ${{ inputs.namespace }}
+          IMAGE_NAME: ${{ steps.image-name.outputs.name }}
+          TAGS: ${{ inputs.tags }}
+          PACKAGE: ${{ inputs.package-name }}
+          SYSTEM: ${{ inputs.system }}
+          REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+          FALLBACK_USERNAME: ${{ github.actor }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${TAGS// }" ]]; then
+            echo "No tags provided; refusing to push."
+            exit 1
+          fi
+
+          if [[ -z "$REGISTRY_PASSWORD" ]]; then
+            echo "REGISTRY_PASSWORD secret is required; refusing to push."
+            exit 1
+          fi
+
+          if [[ -z "$IMAGE_NAME" ]]; then
+            echo "IMAGE_NAME resolved to empty string; refusing to push."
+            exit 1
+          fi
+
+          username="$REGISTRY_USERNAME"
+          if [[ -z "$username" ]]; then
+            username="$FALLBACK_USERNAME"
+          fi
+
+          IFS=',' read -ra RAW_TAGS <<< "$TAGS"
+          TAG_ARRAY=()
+          for raw_tag in "${RAW_TAGS[@]}"; do
+            tag="$(echo "$raw_tag" | xargs)"
+            if [[ -n "$tag" ]]; then
+              TAG_ARRAY+=("$tag")
+            fi
+          done
+
+          if [[ "${#TAG_ARRAY[@]}" -eq 0 ]]; then
+            echo "Parsed tag list is empty; refusing to push."
+            exit 1
+          fi
+
+          echo "Building Nix package: ${PACKAGE} for ${SYSTEM}"
+          nix build ".#packages.${SYSTEM}.${PACKAGE}" -L
+
+          for tag in "${TAG_ARRAY[@]}"; do
+            dest="docker://${REGISTRY}/${NAMESPACE}/${IMAGE_NAME}:${tag}"
+            echo "Pushing tag '${tag}' to ${dest}"
+            nix run ".#packages.${SYSTEM}.${PACKAGE}.passthru.copyTo" -- \
+              "${dest}" \
+              --dest-creds "${username}:${REGISTRY_PASSWORD}"
+          done
+
+          echo "✅ Successfully pushed ${PACKAGE} as ${IMAGE_NAME} with tags: ${TAGS}"
