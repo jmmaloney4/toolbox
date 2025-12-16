@@ -97,7 +97,7 @@ jobs:
           echo "always-auth=true" >> ~/.npmrc
       - name: Install pnpm dependencies
         if: ${{ hashFiles('pnpm-lock.yaml') != '' }}
-        run: nix develop .#pulumi --command pnpm install --frozen-lockfile
+        run: nix develop .#ci-pulumi --command pnpm install --frozen-lockfile
         shell: bash
       - name: derive artifact-safe name
         id: names
@@ -130,11 +130,11 @@ jobs:
           if-no-files-found: ignore
       - name: pulumi up (stage)
         if: ${{ steps.preview.outcome == 'success' && github.ref == 'refs/heads/main' && matrix.stack == 'stage' }}
-        run: nix develop .#pulumi --command pulumi up -C ${{ matrix.project }} --stack ${{ matrix.stack }} --yes --non-interactive
+        run: nix develop .#ci-pulumi --command pulumi up -C ${{ matrix.project }} --stack ${{ matrix.stack }} --yes --non-interactive
         shell: bash
       - name: pulumi up (prod)
         if: ${{ steps.preview.outcome == 'success' && startsWith(github.ref, 'refs/tags/v') && matrix.stack == 'prod' }}
-        run: nix develop .#pulumi --command pulumi up -C ${{ matrix.project }} --stack ${{ matrix.stack }} --yes --non-interactive
+        run: nix develop .#ci-pulumi --command pulumi up -C ${{ matrix.project }} --stack ${{ matrix.stack }} --yes --non-interactive
         shell: bash
       - name: fail job if preview failed
         if: ${{ steps.preview.outcome != 'success' }}

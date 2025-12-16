@@ -18,10 +18,10 @@ export DEVSHELL_QUIET=1
 mkdir -p previews ok
 
 # Human-readable diff output
-nix develop .#pulumi --command pulumi preview -C "$project" --stack "$stack" --non-interactive --diff | tee "previews/${safe_name}.txt"
+nix develop .#ci-pulumi --command pulumi preview -C "$project" --stack "$stack" --non-interactive --diff | tee "previews/${safe_name}.txt"
 
 # Optional JSON, tolerate failure to keep previews robust
-if nix develop .#pulumi --command pulumi preview -C "$project" --stack "$stack" --non-interactive --json > "previews/${safe_name}.json"; then
+if nix develop .#ci-pulumi --command pulumi preview -C "$project" --stack "$stack" --non-interactive --json > "previews/${safe_name}.json"; then
   :
 else
   echo "JSON preview failed or unsupported; continuing with text preview only" >&2
@@ -33,7 +33,7 @@ bash "$GITHUB_ACTION_PATH/render_preview_summary.sh" "$project" "$stack" "$safe_
 # Compute whether there are changes (best effort) and emit OK marker
 has_changes=false
 if [[ -f "previews/${safe_name}.json" ]]; then
-  if nix develop .#pulumi --command jq -e '((.changeSummary.create // 0) + (.changeSummary.update // 0) + (.changeSummary.replace // 0) + (.changeSummary.delete // 0)) > 0' "previews/${safe_name}.json" > /dev/null; then
+  if nix develop .#ci-pulumi --command jq -e '((.changeSummary.create // 0) + (.changeSummary.update // 0) + (.changeSummary.replace // 0) + (.changeSummary.delete // 0)) > 0' "previews/${safe_name}.json" > /dev/null; then
     has_changes=true
   fi
 fi
@@ -41,5 +41,5 @@ fi
 echo "has_changes=$has_changes" >> "$GITHUB_OUTPUT"
 
 # Always create an OK marker on successful preview run of this action
-nix develop .#pulumi --command jq -n --arg project "$project" --arg stack "$stack" --arg has_changes "$has_changes" \
+nix develop .#ci-pulumi --command jq -n --arg project "$project" --arg stack "$stack" --arg has_changes "$has_changes" \
   '{project:$project, stack:$stack, has_changes: ($has_changes=="true")}' > "ok/${safe_name}.json"
