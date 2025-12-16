@@ -18,6 +18,36 @@ pnpm add "git+https://github.com/jmmaloney4/toolbox.git#path:/packages/toolbox#v
 
 ## Components
 
+### WorkerSite
+
+A Pulumi component for hosting static sites on Cloudflare Workers with optional Zero Trust access control via Cloudflare Access. Serves files from R2 with edge caching.
+
+**Key Features**:
+- Optional GitHub organization-based authentication
+- Auto-create GitHub Identity Provider or reference existing
+- Public-only sites require no authentication setup
+- R2-backed static file serving with Cache API
+- Multiple domains with automatic DNS
+- Flexible path-level access control
+
+For full documentation, see [`workersite/README.md`](./workersite/README.md).
+
+**Quick Example**:
+
+```typescript
+import { WorkerSite } from "@jmmaloney4/sector7/workersite";
+
+// Public-only site - no auth required
+const site = new WorkerSite("docs", {
+  accountId: "your-account-id",
+  zoneId: "your-zone-id",
+  name: "docs",
+  domains: ["docs.example.com"],
+  r2Bucket: { bucketName: "docs-assets", create: true },
+  paths: [{ pattern: "/*", access: "public" }],
+});
+```
+
 ### GitHubOidcResource
 
 A component that sets up GitHub Actions OIDC authentication with Google Cloud Platform (GCP). This creates:
