@@ -1,0 +1,76 @@
+name: '🚀 Push Nix Image to Registry'
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        description: 'Runner label for all jobs'
+        required: true
+        type: string
+      package-name:
+        description: 'Nix package name (e.g., zeus-image, ci-image)'
+        required: true
+        type: string
+      registry:
+        description: 'Container registry (default: ghcr.io)'
+        required: false
+        type: string
+        default: 'ghcr.io'
+      namespace:
+        description: 'Registry namespace (e.g., org/repo)'
+        required: true
+        type: string
+      image-name:
+        description: 'Image name in registry (defaults to package-name without -image suffix)'
+        required: false
+        type: string
+      tags:
+        description: 'Comma-separated list of tags (e.g., latest,v1.0.0,pr-123)'
+        required: true
+        type: string
+      system:
+        description: 'Nix system (default: x86_64-linux)'
+        required: false
+        type: string
+        default: 'x86_64-linux'
+      repository:
+        description: 'Repository to checkout'
+        required: true
+        type: string
+      ref:
+        description: 'Git ref to checkout'
+        required: true
+        type: string
+    secrets:
+      REGISTRY_USERNAME:
+        description: 'Registry username (defaults to github.actor)'
+        required: false
+      REGISTRY_PASSWORD:
+        description: 'Registry password/token (usually GITHUB_TOKEN)'
+        required: true
+jobs:
+  push-image:
+    runs-on: ${{ inputs.runs-on }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          repository: ${{ inputs.repository }}
+          ref: ${{ inputs.ref }}
+      - name: Install Nix
+        uses: jmmaloney4/toolbox/.github/actions/nix-setup@main
+        with:
+          runs-on: ${{ inputs.runs-on }}
+      - name: Push Nix Image
+        uses: jmmaloney4/toolbox/.github/actions/push-nix-image@main
+        with:
+          package-name: ${{ inputs.package-name }}
+          registry: ${{ inputs.registry }}
+          namespace: ${{ inputs.namespace }}
+          image-name: ${{ inputs.image-name }}
+          tags: ${{ inputs.tags }}
+          system: ${{ inputs.system }}
+          registry-username: ${{ secrets.REGISTRY_USERNAME || github.actor }}
+          registry-password: ${{ secrets.REGISTRY_PASSWORD }}
