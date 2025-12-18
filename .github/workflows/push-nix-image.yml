@@ -1,5 +1,4 @@
 name: '🚀 Push Nix Image to Registry'
-
 on:
   workflow_call:
     inputs:
@@ -41,7 +40,6 @@ on:
         description: 'Git ref to checkout'
         required: true
         type: string
-
     secrets:
       REGISTRY_USERNAME:
         description: 'Registry username (defaults to github.actor)'
@@ -49,72 +47,30 @@ on:
       REGISTRY_PASSWORD:
         description: 'Registry password/token (usually GITHUB_TOKEN)'
         required: true
-
 jobs:
   push-image:
     runs-on: ${{ inputs.runs-on }}
     permissions:
       contents: read
       packages: write
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           repository: ${{ inputs.repository }}
           ref: ${{ inputs.ref }}
-
       - name: Install Nix
         uses: jmmaloney4/toolbox/.github/actions/nix-setup@main
         with:
           runs-on: ${{ inputs.runs-on }}
-
-      - name: Determine image name
-        id: image-name
-        run: |
-          set -euo pipefail
-          if [ -n "${{ inputs.image-name }}" ]; then
-            IMAGE_NAME="${{ inputs.image-name }}"
-          else
-            IMAGE_NAME="${{ inputs.package-name }}"
-            IMAGE_NAME="${IMAGE_NAME%-image}"
-          fi
-          echo "name=${IMAGE_NAME}" >> "$GITHUB_OUTPUT"
-
-      - name: Build and push image
-        env:
-          REGISTRY: ${{ inputs.registry }}
-          NAMESPACE: ${{ inputs.namespace }}
-          IMAGE_NAME: ${{ steps.image-name.outputs.name }}
-          TAGS: ${{ inputs.tags }}
-          PACKAGE: ${{ inputs.package-name }}
-          SYSTEM: ${{ inputs.system }}
-          USERNAME: ${{ secrets.REGISTRY_USERNAME || github.actor }}
-          PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
-        run: |
-          set -euo pipefail
-
-          if [ -z "$TAGS" ]; then
-            echo "No tags provided. Aborting push." >&2
-            exit 1
-          fi
-
-          IFS=',' read -ra TAG_ARRAY <<< "$TAGS"
-
-          echo "Building Nix package: ${PACKAGE}"
-          nix build ".#packages.${SYSTEM}.${PACKAGE}" -L
-
-          for tag in "${TAG_ARRAY[@]}"; do
-            tag="$(echo "$tag" | xargs)"
-            if [ -z "$tag" ]; then
-              continue
-            fi
-            dest="docker://${REGISTRY}/${NAMESPACE}/${IMAGE_NAME}:${tag}"
-            echo "Pushing to: ${dest}"
-
-            nix run ".#packages.${SYSTEM}.${PACKAGE}.passthru.copyTo" -- \
-              "${dest}" \
-              --dest-creds "${USERNAME}:${PASSWORD}"
-          done
-
-          echo "✅ Successfully pushed image with tags: ${TAGS}"
+      - name: Push Nix Image
+        uses: jmmaloney4/toolbox/.github/actions/push-nix-image@main
+        with:
+          package-name: ${{ inputs.package-name }}
+          registry: ${{ inputs.registry }}
+          namespace: ${{ inputs.namespace }}
+          image-name: ${{ inputs.image-name }}
+          tags: ${{ inputs.tags }}
+          system: ${{ inputs.system }}
+          registry-username: ${{ secrets.REGISTRY_USERNAME || github.actor }}
+          registry-password: ${{ secrets.REGISTRY_PASSWORD }}

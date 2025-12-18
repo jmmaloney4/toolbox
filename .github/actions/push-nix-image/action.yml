@@ -1,0 +1,43 @@
+name: 'Push Nix Image'
+description: 'Build and push a Nix container image to a registry'
+inputs:
+  package-name:
+    description: 'Nix package name (e.g., zeus-image, ci-image)'
+    required: true
+  registry:
+    description: 'Container registry'
+    required: false
+    default: 'ghcr.io'
+  namespace:
+    description: 'Registry namespace (e.g., org/repo)'
+    required: true
+  image-name:
+    description: 'Image name in registry (defaults to package-name without -image suffix)'
+    required: false
+  tags:
+    description: 'Comma-separated list of tags'
+    required: true
+  system:
+    description: 'Nix system'
+    required: false
+    default: 'x86_64-linux'
+  registry-username:
+    description: 'Registry username (defaults to github.actor)'
+    required: false
+  registry-password:
+    description: 'Registry password/token'
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - shell: bash
+      env:
+        INPUT_PACKAGE_NAME: ${{ inputs.package-name }}
+        INPUT_REGISTRY: ${{ inputs.registry }}
+        INPUT_NAMESPACE: ${{ inputs.namespace }}
+        INPUT_IMAGE_NAME: ${{ inputs.image-name }}
+        INPUT_TAGS: ${{ inputs.tags }}
+        INPUT_SYSTEM: ${{ inputs.system }}
+        INPUT_REGISTRY_USERNAME: ${{ inputs.registry-username }}
+        INPUT_REGISTRY_PASSWORD: ${{ inputs.registry-password }}
+      run: $GITHUB_ACTION_PATH/main.sh
