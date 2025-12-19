@@ -9,8 +9,8 @@ importers:
   .:
     devDependencies:
       '@types/node':
-        specifier: ^22.18.6
-        version: 22.18.13
+        specifier: ^22.19.3
+        version: 22.19.3
       rimraf:
         specifier: ^6.1.0
         version: 6.1.0
@@ -331,8 +331,8 @@ packages:
   '@types/mime@1.3.5':
     resolution: {integrity: sha512-/pyBZWSLD2n0dcHE3hq8s8ZvcETHtEuF+3E7XVt0Ig2nvsVQXdghHVcEkIWjy9A0wKfTn97a/PSDYohKIlnP/w==}
 
-  '@types/node@22.18.13':
-    resolution: {integrity: sha512-Bo45YKIjnmFtv6I1TuC8AaHBbqXtIo+Om5fE4QiU1Tj8QR/qt+8O3BAtOimG5IFmwaWiPmB3Mv3jtYzBA4Us2A==}
+  '@types/node@22.19.3':
+    resolution: {integrity: sha512-1N9SBnWYOJTrNZCdh/yJE+t910Y128BoyY+zBLWhL3r0TYzlTmFdXrPwHL9DyFZmlEXNQQolTZh3KHV31QDhyA==}
 
   '@types/qs@6.14.0':
     resolution: {integrity: sha512-eOunJqu0K1923aExK6y8p6fsihYEn/BYuQ4g0CxAAgFc4b/ZLN4CrsRZ55srTdqoiLzU2B2evC+apEIxprEzkQ==}
@@ -1617,22 +1617,22 @@ snapshots:
   '@types/body-parser@1.19.6':
     dependencies:
       '@types/connect': 3.4.38
-      '@types/node': 22.18.13
+      '@types/node': 22.19.3
 
   '@types/cacheable-request@6.0.3':
     dependencies:
       '@types/http-cache-semantics': 4.0.4
       '@types/keyv': 3.1.4
-      '@types/node': 22.18.13
+      '@types/node': 22.19.3
       '@types/responselike': 1.0.3
 
   '@types/connect@3.4.38':
     dependencies:
-      '@types/node': 22.18.13
+      '@types/node': 22.19.3
 
   '@types/express-serve-static-core@4.19.7':
     dependencies:
-      '@types/node': 22.18.13
+      '@types/node': 22.19.3
       '@types/qs': 6.14.0
       '@types/range-parser': 1.2.7
       '@types/send': 1.2.1
@@ -1652,11 +1652,11 @@ snapshots:
 
   '@types/keyv@3.1.4':
     dependencies:
-      '@types/node': 22.18.13
+      '@types/node': 22.19.3
 
   '@types/mime@1.3.5': {}
 
-  '@types/node@22.18.13':
+  '@types/node@22.19.3':
     dependencies:
       undici-types: 6.21.0
 
@@ -1666,23 +1666,23 @@ snapshots:
 
   '@types/responselike@1.0.3':
     dependencies:
-      '@types/node': 22.18.13
+      '@types/node': 22.19.3
 
   '@types/semver@7.7.1': {}
 
   '@types/send@0.17.6':
     dependencies:
       '@types/mime': 1.3.5
-      '@types/node': 22.18.13
+      '@types/node': 22.19.3
 
   '@types/send@1.2.1':
     dependencies:
-      '@types/node': 22.18.13
+      '@types/node': 22.19.3
 
   '@types/serve-static@1.15.10':
     dependencies:
       '@types/http-errors': 2.0.5
-      '@types/node': 22.18.13
+      '@types/node': 22.19.3
       '@types/send': 0.17.6
 
   '@types/shimmer@1.2.0': {}
@@ -2314,7 +2314,7 @@ snapshots:
       '@protobufjs/path': 1.1.2
       '@protobufjs/pool': 1.1.0
       '@protobufjs/utf8': 1.1.0
-      '@types/node': 22.18.13
+      '@types/node': 22.19.3
       long: 5.3.2
 
   pump@3.0.3:
