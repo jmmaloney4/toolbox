@@ -291,6 +291,7 @@ export class WorkerSite extends pulumi.ComponentResource {
 						type: "AAAA",
 						value: "100::", // Workers placeholder IPv6
 						proxied: true, // Enable Cloudflare proxy
+						ttl: 1, // Automatic TTL (required by Cloudflare provider)
 					},
 					resourceOpts,
 				);
