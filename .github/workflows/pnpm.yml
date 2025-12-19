@@ -66,7 +66,7 @@ jobs:
         with:
           runs-on: ${{ inputs.runs-on }}
       - name: Verify lockfile is up to date
-        run: nix develop --command pnpm install --frozen-lockfile
+        run: nix develop .#ci-pnpm --command pnpm install --frozen-lockfile
   publish-packages:
     name: "🚀 publish to GHCR"
     needs: [analyze, verify-lockfile]
@@ -88,9 +88,9 @@ jobs:
         with:
           runs-on: ${{ inputs.runs-on }}
       - name: Install dependencies
-        run: nix develop --command pnpm install --frozen-lockfile
+        run: nix develop .#ci-pnpm --command pnpm install --frozen-lockfile
       - name: Build packages
-        run: nix develop --command pnpm build
+        run: nix develop .#ci-pnpm --command pnpm build
       - name: Summary (per-package)
         run: |
           echo "## 📦 Publish Plan for ${{ matrix.name }}" >> $GITHUB_STEP_SUMMARY
@@ -118,7 +118,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish package
         if: inputs.dry_run != true && matrix.action == 'publish'
-        run: nix develop --command pnpm publish --no-git-checks
+        run: nix develop .#ci-pnpm --command pnpm publish --no-git-checks
         working-directory: ${{ matrix.package_path }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
