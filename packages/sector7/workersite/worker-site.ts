@@ -156,7 +156,7 @@ export class WorkerSite extends pulumi.ComponentResource {
 	/**
 	 * The Worker script serving static files.
 	 */
-	public readonly worker: cloudflare.WorkerScript;
+	public readonly worker: cloudflare.WorkersScript;
 
 	/**
 	 * Worker domains binding the Worker to custom domains.
@@ -171,12 +171,7 @@ export class WorkerSite extends pulumi.ComponentResource {
 	/**
 	 * Access Applications for each path.
 	 */
-	public readonly accessApplications: cloudflare.AccessApplication[];
-
-	/**
-	 * Access Policies for each path.
-	 */
-	public readonly accessPolicies: cloudflare.AccessPolicy[];
+	public readonly accessApplications: cloudflare.ZeroTrustAccessApplication[];
 
 	/**
 	 * The domains bound to the Worker.
@@ -246,22 +241,22 @@ export class WorkerSite extends pulumi.ComponentResource {
 			? prefix.apply((p) => generateWorkerScript(bucketBinding, p))
 			: generateWorkerScript(bucketBinding);
 
-		this.worker = new cloudflare.WorkerScript(
+		this.worker = new cloudflare.WorkersScript(
 			`${name}-worker`,
 			{
 				accountId: args.accountId,
-				name: args.name,
+				scriptName: args.name,
 				content: scriptContent,
-				r2BucketBindings: [
+				bindings: [
 					{
 						name: bucketBinding,
 						bucketName: bucketName,
+						type: "r2_bucket",
 					},
-				],
-				plainTextBindings: [
 					{
 						name: "CACHE_TTL_SECONDS",
 						text: pulumi.output(cacheTtl).apply((ttl) => ttl.toString()),
+						type: "plain_text",
 					},
 				],
 			},
@@ -289,7 +284,7 @@ export class WorkerSite extends pulumi.ComponentResource {
 						zoneId: args.zoneId,
 						name: domain,
 						type: "AAAA",
-						value: "100::", // Workers placeholder IPv6
+						content: "100::", // Workers placeholder IPv6
 						proxied: true, // Enable Cloudflare proxy
 						ttl: 1, // Automatic TTL (required by Cloudflare provider)
 					},
@@ -308,45 +303,25 @@ export class WorkerSite extends pulumi.ComponentResource {
 				{
 					accountId: args.accountId,
 					hostname: domain,
-					service: this.worker.name,
+					service: this.worker.scriptName,
 					zoneId: args.zoneId,
+					environment: "production",
 				},
 				workerDomainOpts,
 			);
 			this.workerDomains.push(workerDomain);
 		}
 
-		// 4. Create Access Applications and Policies for each (domain, path) combination
+		// 4. Create Access Applications with embedded policies for each (domain, path) combination
 		this.accessApplications = [];
-		this.accessPolicies = [];
 
-		let policyPrecedence = 1;
 		for (let domainIdx = 0; domainIdx < args.domains.length; domainIdx++) {
 			const domain = args.domains[domainIdx];
 
 			for (let pathIdx = 0; pathIdx < args.paths.length; pathIdx++) {
 				const pathConfig = args.paths[pathIdx];
 
-				// Create Access Application
-				const app = new cloudflare.AccessApplication(
-					`${name}-app-d${domainIdx}-p${pathIdx}`,
-					{
-						zoneId: args.zoneId,
-						name: pulumi
-							.all([args.name, domain, pathConfig.pattern])
-							.apply(
-								([n, d, p]) =>
-									`${n}-${d}-${p.replace(/\//g, "-").replace(/\*/g, "all")}`,
-							),
-						domain: pulumi.interpolate`${domain}${pathConfig.pattern}`,
-						type: "self_hosted",
-						sessionDuration: "24h",
-					},
-					resourceOpts,
-				);
-				this.accessApplications.push(app);
-
-				// Create Access Policy based on access type
+				// Create policy include rules based on access type
 				const policyIncludes =
 					pathConfig.access === "public"
 						? [{ everyone: true }]
@@ -362,31 +337,45 @@ export class WorkerSite extends pulumi.ComponentResource {
 												identityProviderId: idpId,
 												name: org,
 											},
-										})) as cloudflare.types.input.AccessPolicyInclude[],
+										})) as cloudflare.types.input.ZeroTrustAccessApplicationPolicyInclude[],
 								);
 
-				const policy = new cloudflare.AccessPolicy(
-					`${name}-policy-d${domainIdx}-p${pathIdx}`,
+				// Create Access Application with embedded policy
+				const app = new cloudflare.ZeroTrustAccessApplication(
+					`${name}-app-d${domainIdx}-p${pathIdx}`,
 					{
-						applicationId: app.id,
+						accountId: args.accountId,
 						zoneId: args.zoneId,
-						name:
-							pathConfig.access === "public"
-								? "Allow everyone"
-								: "GitHub org members",
-						decision: "allow",
-						precedence: policyPrecedence++,
-						includes: policyIncludes,
+						name: pulumi
+							.all([args.name, domain, pathConfig.pattern])
+							.apply(
+								([n, d, p]) =>
+									`${n}-${d}-${p.replace(/\//g, "-").replace(/\*/g, "all")}`,
+							),
+						domain: pulumi.interpolate`${domain}${pathConfig.pattern}`,
+						type: "self_hosted",
+						sessionDuration: "24h",
+						policies: [
+							{
+								name:
+									pathConfig.access === "public"
+										? "Allow everyone"
+										: "GitHub org members",
+								decision: "allow",
+								precedence: 1,
+								includes: policyIncludes,
+							},
+						],
 					},
 					resourceOpts,
 				);
-				this.accessPolicies.push(policy);
+				this.accessApplications.push(app);
 			}
 		}
 
 		// Outputs
 		this.boundDomains = pulumi.output(args.domains);
-		this.workerName = this.worker.name;
+		this.workerName = this.worker.scriptName;
 
 		this.registerOutputs({
 			bucket: this.bucket,
@@ -394,7 +383,6 @@ export class WorkerSite extends pulumi.ComponentResource {
 			workerDomains: this.workerDomains,
 			dnsRecords: this.dnsRecords,
 			accessApplications: this.accessApplications,
-			accessPolicies: this.accessPolicies,
 			boundDomains: this.boundDomains,
 			workerName: this.workerName,
 		});

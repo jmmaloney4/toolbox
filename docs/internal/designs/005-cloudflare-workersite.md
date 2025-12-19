@@ -1,8 +1,9 @@
 ---
 id: ADR-005
 title: Cloudflare WorkerSite Static Hosting with Zero Trust by Subpath (Pulumi Component)
-status: Proposed
+status: Implemented
 date: 2025-09-22
+updated: 2025-12-19
 deciders: [platform]
 consulted: [security, web, infra]
 tags: [design, adr, cloudflare, pulumi, workers, access, zero-trust]
@@ -15,6 +16,8 @@ links:
   - worker-domains: https://developers.cloudflare.com/workers/platform/triggers/custom-domains/
   - worker-routes: https://developers.cloudflare.com/workers/platform/triggers/routes/
 ---
+
+> **Update 2025-12-19**: Upgraded to Pulumi Cloudflare provider v6. See [Pulumi Cloudflare v6 Migration Notes](#pulumi-cloudflare-v6-migration-notes) for breaking changes.
 
 # Context
 - We want a reusable Pulumi ComponentResource to provision Cloudflare-hosted static websites on the Workers platform, not Pages.
@@ -578,6 +581,86 @@ Phase 1 script focuses on basic R2 fetch, directory index, and response headers.
 - **Workers CPU limits**: 50ms CPU time for free tier, 30s for paid (mainly impacts first request)
 - **R2 request costs**: $0.36 per million Class A operations; cache aggressively
 - **Edge cache effectiveness**: Long cache TTLs (1 year for immutable assets) minimize R2 requests
+
+---
+
+## Pulumi Cloudflare v6 Migration Notes
+
+**Migration Date**: 2025-12-19  
+**Provider Version**: v5.x → v6.11.0
+
+### Breaking Changes
+
+The following breaking changes were required to upgrade from Pulumi Cloudflare provider v5 to v6:
+
+#### 1. WorkerScript → WorkersScript
+- **Resource renamed**: `cloudflare.WorkerScript` → `cloudflare.WorkersScript`
+- **Property renamed**: `name` → `scriptName`
+- **Impact**: All Worker script references updated
+
+#### 2. Unified Bindings API
+- **Old**: Separate arrays `r2BucketBindings` and `plainTextBindings`
+- **New**: Single `bindings` array with `type` property for each binding
+- **Example**:
+  ```typescript
+  // v5
+  r2BucketBindings: [{ name: "R2_BUCKET", bucketName: "..." }]
+  plainTextBindings: [{ name: "VAR", text: "value" }]
+  
+  // v6
+  bindings: [
+    { name: "R2_BUCKET", bucketName: "...", type: "r2_bucket" },
+    { name: "VAR", text: "value", type: "plain_text" }
+  ]
+  ```
+
+#### 3. DNS Record Property
+- **Property renamed**: `value` → `content`
+- **Impact**: All DNS record creation updated
+
+#### 4. WorkerDomain Environment (New Required Property)
+- **Added**: `environment` property now required
+- **Purpose**: Specifies which Worker environment (e.g., "production", "staging") the domain binds to
+- **Implementation**: All domains set to `"production"` for single-environment deployments
+- **Background**: Cloudflare Workers support multiple environments per script with different configurations
+
+#### 5. Access Resources Architecture Change
+- **Resources renamed**:
+  - `AccessApplication` → `ZeroTrustAccessApplication`
+  - `AccessPolicy` → `ZeroTrustAccessPolicy` (embedded)
+- **Major change**: Policies are now **embedded within applications** rather than separate resources
+  - Old: Create `AccessApplication`, then create separate `AccessPolicy` with `applicationId`
+  - New: Create `ZeroTrustAccessApplication` with `policies: [...]` array
+- **Precedence scope**: Changed from global to per-application
+  - v5: Global precedence counter across all policies
+  - v6: Each application has its own policies with precedence scoped to that application
+- **Component impact**:
+  - Removed `public readonly accessPolicies` property
+  - Each (domain, path) gets one application with one embedded policy
+  - Functionally equivalent for WorkerSite use case
+
+#### 6. Type Updates
+- `AccessPolicyInclude` → `ZeroTrustAccessApplicationPolicyInclude`
+
+### Migration Impact
+
+**Functional Equivalence**: Despite the resource model changes, the WorkerSite component provides **identical functionality**:
+- Path-level access control works the same way
+- Public vs restricted paths behave identically
+- GitHub organization authentication unchanged
+- Edge caching and R2 integration unaffected
+
+**API Changes**: The component's public API remains unchanged - no breaking changes for users of the WorkerSite component.
+
+### Testing
+
+All functionality verified after migration:
+- ✅ Worker script compilation with TypeScript
+- ✅ R2 bindings with unified bindings API
+- ✅ DNS record creation with `content` property
+- ✅ Worker domain binding with `environment: "production"`
+- ✅ Access applications with embedded policies
+- ✅ Public and restricted path access control
 
 
 

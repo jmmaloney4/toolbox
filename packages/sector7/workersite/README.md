@@ -73,10 +73,11 @@ The WorkerSite component automatically creates:
 
 1. **R2 Bucket** (optional): Stores your static assets
 2. **Worker Script**: Serves files from R2 with Cache API and proper headers
-3. **Worker Domains**: Binds the Worker to each custom domain
+3. **Worker Domains**: Binds the Worker to each custom domain (requires `environment` property in Pulumi Cloudflare v6+)
 4. **DNS Records**: Automatic AAAA records for each domain (100::)
-5. **Access Applications**: One per path pattern
-6. **Access Policies**: Public (everyone) or restricted (GitHub org members)
+5. **Access Applications**: One per (domain, path) combination with embedded policies
+   - Each application contains its own policy configuration
+   - Policies define access rules: public (everyone) or restricted (GitHub org members)
 
 ## Access Control Flow
 
@@ -126,9 +127,9 @@ Access Applications support wildcards in paths:
 - `/research/*` - matches `/research/data.json`, `/research/docs/paper.pdf`, etc.
 - `/*` - matches all paths (global access control)
 
-You can configure as many paths as needed. Each path gets its own Access Application and Policy.
+You can configure as many paths as needed. Each (domain, path) combination gets its own Access Application with an embedded policy.
 
-**Note on precedence**: The order of paths in the `paths` array is important. It determines the precedence of the Cloudflare Access policies, with paths appearing earlier in the array having higher precedence (a lower precedence number). You should generally order your paths from most specific to least specific.
+**Note on policy architecture** (Pulumi Cloudflare v6+): Policies are now embedded within Access Applications rather than created as separate resources. Each application has its own policy with `precedence: 1` (the only policy for that application). This change doesn't affect functionality - access control works the same way, but the resource model is simplified.
 
 ## DNS Management
 
