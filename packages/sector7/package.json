@@ -28,17 +28,22 @@
 	],
 	"scripts": {
 		"clean": "rimraf dist",
+		"test": "jest",
 		"build": "tsc -p tsconfig.json",
 		"prepack": "pnpm run build"
 	},
 	"peerDependencies": {
-		"@pulumi/pulumi": "^3.0.0",
-		"@pulumi/cloudflare": "^5.0.0 || ^6.0.0",
-		"@pulumi/gcp": "^9.0.0"
+ 		"@pulumi/pulumi": "^3.205.0",
+		"@pulumi/cloudflare": "^6.0.0",
+ 		"@pulumi/gcp": "^9.3.0"
 	},
 	"devDependencies": {
-		"@pulumi/pulumi": "^3.205.0",
 		"@pulumi/cloudflare": "^6.0.0",
-		"@pulumi/gcp": "^9.3.0"
+		"@pulumi/gcp": "^9.3.0",
+		"@pulumi/pulumi": "^3.205.0",
+		"@types/jest": "^30.0.0",
+		"@types/node": "^22.19.3",
+		"jest": "^30.2.0",
+		"ts-jest": "^29.4.6"
 	}
 }
