@@ -20,6 +20,10 @@ on:
         required: false
         default: 'cavinsresearch'
         type: string
+    secrets:
+      REGISTRY_PASSWORD:
+        description: 'Registry password/token (usually GITHUB_TOKEN)'
+        required: true
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
