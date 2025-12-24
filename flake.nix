@@ -46,6 +46,40 @@
         lib,
         ...
       }: {
+        checks = {
+          test = pkgs.stdenv.mkDerivation {
+            name = "sector7-tests";
+            src = lib.cleanSource ./.;
+
+            nativeBuildInputs = [
+              pkgs.nodejs
+              pkgs.pnpm_9
+              pkgs.pnpmConfigHook
+            ];
+
+            pnpmDeps = pkgs.fetchPnpmDeps {
+              pnpm = pkgs.pnpm_9;
+              pname = "toolbox-deps";
+              src = lib.cleanSource ./.;
+              hash = "sha256-oiVz2/BQxdVPe2dkgK55q9bpHOvRtAgF0eIPMG/FLSg=";
+              pnpmWorkspaces = ["@jmmaloney4/sector7"];
+              fetcherVersion = 3;
+            };
+
+            pnpmWorkspaces = ["@jmmaloney4/sector7"];
+
+            buildPhase = ''
+              runHook preBuild
+              pnpm --filter "@jmmaloney4/sector7" test
+              runHook postBuild
+            '';
+
+            installPhase = ''
+              touch $out
+            '';
+          };
+        };
+
         devShells.default = pkgs.mkShell {
           inputsFrom = [
             config.jackpkgs.outputs.devShell
