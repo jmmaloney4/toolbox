@@ -30,7 +30,7 @@ all_outputs=$(nix -L run nixpkgs#jq -- -s -c '
       flake_attr: (".#" + .attr),
       cached: ((.cacheStatus == "cached") or (.cacheStatus == "local") or (.isCached == true)),
       store_path: (.outputs.out // (.drvPath // "unknown")),
-      is_image: (((.attr | split(".") | .[2] | endswith("-image")) // false))
+      is_image: (((.attr | split(".") | .[2] // "" | endswith("-image")) // false))
     })
   ' "$tmp_all")
 
