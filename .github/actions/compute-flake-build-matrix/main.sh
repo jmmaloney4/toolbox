@@ -20,17 +20,19 @@ nix run github:nix-community/nix-eval-jobs --option extra-substituters "https://
 # Transform nix-eval-jobs output to matrix format
 echo "Processing nix-eval-jobs output..." >&2
 all_outputs=$(nix -L run nixpkgs#jq -- -s -c '
-  # Parse each JSON object and extract matrix fields
-  map({
-    attr: .attr,
-    category: ((.attr | split(".") | .[0]) // "unknown"),
-    system: ((.attr | split(".") | .[1]) // "unknown"), 
-    name: ((.attr | split(".") | .[2]) // "default"),
-    flake_attr: (".#" + .attr),
-    cached: ((.cacheStatus == "cached") or (.cacheStatus == "local") or (.isCached == true)),
-    store_path: (.outputs.out // (.drvPath // "unknown"))
-  })
-' "$tmp_all")
+    # Parse each JSON object and extract matrix fields
+    # Keep output image flag for next step
+    map({
+      attr: .attr,
+      category: ((.attr | split(".") | .[0]) // "unknown"),
+      system: ((.attr | split(".") | .[1]) // "unknown"), 
+      name: ((.attr | split(".") | .[2]) // "default"),
+      flake_attr: (".#" + .attr),
+      cached: ((.cacheStatus == "cached") or (.cacheStatus == "local") or (.isCached == true)),
+      store_path: (.outputs.out // (.drvPath // "unknown")),
+      is_image: (((.attr | split(".") | .[2] | endswith("-image")) // false))
+    })
+  ' "$tmp_all")
 
 echo "All detected outputs: $all_outputs"
 
@@ -44,7 +46,7 @@ include_array=$(nix -L run nixpkgs#jq -- -c '
       end
     )
   # Extract only fields needed for the matrix
-  | map({category, system, name, flake_attr} + (if .noop then {noop: .noop} else {} end))
+  | map({category, system, name, flake_attr} + (if .noop then {noop: .noop} else {} end) + (if .is_image then {is_image: .is_image} else {} end))
 ' <<<"$all_outputs")
 
 echo "Computed include (uncached only): $include_array"

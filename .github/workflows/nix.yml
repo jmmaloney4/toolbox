@@ -28,6 +28,7 @@ jobs:
     outputs:
       matrix_include: ${{ steps.compute.outputs.matrix_include }}
       has_work: ${{ steps.compute.outputs.has_work }}
+      images_to_push: ${{ steps.images.outputs.image_matrix }}
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
@@ -41,6 +42,15 @@ jobs:
         uses: jmmaloney4/toolbox/.github/actions/compute-flake-build-matrix@main
         with:
           probe-timeout-seconds: '180'
+      - name: compute images to push
+        id: images
+        run: |
+           # Use jq to filter the matrix for entries where is_image is true,
+           # then extract just the package name (the 'name' field)
+           # into a list for the downstream matrix.
+           image_names=$(echo '${{ steps.compute.outputs.matrix_include }}' | jq -c '[ .[] | select(.is_image == true) | .name ]')
+           echo "Found images: $image_names"
+           echo "image_matrix=$image_names" >> "$GITHUB_OUTPUT"
   build:
     name: "👷‍♂️ ${{ matrix.category }}.${{ matrix.system }}.${{ matrix.name }}"
     needs: [detect]
@@ -68,3 +78,24 @@ jobs:
           echo "Building via nix-fast-build: $attr"
           # Build only missing (uncached) derivations, with CI-friendly logs and no out-link
           nix-fast-build --skip-cached --no-nom --no-link --flake "$attr"
+  
+  push-images:
+    name: "🐳 push ${{ matrix.package-name }}"
+    needs: [detect, build]
+    # Only run if there are actually images to push
+    if: ${{ needs.detect.outputs.images_to_push != '[]' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        package-name: ${{ fromJson(needs.detect.outputs.images_to_push) }}
+    uses: jmmaloney4/toolbox/.github/workflows/push-nix-image.yml@main
+    with:
+      runs-on: ${{ inputs.runs-on }}
+      package-name: ${{ matrix.package-name }}
+      namespace: cavinsresearch
+      repository: ${{ inputs.repository }}
+      ref: ${{ inputs.ref }}
+      # Tag with PR number if PR, otherwise SHA + branch/latest
+      tags: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || format('sha-{0},{1}{2}', github.sha, github.ref_name, github.ref_name == 'main' && ',latest' || '') }}
+    secrets:
+      REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
