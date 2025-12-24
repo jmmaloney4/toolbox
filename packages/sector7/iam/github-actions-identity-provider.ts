@@ -17,7 +17,7 @@ import type { WorkloadIdentityPoolResource } from "./workload-identity-pool";
  * @returns Service account ID (32 characters max)
  * @throws Error if stack name exceeds 5 characters
  */
-function generateServiceAccountId(
+export function generateServiceAccountId(
 	repoOwner: string,
 	repoName: string,
 	stackName: string,
@@ -30,8 +30,9 @@ function generateServiceAccountId(
 	}
 
 	// Format: sa-{owner}-{repo}-{stack}
-	// Allocate fixed lengths: 15 for owner, 10 for repo, 5 for stack (max)
-	const ownerLength = 15;
+	// Allocate fixed lengths: 12 for owner, 10 for repo, 5 for stack (max)
+	// "sa-" = 3 chars, so 32 - 3 - 2 dashes - 5 stack = 22 chars for owner+repo
+	const ownerLength = 12;
 	const repoLength = 10;
 
 	// Truncate names to allocated lengths
@@ -57,7 +58,7 @@ function generateServiceAccountId(
  * @returns Provider ID (32 characters max)
  * @throws Error if stack name exceeds 5 characters
  */
-function generateProviderId(
+export function generateProviderId(
 	repoOwner: string,
 	repoName: string,
 	stackName: string,
@@ -70,9 +71,9 @@ function generateProviderId(
 	}
 
 	// Format: provider-{owner}-{repo}-{stack}
-	// Allocate fixed lengths: 12 for owner, 8 for repo, 5 for stack (max)
+	// Allocate fixed lengths: 8 for owner, 8 for repo, 5 for stack (max)
 	// "provider-" = 9 chars, so 32 - 9 - 2 dashes - 5 stack = 16 chars for owner+repo
-	const ownerLength = 12;
+	const ownerLength = 8;
 	const repoLength = 8;
 
 	// Truncate names to allocated lengths
