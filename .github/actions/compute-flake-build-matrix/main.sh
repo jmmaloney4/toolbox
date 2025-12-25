@@ -42,7 +42,9 @@ echo "All detected outputs: $all_outputs"
 include_array=$(nix -L run nixpkgs#jq -- -c '
   map(select(.cached == false or .is_image == true))
   # Filter out categories we dont want to build (packages, checks, OR images)
-  | map(select(.category | test("^(packages|checks)$") or .is_image == true))
+  # IMPORTANT: Use parentheses around (.category | test(...)) to ensure OR applies to boolean result,
+  # otherwise pipe precedence passes string context to .is_image causing "Cannot index string" error.
+  | map(select((.category | test("^(packages|checks)$")) or .is_image == true))
   # Extract only fields needed for the matrix
   | map({category, system, name, flake_attr} + (if .is_image then {is_image: .is_image} else {} end))
 ' <<<"$all_outputs")
