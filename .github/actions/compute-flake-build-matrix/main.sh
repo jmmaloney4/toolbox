@@ -39,14 +39,10 @@ echo "All detected outputs: $all_outputs"
 # Build include array from only uncached, buildable outputs OR container images (which must be pushed regardless of cache)
 include_array=$(nix -L run nixpkgs#jq -- -c '
   map(select(.cached == false or .is_image == true))
-  # Add noop flag for categories we dont want to build
-  | map(
-      if (.category | test("^(packages|checks)$")) then .
-      else . + { noop: "true" }
-      end
-    )
+  # Filter out categories we dont want to build (packages, checks, OR images)
+  | map(select(.category | test("^(packages|checks)$") or .is_image == true))
   # Extract only fields needed for the matrix
-  | map({category, system, name, flake_attr} + (if .noop then {noop: .noop} else {} end) + (if .is_image then {is_image: .is_image} else {} end))
+  | map({category, system, name, flake_attr} + (if .is_image then {is_image: .is_image} else {} end))
 ' <<<"$all_outputs")
 
 echo "Computed include (uncached only): $include_array"
@@ -93,5 +89,3 @@ if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
 else
   echo "GITHUB_STEP_SUMMARY not set, skipping summary output"
 fi
-
-
