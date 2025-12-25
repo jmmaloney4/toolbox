@@ -36,9 +36,9 @@ all_outputs=$(nix -L run nixpkgs#jq -- -s -c '
 
 echo "All detected outputs: $all_outputs"
 
-# Build include array from only uncached, buildable outputs  
+# Build include array from only uncached, buildable outputs OR container images (which must be pushed regardless of cache)
 include_array=$(nix -L run nixpkgs#jq -- -c '
-  map(select(.cached == false))
+  map(select(.cached == false or .is_image == true))
   # Add noop flag for categories we dont want to build
   | map(
       if (.category | test("^(packages|checks)$")) then .
@@ -81,7 +81,7 @@ if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
         ["| Category | System | Name | Attr | Store Path | Cached |",
          "|---|---|---|---|---|---|"]
         + ( .
-            | map("| " + .category + " | " + .system + " | **" + .name + "** | " + .flake_attr + " | `" + .store_path + "` | " + (if .cached then "📦  yes" else "🏗️  no" end) + " |")
+            | map("| " + .category + " | " + .system + " | **" + .name + "** " + (if .is_image then "(Container Image) 🐳" else "" end) + " | " + .flake_attr + " | `" + .store_path + "` | " + (if .cached then "📦  yes" else "🏗️  no" end) + " |")
           )
         | .[]
       ' <<<"$all_outputs"
