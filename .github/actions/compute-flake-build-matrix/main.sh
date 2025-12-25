@@ -81,7 +81,7 @@ if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
         ["| Category | System | Name | Attr | Store Path | Cached |",
          "|---|---|---|---|---|---|"]
         + ( .
-            | map("| " + .category + " | " + .system + " | **" + .name + "** " + (if .is_image then "(Container Image) 🐳" else "" end) + " | " + .flake_attr + " | `" + .store_path + "` | " + (if .cached then "📦  yes" else "🏗️  no" end) + " |")
+            | map("| " + (if .is_image then "container-image" else .category end) + " | " + .system + " | **" + .name + "** | " + .flake_attr + " | `" + .store_path + "` | " + (if .cached then "📦  yes" else "🏗️  no" end) + " |")
           )
         | .[]
       ' <<<"$all_outputs"
