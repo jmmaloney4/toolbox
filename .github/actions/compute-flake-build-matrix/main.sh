@@ -20,9 +20,11 @@ nix run github:nix-community/nix-eval-jobs --option extra-substituters "https://
 # Transform nix-eval-jobs output to matrix format
 echo "Processing nix-eval-jobs output..." >&2
 all_outputs=$(nix -L run nixpkgs#jq -- -s -c '
+    # Filter out non-objects and ensure attr exists (handles error messages or malformed lines)
+    map(select(type == "object" and .attr != null))
     # Parse each JSON object and extract matrix fields
     # Keep output image flag for next step
-    map({
+    | map({
       attr: .attr,
       category: ((.attr | split(".") | .[0]) // "unknown"),
       system: ((.attr | split(".") | .[1]) // "unknown"), 
