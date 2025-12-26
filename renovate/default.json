@@ -13,7 +13,7 @@
 	"schedule": ["before 4:00 am"],
 	"prHourlyLimit": 10,
 	"prConcurrentLimit": 5,
-	"rebaseWhen": "behind-base-branch",
+	"rebaseWhen": "conflicted",
 	"automergeType": "pr",
 	"automergeStrategy": "merge",
 	"platformAutomerge": false,
