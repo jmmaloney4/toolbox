@@ -23,7 +23,7 @@ on:
     secrets:
       REGISTRY_PASSWORD:
         description: 'Registry password/token (usually GITHUB_TOKEN)'
-        required: true
+        required: false
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -106,4 +106,4 @@ jobs:
       # Tag with PR number if PR, otherwise SHA + branch/latest
       tags: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || format('sha-{0},{1}{2}', github.sha, github.ref_name, github.ref_name == 'main' && ',latest' || '') }}
     secrets:
-      REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+      REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD || secrets.GITHUB_TOKEN }}
