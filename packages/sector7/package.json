@@ -38,7 +38,7 @@
 	},
 	"devDependencies": {
 		"@pulumi/pulumi": "^3.205.0",
-		"@pulumi/cloudflare": "^6.0.0",
+		"@pulumi/cloudflare": "^6.11.0",
 		"@pulumi/gcp": "^9.3.0"
 	}
 }
