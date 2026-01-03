@@ -148,14 +148,15 @@ export class GithubActionsWorkloadIdentityProvider extends pulumi.ComponentResou
 
 		// Assign roles to the service account across projects
 		const sortedRoles = Object.keys(args.serviceAccountRoles ?? {}).sort();
-		let idx = 0;
 		for (const role of sortedRoles) {
 			const projects = Array.from(
 				new Set((args.serviceAccountRoles[role] ?? []).slice().sort()),
 			);
 			for (const project of projects) {
+				// Include project ID and role in resource name for readability
+				const roleSuffix = role.replace(/^roles\//, "").replace(/\./g, "-");
 				new gcp.projects.IAMMember(
-					`${name}-sa-role-${idx++}`,
+					`${name}-sa-${project}-${roleSuffix}`,
 					{
 						project,
 						role,
