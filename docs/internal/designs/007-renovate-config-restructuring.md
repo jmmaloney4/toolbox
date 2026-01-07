@@ -268,3 +268,76 @@ Add high-priority override rules for major updates without restructuring.
 - [Renovate matchUpdateTypes](https://docs.renovatebot.com/configuration-options/#matchupdatetypes)
 - Current configuration: `renovate/` directory
 - Related files: `.github/renovate.json5`
+
+# Appendix A: Workspace vs Package-Level Differentiation
+
+## Question
+Should we differentiate between workspace-level dependencies (monorepo root) and package-level dependencies when grouping ecosystem updates?
+
+## Repository Context
+This repository is a monorepo with the following structure:
+- **Workspace root** (`package.json`): Shared development tooling (TypeScript, @types/node, rimraf)
+- **Packages** (`packages/*/package.json`): Package-specific dependencies (e.g., Pulumi packages in sector7)
+
+## Analysis
+
+### Case FOR Differentiation
+
+**Potential benefits:**
+1. **Blast radius visibility**: Workspace-level updates affect all packages, so separate PRs make the impact more visible
+2. **Different risk profiles**: Even for minor/patch updates, a workspace-level TypeScript update could theoretically break multiple packages
+3. **Selective policies**: Could automerge package-level minor/patch but manually review workspace-level changes
+4. **Testing strategy alignment**: Workspace updates might warrant running the full test suite, while package-specific updates could use targeted tests
+
+**Example implementation:**
+```json
+{
+  "groupName": "Node.js Dependencies (workspace)",
+  "matchFileNames": ["package.json"],
+  "matchPackageNames": ["typescript", "@types/node"],
+  "matchUpdateTypes": ["minor", "patch"],
+  "automerge": false
+},
+{
+  "groupName": "Node.js Dependencies (packages)",
+  "matchFileNames": ["packages/**/package.json"],
+  "matchUpdateTypes": ["minor", "patch"],
+  "automerge": true
+}
+```
+
+### Case AGAINST Differentiation
+
+**Why the current ecosystem-only approach is sufficient:**
+1. **Major updates already protected**: The high-risk changes (major versions) already receive individual PRs with manual review via `major-updates.json`
+2. **Minor/patch are inherently low-risk**: By semantic versioning contract, these updates should not introduce breaking changes
+3. **Dev tooling is especially safe**: TypeScript and build tool minor/patch updates are typically very stable
+4. **Simplicity**: Fewer rules make the configuration easier to understand and maintain
+5. **Small workspace footprint**: With only shared dev tooling at the workspace root (not runtime dependencies), the added complexity does not provide proportional value
+
+### Decision
+
+**We chose NOT to differentiate** between workspace and package-level dependencies for the following reasons:
+
+1. **Workspace dependencies are development tools**: The workspace contains only devDependencies (TypeScript, rimraf, @types/node), not runtime dependencies that could affect production behavior
+2. **Risk is already managed**: Major version updates (the primary source of breaking changes) are already handled separately with manual review
+3. **Minimal complexity**: Keeping ecosystem grouping simple reduces cognitive overhead and maintenance burden
+4. **Semantic versioning trust**: We trust that minor/patch updates follow semver conventions and are safe to automerge
+5. **Escape hatch available**: If a specific workspace update proves problematic, it can be manually reverted and handled individually
+
+### When Differentiation WOULD Be Valuable
+
+Future consideration: Differentiation should be reconsidered if:
+- Runtime dependencies are added at the workspace level
+- The monorepo grows to have packages with significantly different stability requirements
+- Staged rollout patterns are needed (e.g., update workspace first, then packages)
+- CI/CD pipeline is enhanced to support different test strategies for workspace vs package updates
+- Historical data shows workspace updates frequently cause issues
+
+### Configuration Note
+
+If differentiation is needed in the future, use `matchFileNames` to distinguish:
+- Workspace: `"matchFileNames": ["package.json"]` (root only)
+- Packages: `"matchFileNames": ["packages/**/package.json"]`
+
+This approach maintains the ecosystem grouping while adding location-based filtering.
