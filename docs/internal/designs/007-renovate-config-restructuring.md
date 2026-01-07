@@ -82,45 +82,22 @@ renovate/
 ## File Responsibilities
 
 ### `major-updates.json`
-```json
-{
-  "packageRules": [
-    {
-      "matchUpdateTypes": ["major"],
-      "automerge": false,
-      "grouping": false,
-      "reviewers": ["jmmaloney4"],
-      "prPriority": 10,
-      "labels": ["major-update"]
-    }
-  ]
-}
-```
-- Single package rule matching ALL major updates
-- MUST set `automerge: false`
-- MUST NOT group (individual PRs per package)
-- MUST require manual review
-- MUST have high priority to override other rules
+
+Contains a single package rule that applies to ALL major version updates across all ecosystems:
+- MUST disable automerge (`automerge: false`)
+- MUST NOT group updates — each package receives its own individual PR (achieved by not setting a `groupName`)
+- MUST require manual review (assigns reviewers)
+- MUST use high priority (`prPriority: 10`) to ensure this rule takes precedence over ecosystem-specific rules
+- MUST apply appropriate labels for visibility (`major-update`)
 
 ### `minor-patch-automerge.json`
-```json
-{
-  "packageRules": [
-    {
-      "groupName": "Rust Dependencies",
-      "matchManagers": ["cargo"],
-      "matchUpdateTypes": ["minor", "patch"],
-      "automerge": true
-    },
-    // ... one rule per ecosystem
-  ]
-}
-```
-- Multiple package rules, one per ecosystem
-- MUST match only minor and patch updates via `matchUpdateTypes`
-- MUST group updates by ecosystem
-- MUST set `automerge: true`
-- SHOULD cover: Rust, Python, Node.js, Docker, GitHub Actions, Pulumi, Nix, and others
+
+Contains multiple package rules, one per ecosystem, with the following characteristics:
+- MUST explicitly match only minor and patch updates (via `matchUpdateTypes: ["minor", "patch"]`)
+- MUST group updates by ecosystem using descriptive group names
+- MUST enable automerge (`automerge: true`)
+- MUST use ecosystem-appropriate matchers (managers, datasources, or package names)
+- SHOULD cover all major package ecosystems in use: Rust (cargo), Python (pip/poetry), Node.js Core (runtime tooling), TypeScript, Testing (Jest), Arrow ecosystem, Docker Images, GitHub Actions, Pulumi packages, and Nix dependencies (with sub-groups for PyPI and GitHub sources)
 
 ### `pulumi.json` & `nix.json`
 - MUST contain only `regexManagers` for custom dependency extraction
@@ -143,7 +120,7 @@ renovate/
 
 ## Negative
 - **Migration effort**: Need to update existing configuration files and test the changes
-- **More files**: Adds two new files to the configuration (6→8 files total)
+- **More files**: Adds two new files to the configuration (7→8 files total)
 - **Initial learning**: Team needs to understand the new structure
 
 ## Neutral
@@ -167,13 +144,8 @@ Combine all rules into one large configuration file.
 **Decision:** Rejected. Modularity is more valuable for long-term maintenance.
 
 ## Alternative B: Directory structure by ecosystem
-```
-renovate/
-└── ecosystems/
-    ├── rust.json
-    ├── python.json
-    └── ...
-```
+
+Organize configuration files in a nested directory structure with one file per ecosystem (e.g., `renovate/ecosystems/rust.json`, `renovate/ecosystems/python.json`, etc.).
 
 **Pros:**
 - Very clear separation by ecosystem
@@ -289,22 +261,7 @@ This repository is a monorepo with the following structure:
 3. **Selective policies**: Could automerge package-level minor/patch but manually review workspace-level changes
 4. **Testing strategy alignment**: Workspace updates might warrant running the full test suite, while package-specific updates could use targeted tests
 
-**Example implementation:**
-```json
-{
-  "groupName": "Node.js Dependencies (workspace)",
-  "matchFileNames": ["package.json"],
-  "matchPackageNames": ["typescript", "@types/node"],
-  "matchUpdateTypes": ["minor", "patch"],
-  "automerge": false
-},
-{
-  "groupName": "Node.js Dependencies (packages)",
-  "matchFileNames": ["packages/**/package.json"],
-  "matchUpdateTypes": ["minor", "patch"],
-  "automerge": true
-}
-```
+Implementation approach would use `matchFileNames` to distinguish workspace root (`"package.json"`) from packages (`"packages/**/package.json"`), with different automerge policies per location.
 
 ### Case AGAINST Differentiation
 
