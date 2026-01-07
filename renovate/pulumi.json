@@ -1,6 +1,6 @@
 {
 	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
-	"description": "Pulumi-specific Renovate configuration",
+	"description": "Pulumi-specific Renovate configuration with regex managers for custom dependency extraction",
 	"includePaths": ["**/Pulumi.yaml", "**/Pulumi.*.yaml"],
 	"regexManagers": [
 		{
@@ -13,22 +13,6 @@
 			"registryUrlTemplate": "{{{registryUrl}}}",
 			"versioningTemplate": "semver",
 			"autoReplaceStringTemplate": "{{{versionKey}}}: {{{newValue}}} # renovate: datasource={{{datasource}}} depName={{{depName}}} registryUrl={{{registryUrl}}}"
-		}
-	],
-	"packageRules": [
-		{
-			"groupName": "Pulumi Dependencies",
-			"automerge": true,
-			"rangeStrategy": "pin",
-			"schedule": ["before 4:00 am"],
-			"matchPackageNames": ["/@pulumi/*/", "/pulumi*/"]
-		},
-		{
-			"description": "Deduplicate pnpm installs when updating Pulumi npm packages",
-			"matchManagers": ["npm"],
-			"matchFileNames": ["**/pnpm-lock.yaml"],
-			"matchPackageNames": ["/@pulumi/*/", "/pulumi*/"],
-			"postUpdateOptions": ["pnpmDedupe"]
 		}
 	]
 }
