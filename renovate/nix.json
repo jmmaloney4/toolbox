@@ -33,32 +33,5 @@
 			"depNameTemplate": "{{{owner}}}/{{{repo}}}",
 			"autoReplaceStringTemplate": "cargoHash = \"\";"
 		}
-	],
-	"packageRules": [
-		{
-			"groupName": "Nix Dependencies",
-			"matchManagers": ["nix"],
-			"automerge": true,
-			"schedule": ["before 4:00 am on Saturday and Sunday"],
-			"rangeStrategy": "pin"
-		},
-		{
-			"groupName": "Nix PyPI Dependencies",
-			"matchFileNames": ["nix/**/*.nix"],
-			"matchDatasources": ["pypi"],
-			"automerge": true,
-			"schedule": ["before 4:00 am on Saturday and Sunday"],
-			"rangeStrategy": "pin",
-			"labels": ["nix-pypi"]
-		},
-		{
-			"groupName": "Nix GitHub Dependencies",
-			"matchFileNames": ["nix/**/*.nix"],
-			"matchDatasources": ["github-releases"],
-			"automerge": true,
-			"schedule": ["before 4:00 am on Saturday and Sunday"],
-			"rangeStrategy": "pin",
-			"labels": ["nix-github"]
-		}
 	]
 }
