@@ -85,7 +85,7 @@ renovate/
 
 Contains a single package rule that applies to ALL major version updates across all ecosystems:
 - MUST disable automerge (`automerge: false`)
-- MUST NOT group updates — each package receives its own individual PR (achieved by not setting a `groupName`)
+- MUST NOT group updates — each package receives its own individual PR (achieved by setting `groupName: null` to override any grouping from inherited presets like `config:best-practices`)
 - MUST require manual review (assigns reviewers)
 - MUST use high priority (`prPriority: 10`) to ensure this rule takes precedence over ecosystem-specific rules
 - MUST apply appropriate labels for visibility (`major-update`)
