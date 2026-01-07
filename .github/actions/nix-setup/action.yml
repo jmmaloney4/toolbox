@@ -5,6 +5,10 @@ inputs:
     description: Runner label to determine if runs-on/actions@v2 should be used
     required: true
     type: string
+  cache:
+    description: Enable FlakeHub cache (set to 'false' for self-hosted runners with cache already configured)
+    required: false
+    default: 'true'
 runs:
   using: composite
   steps:
@@ -14,7 +18,8 @@ runs:
         show_costs: true
         sccache: s3
     - uses: DeterminateSystems/nix-installer-action@main
-    - uses: DeterminateSystems/flakehub-cache-action@main
+    - if: ${{ inputs.cache == 'true' }}
+      uses: DeterminateSystems/flakehub-cache-action@main
       # TODO: Fix this
       # with:
       # use-gha-cache: enabled

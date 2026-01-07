@@ -25,6 +25,7 @@ jobs:
       - uses: jmmaloney4/toolbox/.github/actions/nix-setup@main
         with:
           runs-on: ${{ vars.ACTIONS_RUNS_ON }}
+          cache: ${{ !contains(vars.ACTIONS_RUNS_ON, 'self-hosted') }}
       - name: Build site with Nix
         run: |
           nix develop -c quarto render ./research

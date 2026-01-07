@@ -34,6 +34,7 @@ jobs:
       - uses: jmmaloney4/toolbox/.github/actions/nix-setup@main
         with:
           runs-on: ${{ inputs.runs-on }}
+          cache: ${{ !contains(inputs.runs-on, 'self-hosted') }}
       - uses: Leafwing-Studios/cargo-cache@ba6ee760ccdefa26b630cff8094e3243ae86a2c9 # v2.6.1
         with:
           sweep-cache: true
@@ -53,6 +54,7 @@ jobs:
       - uses: jmmaloney4/toolbox/.github/actions/nix-setup@main
         with:
           runs-on: ${{ inputs.runs-on }}
+          cache: ${{ !contains(inputs.runs-on, 'self-hosted') }}
       # restore cargo-check cache
       - uses: Leafwing-Studios/cargo-cache@ba6ee760ccdefa26b630cff8094e3243ae86a2c9 # v2.6.1
         with:
@@ -86,6 +88,7 @@ jobs:
       - uses: jmmaloney4/toolbox/.github/actions/nix-setup@main
         with:
           runs-on: ${{ inputs.runs-on }}
+          cache: ${{ !contains(inputs.runs-on, 'self-hosted') }}
       - uses: olix0r/cargo-action-fmt/setup@9269f3aa1ff01775d95efc97037e2cbdb41d9684 # v2.0.1
       - uses: Leafwing-Studios/cargo-cache@ba6ee760ccdefa26b630cff8094e3243ae86a2c9 # v2.6.1
         with:
