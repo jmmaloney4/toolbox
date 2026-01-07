@@ -19,7 +19,7 @@
 			"rangeStrategy": "bump"
 		},
 		{
-			"groupName": "Node.js Dependencies",
+			"groupName": "Node.js Core",
 			"matchPackageNames": ["@types/node", "node", "ts-node"],
 			"matchUpdateTypes": ["minor", "patch"],
 			"automerge": true,
