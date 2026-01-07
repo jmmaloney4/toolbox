@@ -1,0 +1,109 @@
+{
+	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
+	"description": "Minor and patch updates grouped by ecosystem with automerge enabled",
+	"packageRules": [
+		{
+			"groupName": "Rust Dependencies",
+			"matchManagers": ["cargo"],
+			"matchDatasources": ["crate"],
+			"matchUpdateTypes": ["minor", "patch"],
+			"automerge": true,
+			"rangeStrategy": "bump"
+		},
+		{
+			"groupName": "Python Dependencies",
+			"matchManagers": ["pip_requirements", "pip_setup", "pipenv", "poetry"],
+			"matchDatasources": ["pypi"],
+			"matchUpdateTypes": ["minor", "patch"],
+			"automerge": true,
+			"rangeStrategy": "bump"
+		},
+		{
+			"groupName": "Node.js Core",
+			"matchPackageNames": ["@types/node", "node", "ts-node"],
+			"matchUpdateTypes": ["minor", "patch"],
+			"automerge": true,
+			"rangeStrategy": "pin"
+		},
+		{
+			"groupName": "TypeScript Dependencies",
+			"matchPackageNames": ["typescript", "@types/*"],
+			"matchUpdateTypes": ["minor", "patch"],
+			"automerge": true,
+			"rangeStrategy": "pin"
+		},
+		{
+			"groupName": "Testing Dependencies",
+			"matchPackageNames": ["jest", "@types/jest"],
+			"matchUpdateTypes": ["minor", "patch"],
+			"automerge": true,
+			"rangeStrategy": "pin"
+		},
+		{
+			"groupName": "Arrow Ecosystem",
+			"matchPackageNames": ["arrow*", "parquet*"],
+			"matchUpdateTypes": ["minor", "patch"],
+			"automerge": true,
+			"rangeStrategy": "bump"
+		},
+		{
+			"groupName": "Docker Images",
+			"matchDatasources": ["docker"],
+			"matchUpdateTypes": ["minor", "patch"],
+			"automerge": false,
+			"rangeStrategy": "pin"
+		},
+		{
+			"groupName": "GitHub Actions",
+			"matchManagers": ["github-actions"],
+			"matchDatasources": ["github-actions"],
+			"matchUpdateTypes": ["minor", "patch"],
+			"automerge": true,
+			"rangeStrategy": "pin"
+		},
+		{
+			"groupName": "Pulumi Dependencies",
+			"matchPackageNames": ["/@pulumi/*/", "/pulumi*/"],
+			"matchUpdateTypes": ["minor", "patch"],
+			"automerge": true,
+			"rangeStrategy": "pin",
+			"schedule": ["before 4:00 am"]
+		},
+		{
+			"description": "Deduplicate pnpm installs when updating Pulumi npm packages",
+			"matchManagers": ["npm"],
+			"matchFileNames": ["**/pnpm-lock.yaml"],
+			"matchPackageNames": ["/@pulumi/*/", "/pulumi*/"],
+			"matchUpdateTypes": ["minor", "patch"],
+			"postUpdateOptions": ["pnpmDedupe"]
+		},
+		{
+			"groupName": "Nix Dependencies",
+			"matchManagers": ["nix"],
+			"matchUpdateTypes": ["minor", "patch"],
+			"automerge": true,
+			"schedule": ["before 4:00 am on Saturday and Sunday"],
+			"rangeStrategy": "pin"
+		},
+		{
+			"groupName": "Nix PyPI Dependencies",
+			"matchFileNames": ["nix/**/*.nix"],
+			"matchDatasources": ["pypi"],
+			"matchUpdateTypes": ["minor", "patch"],
+			"automerge": true,
+			"schedule": ["before 4:00 am on Saturday and Sunday"],
+			"rangeStrategy": "pin",
+			"labels": ["nix-pypi"]
+		},
+		{
+			"groupName": "Nix GitHub Dependencies",
+			"matchFileNames": ["nix/**/*.nix"],
+			"matchDatasources": ["github-releases"],
+			"matchUpdateTypes": ["minor", "patch"],
+			"automerge": true,
+			"schedule": ["before 4:00 am on Saturday and Sunday"],
+			"rangeStrategy": "pin",
+			"labels": ["nix-github"]
+		}
+	]
+}

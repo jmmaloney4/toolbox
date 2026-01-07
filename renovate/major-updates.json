@@ -1,0 +1,15 @@
+{
+	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
+	"description": "Configuration for major version updates - individual PRs requiring manual review",
+	"packageRules": [
+		{
+			"description": "All major updates require manual review and are not automerged",
+			"matchUpdateTypes": ["major"],
+			"automerge": false,
+			"groupName": null,
+			"prPriority": 10,
+			"reviewers": ["jmmaloney4"],
+			"labels": ["major-update", "dependencies", "renovate"]
+		}
+	]
+}
