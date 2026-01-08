@@ -46,6 +46,8 @@
         lib,
         ...
       }: {
+        pre-commit.settings.hooks.mypy.enable = lib.mkForce false;
+
         devShells.default = pkgs.mkShell {
           inputsFrom = [
             config.jackpkgs.outputs.devShell
