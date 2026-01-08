@@ -84,6 +84,46 @@ function generateProviderId(
 }
 
 /**
+ * Extracts and sanitizes the role ID from a GCP IAM role for use in Pulumi resource naming.
+ *
+ * Handles all GCP IAM role formats:
+ * - Predefined: `roles/storage.admin` → `storage-admin`
+ * - Custom project: `projects/my-project/roles/deployBot` → `deploybot`
+ * - Custom org: `organizations/123/roles/my_custom.role` → `my-custom-role`
+ *
+ * Sanitization rules:
+ * - Extracts the final path segment (role ID) from the role identifier
+ * - Replaces dots (.) and underscores (_) with dashes (-) for readability
+ * - Converts to lowercase for consistency
+ *
+ * @param role - Full GCP IAM role identifier
+ * @returns Sanitized role suffix suitable for Pulumi resource naming
+ * @throws Error if role format is invalid or role ID cannot be extracted
+ *
+ * @example
+ * sanitizeRoleForResourceName("roles/storage.admin") // Returns: "storage-admin"
+ * sanitizeRoleForResourceName("projects/my-proj/roles/deployBot") // Returns: "deploybot"
+ * sanitizeRoleForResourceName("organizations/123/roles/my_role.test") // Returns: "my-role-test"
+ *
+ * @see ADR-006 for design rationale and decision history
+ * @remarks TODO: Add automated tests when ADR-004 (Jest Testing Infrastructure) is implemented
+ */
+function sanitizeRoleForResourceName(role: string): string {
+	const roleId = role.split("/").pop()?.trim() || "";
+
+	if (!roleId) {
+		throw new Error(
+			`Invalid IAM role: "${role}" - cannot extract role ID for resource naming`,
+		);
+	}
+
+	// Replace dots and underscores with dashes for readability
+	// GCP role IDs can contain: lowercase letters, digits, periods, underscores
+	// We normalize to lowercase defensively (custom roles may vary in casing)
+	return roleId.replace(/[._]/g, "-").toLowerCase();
+}
+
+/**
  * Arguments for configuring a GitHub Actions Workload Identity Provider and service account.
  *
  * @remarks
@@ -148,14 +188,15 @@ export class GithubActionsWorkloadIdentityProvider extends pulumi.ComponentResou
 
 		// Assign roles to the service account across projects
 		const sortedRoles = Object.keys(args.serviceAccountRoles ?? {}).sort();
-		let idx = 0;
 		for (const role of sortedRoles) {
 			const projects = Array.from(
 				new Set((args.serviceAccountRoles[role] ?? []).slice().sort()),
 			);
 			for (const project of projects) {
+				// Include project ID and role in resource name for readability
+				const roleSuffix = sanitizeRoleForResourceName(role);
 				new gcp.projects.IAMMember(
-					`${name}-sa-role-${idx++}`,
+					`${name}-sa-${project}-${roleSuffix}`,
 					{
 						project,
 						role,
