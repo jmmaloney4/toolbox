@@ -55,6 +55,7 @@ jobs:
           probe-timeout-seconds: '180'
       - name: compute images to push
         id: images
+        shell: 'nix shell nixpkgs#jq -c bash {0}'
         run: |
           # Use jq to filter the matrix for entries where is_image is true,
           # then extract just the package name (the 'name' field)
