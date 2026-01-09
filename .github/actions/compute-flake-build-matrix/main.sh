@@ -14,7 +14,6 @@ nix run github:nix-community/nix-eval-jobs --option extra-substituters "https://
   --flake . \
   --check-cache-status \
   --meta \
-  --force-recurse \
   --select 'outputs: let system = "'"$system"'"; in builtins.listToAttrs (map (catName: let cat = builtins.getAttr catName outputs; in { name = catName; value = if builtins.isAttrs cat && builtins.hasAttr system cat then { ${system} = builtins.getAttr system cat; } else {}; }) (builtins.attrNames outputs))' > "$tmp_all"
 
 # Transform nix-eval-jobs output to matrix format
