@@ -34,6 +34,25 @@ jobs:
       ref: ${{ github.ref }}
 ```
 
+#### Multi-platform (self-hosted) example
+
+```yaml
+jobs:
+  nix:
+    strategy:
+      matrix:
+        include:
+          - name: linux
+            runs-on: '["self-hosted","linux","x64"]'
+          - name: darwin
+            runs-on: '["self-hosted","macos","arm64"]'
+    uses: jmmaloney4/toolbox/.github/workflows/nix.yml@main
+    with:
+      runs-on: ${{ matrix.runs-on }}
+      repository: ${{ github.repository }}
+      ref: ${{ github.ref }}
+```
+
 ### Pulumi Components
 
 Install the Pulumi package:

@@ -42,7 +42,7 @@ jobs:
 - **Path**: `.github/workflows/nix.yml` (callable-only)
 - **Purpose**: Build uncached Nix flake outputs for the calling repository
 - **Required inputs**:
-  - **runs-on**: Runner label (e.g., `ubuntu-latest` or your self-hosted label)
+  - **runs-on**: Runner label (e.g., `ubuntu-latest` or your self-hosted label). For multiple labels, pass a JSON array string like `["self-hosted","linux","x64"]`.
   - **repository**: Repository to build (`owner/repo`), typically `${{ github.repository }}`
   - **ref**: Git ref to build, typically `${{ github.ref }}`
 
@@ -65,6 +65,25 @@ jobs:
   nix:
     uses: jmmaloney4/toolbox/.github/workflows/nix.yml@main
     with:
+      repository: ${{ github.repository }}
+      ref: ${{ github.ref }}
+```
+
+#### Multi-platform (self-hosted) example
+
+```yaml
+jobs:
+  nix:
+    strategy:
+      matrix:
+        include:
+          - name: linux
+            runs-on: '["self-hosted","linux","x64"]'
+          - name: darwin
+            runs-on: '["self-hosted","macos","arm64"]'
+    uses: jmmaloney4/toolbox/.github/workflows/nix.yml@main
+    with:
+      runs-on: ${{ matrix.runs-on }}
       repository: ${{ github.repository }}
       ref: ${{ github.ref }}
 ```

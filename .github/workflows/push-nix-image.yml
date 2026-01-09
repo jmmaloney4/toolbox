@@ -3,7 +3,7 @@ on:
   workflow_call:
     inputs:
       runs-on:
-        description: 'Runner label for all jobs'
+        description: 'Runner label(s) for all jobs (string label or JSON array of labels)'
         required: true
         type: string
       package-name:
@@ -49,7 +49,7 @@ on:
         required: true
 jobs:
   push-image:
-    runs-on: ${{ inputs.runs-on }}
+    runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJson(inputs.runs-on) || inputs.runs-on }}
     permissions:
       contents: read
       packages: write
