@@ -51,15 +51,17 @@ jobs:
         echo "New ADR files found:"
         echo "$NEW_ADRS"
 
-        # Convert to JSON array for matrix processing
-        ADR_ARRAY=$(echo "$NEW_ADRS" | jq -R -s -c 'split("\n") | map(select(length > 0))')
+        # Write file list to temp file for safe processing (avoids shell injection)
+        echo "$NEW_ADRS" | jq -R -s -c 'split("\n") | map(select(length > 0))' > /tmp/new_adrs.json
+        ADR_ARRAY=$(cat /tmp/new_adrs.json)
         echo "new_adrs=$ADR_ARRAY" >> $GITHUB_OUTPUT
         echo "has_new_adrs=true" >> $GITHUB_OUTPUT
 
     - name: Process ADR files
       if: steps.detect-adrs.outputs.has_new_adrs == 'true'
       run: |
-        echo '${{ steps.detect-adrs.outputs.new_adrs }}' | jq -r '.[]' | while read -r adr_file; do
+        # Read from JSON file written in detect step (avoids shell injection)
+        jq -r '.[]' /tmp/new_adrs.json | while IFS= read -r adr_file; do
           echo "Processing: $adr_file"
 
           # Extract ADR number from filename
