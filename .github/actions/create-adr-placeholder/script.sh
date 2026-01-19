@@ -15,12 +15,30 @@ if [ ! -f "$SUCCESS_FILE" ]; then
   exit 1
 fi
 
+# Validate we're operating within allowed workspace (path traversal protection)
+WORKSPACE_ROOT=$(pwd)
+if [[ ! "$WORKSPACE_ROOT" =~ ^/tmp.*|^/home.*|^/Users.* ]]; then
+  echo "Error: Unexpected workspace root '$WORKSPACE_ROOT'" >&2
+  exit 1
+fi
+
 while IFS=: read -r adr_file adr_number status || [[ -n "$adr_file" ]]; do
   status=$(echo "$status" | tr -d '\r')
   if [ "$status" = "OK" ]; then
     adr_filename=$(basename "$adr_file")
     current_date=$(date -u +%Y-%m-%d)
     adr_title=$(echo "$adr_filename" | sed 's/^[0-9]\{3\}-//' | sed 's/\.md$//' | tr '-' ' ' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)} 1')
+
+    # Path traversal protection: resolve and validate adr_file is within workspace
+    if ! real_adr_file=$(realpath -e "$adr_file" 2>/dev/null); then
+      echo "Error: File '$adr_file' does not exist or cannot be resolved" >&2
+      exit 1
+    fi
+
+    if [[ ! "$real_adr_file" =~ ^"$WORKSPACE_ROOT" ]]; then
+      echo "Error: Path traversal detected: '$real_adr_file' is outside workspace '$WORKSPACE_ROOT'" >&2
+      exit 1
+    fi
 
     printf '---
 id: ADR-%s
