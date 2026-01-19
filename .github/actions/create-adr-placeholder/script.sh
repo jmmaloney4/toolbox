@@ -22,7 +22,9 @@ if [[ ! "$WORKSPACE_ROOT" =~ ^/tmp.*|^/home.*|^/Users.* ]]; then
   exit 1
 fi
 
-while IFS=: read -r adr_file adr_number status || [[ -n "$adr_file" ]]; do
+while read -r encoded_line || [[ -n "$encoded_line" ]]; do
+  decoded_line=$(echo "$encoded_line" | base64 -d)
+  IFS=: read -r adr_file adr_number status <<< "$decoded_line"
   status=$(echo "$status" | tr -d '\r')
   if [ "$status" = "OK" ]; then
     adr_filename=$(basename "$adr_file")
