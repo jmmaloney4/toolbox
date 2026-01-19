@@ -29,7 +29,15 @@ while read -r encoded_line || [[ -n "$encoded_line" ]]; do
   if [ "$status" = "OK" ]; then
     adr_filename=$(basename "$adr_file")
     current_date=$(date -u +%Y-%m-%d)
-    adr_title=$(echo "$adr_filename" | sed 's/^[0-9]\{3\}-//' | sed 's/\.md$//' | tr '-' ' ' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)} 1')
+
+    # Bash regex for title extraction with error handling
+    if [[ "$adr_filename" =~ ^[0-9]{3}-(.*)\.md$ ]]; then
+      slug="${BASH_REMATCH[1]}"
+      adr_title=$(echo "$slug" | tr '-' ' ' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)} 1')
+    else
+      echo "Warning: Filename '$adr_filename' does not match expected pattern XXX-title.md" >&2
+      adr_title="Untitled ADR"
+    fi
 
     # Path traversal protection: resolve and validate adr_file is within workspace
     if ! real_adr_file=$(realpath -e "$adr_file" 2>/dev/null); then
