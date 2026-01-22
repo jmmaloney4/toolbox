@@ -18,8 +18,7 @@ RUNNER_IMAGE="catthehacker/ubuntu:act-latest"
 #############################################
 cleanup() {
   echo "==> Cleaning up..."
-  git checkout - 2>/dev/null || true
-  git branch -D "$TEST_BRANCH" 2>/dev/null || true
+  jj bookmark delete "$TEST_BRANCH" 2>/dev/null || true
   rm -f "$EVENT_FILE"
 }
 trap cleanup EXIT
@@ -30,16 +29,16 @@ trap cleanup EXIT
 cd "$REPO_ROOT"
 
 # Ensure we're on a clean state
-if ! git diff --quiet; then
+if ! jj status --no-pager | grep -q "The working copy is clean"; then
   echo "ERROR: Working directory has uncommitted changes. Commit or stash first."
   exit 1
 fi
 
-ORIGINAL_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-BASE_SHA=$(git rev-parse main)
+ORIGINAL_BRANCH=$(jj bookmark list --tracked | head -1 | cut -d' ' -f1)
+BASE_SHA=$(jj log -r main --no-graph --format 'commit_id' -l1)
 
-echo "==> Creating test branch: $TEST_BRANCH"
-git checkout -b "$TEST_BRANCH"
+echo "==> Creating test bookmark: $TEST_BRANCH"
+jj bookmark create "$TEST_BRANCH"
 
 #############################################
 # Scenario selection
@@ -54,8 +53,7 @@ case "$SCENARIO" in
     TEST_FILE="$DESIGNS_DIR/${EXISTING_NUM}-test-conflict-adr.md"
     echo "# Test ADR for conflict scenario" > "$TEST_FILE"
     echo "This file intentionally uses existing number $EXISTING_NUM" >> "$TEST_FILE"
-    git add "$TEST_FILE"
-    git commit -m "test: add conflicting ADR $EXISTING_NUM for act test"
+    jj commit -m "test: add conflicting ADR $EXISTING_NUM for act test"
     EXPECTED_LOG="CONFLICT: ADR number $EXISTING_NUM already exists"
     ;;
   
@@ -66,8 +64,7 @@ case "$SCENARIO" in
     NEXT_NUM=$(printf "%03d" $((10#$HIGHEST_NUM + 1)))
     TEST_FILE="$DESIGNS_DIR/${NEXT_NUM}-test-success-adr.md"
     echo "# Test ADR for success scenario" > "$TEST_FILE"
-    git add "$TEST_FILE"
-    git commit -m "test: add new ADR $NEXT_NUM for act test"
+    jj commit -m "test: add new ADR $NEXT_NUM for act test"
     EXPECTED_LOG="OK: ADR number $NEXT_NUM is available"
     ;;
   
@@ -75,8 +72,7 @@ case "$SCENARIO" in
     echo "==> Scenario: No new ADR files"
     # Touch a non-ADR file in designs
     echo "<!-- updated -->" >> "$DESIGNS_DIR/000-adr-template.md"
-    git add "$DESIGNS_DIR/000-adr-template.md"
-    git commit -m "test: modify template without adding new ADR"
+    jj commit -m "test: modify template without adding new ADR"
     EXPECTED_LOG="No new ADR files found"
     ;;
   
@@ -89,7 +85,7 @@ esac
 #############################################
 # Generate event JSON
 #############################################
-HEAD_SHA=$(git rev-parse HEAD)
+HEAD_SHA=$(jj log -r @ --no-graph --format 'commit_id' -l1)
 HEAD_REF="$TEST_BRANCH"
 
 echo "==> Generating event payload"
