@@ -99,7 +99,9 @@ esac
 #############################################
 # Generate event JSON
 #############################################
-HEAD_SHA=$(git rev-parse HEAD)
+# Use BASE_SHA for HEAD_SHA since we're testing against main
+# The test creates local commits, but act needs a remote-existant SHA for checkout
+HEAD_SHA="$BASE_SHA"
 HEAD_REF="$TEST_BRANCH"
 
 echo "==> Generating event payload"
@@ -124,6 +126,10 @@ ACT_OUTPUT=$(mktemp)
 # Run act
 # --artifact-server-path: disable artifact server (not needed)
 # -j manage-adrs: run only this job
+# -v: verbose output for debugging
+# --container-architecture: explicitly set architecture for M-series Macs
+# -C: use current directory as workspace (sets GITHUB_WORKSPACE)
+# --env SKIP_CHECKOUT: skip checkout action to use local files directly
 # We expect gh/git push to fail (no real remote), but we verify the logic ran
 act pull_request \
   -W "$WORKFLOW" \
@@ -131,6 +137,9 @@ act pull_request \
   -P ubuntu-latest="$RUNNER_IMAGE" \
   -j manage-adrs \
   --env GH_TOKEN=fake-token-for-local-test \
+  --env SKIP_CHECKOUT=true \
+  --container-architecture linux/amd64 \
+  -v \
   2>&1 | tee "$ACT_OUTPUT" || true
 
 #############################################
