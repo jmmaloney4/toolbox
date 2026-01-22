@@ -1,2 +1,5 @@
 # act test artifacts
 tests/act/.pr-event.json
+
+.direnv/
+.pre-commit-config.yaml
