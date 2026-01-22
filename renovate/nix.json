@@ -4,7 +4,6 @@
 	"nix": {
 		"enabled": true
 	},
-	"includePaths": ["flake.nix", "flake.lock", "nix/**/*.nix"],
 	"regexManagers": [
 		{
 			"description": "Update fetchPypi packages in Nix files",
