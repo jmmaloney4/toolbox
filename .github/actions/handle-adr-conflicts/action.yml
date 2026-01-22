@@ -1,0 +1,31 @@
+name: Handle ADR Conflicts
+description: Process conflicting ADRs and create renaming PRs
+inputs:
+  conflicts_file:
+    description: 'Path to JSON file containing conflicting ADRs'
+    required: true
+    default: '/tmp/adr_conflicts.json'
+  pr_number:
+    description: 'Pull request number'
+    required: true
+  pr_head_ref:
+    description: 'PR head ref'
+    required: true
+  pr_head_sha:
+    description: 'PR head SHA'
+    required: true
+  pr_url:
+    description: 'PR URL'
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+  - shell: bash
+    run: $GITHUB_ACTION_PATH/main.sh
+    env:
+      CONFLICTS_FILE: ${{ inputs.conflicts_file }}
+      PR_NUMBER: ${{ inputs.pr_number }}
+      PR_HEAD_REF: ${{ inputs.pr_head_ref }}
+      PR_HEAD_SHA: ${{ inputs.pr_head_sha }}
+      PR_URL: ${{ inputs.pr_url }}
