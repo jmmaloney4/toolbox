@@ -1,0 +1,19 @@
+{
+  "action": "opened",
+  "number": 9999,
+  "pull_request": {
+    "number": 9999,
+    "html_url": "https://github.com/local/test/pull/9999",
+    "head": {
+      "ref": "__HEAD_REF__",
+      "sha": "__HEAD_SHA__"
+    },
+    "base": {
+      "ref": "main",
+      "sha": "__BASE_SHA__"
+    }
+  },
+  "repository": {
+    "full_name": "jmmaloney4/toolbox"
+  }
+}
