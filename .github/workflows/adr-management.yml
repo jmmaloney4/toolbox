@@ -60,6 +60,12 @@ jobs:
     - name: Process ADR files
       if: steps.detect-adrs.outputs.has_new_adrs == 'true'
       run: |
+        set -euo pipefail
+
+        # Initialize NDJSON files for streaming writes
+        : > /tmp/adr_success.ndjson
+        : > /tmp/adr_conflicts.ndjson
+
         # Read from JSON file written in detect step (avoids shell injection)
         jq -r '.[]' /tmp/new_adrs.json | while IFS= read -r adr_file; do
           echo "Processing: $adr_file"
@@ -81,110 +87,72 @@ jobs:
             existing_file=$(ls docs/internal/designs/$adr_number-*.md 2>/dev/null | head -1)
             echo "CONFLICT: ADR number $adr_number already exists on main: $existing_file"
 
-             # Store conflict info for later processing (base64 to handle colons in filenames)
-            echo "$adr_file:$adr_number:CONFLICT" | base64 -w 0 >> /tmp/adr_conflicts.txt.b64
-            echo "" >> /tmp/adr_conflicts.txt.b64
+            # Store conflict info as NDJSON entry
+            jq -n \
+              --arg file "$adr_file" \
+              --arg num "$adr_number" \
+              --arg status "CONFLICT" \
+              --arg existing "$existing_file" \
+              '{"file": $file, "number": $num, "status": $status, "existing_file": $existing}' \
+              >> /tmp/adr_conflicts.ndjson
           else
             echo "OK: ADR number $adr_number is available on main"
-            # Store success info for later processing (base64 to handle colons in filenames)
-            echo "$adr_file:$adr_number:OK" | base64 -w 0 >> /tmp/adr_success.txt.b64
-            echo "" >> /tmp/adr_success.txt.b64
+            # Store success info as NDJSON entry
+            jq -n \
+              --arg file "$adr_file" \
+              --arg num "$adr_number" \
+              '{"file": $file, "number": $num, "status": "OK"}' \
+              >> /tmp/adr_success.ndjson
           fi
 
           # Switch back to PR branch
           git checkout ${{ github.event.pull_request.head.sha }}
         done
 
-    - name: Handle successful ADRs (create PRs to main)
-      if: steps.detect-adrs.outputs.has_new_adrs == 'true'
-      run: |
-        if [ ! -f /tmp/adr_success.txt.b64 ]; then
-          echo "No successful ADRs to process"
-          exit 0
+        # Merge NDJSON to JSON arrays
+        if [ -s /tmp/adr_success.ndjson ]; then
+          if ! jq -n '[inputs]' /tmp/adr_success.ndjson > /tmp/adr_success.json; then
+            echo "❌ CRITICAL: Failed to merge success entries to JSON" >&2
+            exit 1
+          fi
         fi
 
-        while read -r encoded_line || [[ -n "$encoded_line" ]]; do
-          decoded_line=$(echo "$encoded_line" | base64 -d)
-          IFS=: read -r adr_file adr_number status <<< "$decoded_line"
-          if [ "$status" = "OK" ]; then
-            # Check if PR already exists for this ADR number
-            existing_pr=$(gh pr list --base main --head "adr-sync/$adr_number" --json number --jq '.[0].number // empty' 2>/dev/null || echo "")
-
-            if [ -n "$existing_pr" ]; then
-              echo "PR already exists for ADR $adr_number (PR #$existing_pr). Skipping creation."
-              continue
-            fi
-
-            echo "Creating PR to main for $adr_file"
-
-            # Create a new branch for main PR
-            branch_name="adr-sync/$adr_number"
-            git checkout main
-            git checkout -b "$branch_name"
-
-            # Create directory if it doesn't exist
-            mkdir -p docs/internal/designs
-
-            # Create ADR file with just a link to original PR
-            adr_filename=$(basename "$adr_file")
-            cat > "docs/internal/designs/$adr_filename" << EOF
-        # ADR $adr_number: $(echo "$adr_filename" | sed 's/^[0-9]\{3\}-//' | sed 's/\.md$//' | tr '-' ' ' | sed 's/\b\w/\u&/g')
-
-        **Status:** Draft
-        **Related PR:** ${{ github.event.pull_request.html_url }}
-
-        This ADR is currently being developed in the linked pull request above.
-        Please refer to that PR for current content and discussion.
-        EOF
-
-            # Commit and push
-            git add "docs/internal/designs/$adr_filename"
-            git commit -m "Add ADR placeholder for $adr_filename
-
-        This ADR is being developed in PR #${{ github.event.pull_request.number }}.
-        The content will be updated once the original PR is merged.
-
-        Related: ${{ github.event.pull_request.html_url }}"
-
-            git push origin "$branch_name" --force-with-lease
-
-            # Create PR to main
-            gh pr create \
-              --title "Add ADR placeholder: $adr_filename" \
-              --body "This ADR placeholder is automatically created for an ADR being developed in PR #${{ github.event.pull_request.number }}.
-
-        **Original PR:** ${{ github.event.pull_request.html_url }}
-        **ADR File:** \`$adr_file\`
-
-        This placeholder will be updated with the full content once the original PR is merged." \
-              --base main \
-              --head "$branch_name" \
-              --label "adr" \
-              --label "automated"
-
-            # Switch back to PR branch
-            git checkout ${{ github.event.pull_request.head.sha }}
+        if [ -s /tmp/adr_conflicts.ndjson ]; then
+          if ! jq -n '[inputs]' /tmp/adr_conflicts.ndjson > /tmp/adr_conflicts.json; then
+            echo "❌ CRITICAL: Failed to merge conflict entries to JSON" >&2
+            exit 1
           fi
-        done < /tmp/adr_success.txt.b64
+        fi
+
+    - name: Create ADR placeholder files
+      if: steps.detect-adrs.outputs.has_new_adrs == 'true'
+       uses: jmmaloney4/toolbox/.github/actions/create-adr-placeholder@main
+       with:
+         success_file: /tmp/adr_success.json
+         pr_url: ${{ github.event.pull_request.html_url }}
 
     - name: Handle conflicting ADRs (add comments and create renaming PRs)
       if: steps.detect-adrs.outputs.has_new_adrs == 'true'
       run: |
-        if [ ! -f /tmp/adr_conflicts.txt.b64 ]; then
+        set -euo pipefail
+
+        if [ ! -s /tmp/adr_conflicts.json ]; then
           echo "No conflicting ADRs to process"
           exit 0
         fi
 
-        # Find the next available ADR number
+        # Find is next available ADR number
         git checkout main
         HIGHEST_NUM=$(ls docs/internal/designs/ | grep -o '^[0-9]\{3\}' | sort -n | tail -1)
         NEXT_NUM=$(printf "%03d" $((10#$HIGHEST_NUM + 1)))
         git checkout ${{ github.event.pull_request.head.sha }}
 
-        while read -r encoded_line || [[ -n "$encoded_line" ]]; do
-          decoded_line=$(echo "$encoded_line" | base64 -d)
-          IFS=: read -r adr_file adr_number status <<< "$decoded_line"
+        jq -c '.[]' /tmp/adr_conflicts.json | while IFS= read -r entry; do
+          status=$(echo "$entry" | jq -r '.status')
           if [ "$status" = "CONFLICT" ]; then
+            adr_file=$(echo "$entry" | jq -r '.file')
+            adr_number=$(echo "$entry" | jq -r '.number')
+            existing_file=$(echo "$entry" | jq -r '.existing_file')
             echo "Handling conflict for $adr_file (number $adr_number)"
 
             # Add warning comment to the original PR
@@ -259,20 +227,20 @@ jobs:
           fi
         done < /tmp/adr_conflicts.txt.b64
 
-    - name: Create check status
-      if: steps.detect-adrs.outputs.has_new_adrs == 'true'
-      run: |-
-        # Count successes and conflicts
-        success_count=0
-        conflict_count=0
+     - name: Create check status
+       if: steps.detect-adrs.outputs.has_new_adrs == 'true'
+       run: |-
+         # Count successes and conflicts
+         success_count=0
+         conflict_count=0
 
-        if [ -f /tmp/adr_success.txt.b64 ]; then
-          success_count=$(wc -l < /tmp/adr_success.txt.b64)
-        fi
+         if [ -s /tmp/adr_success.json ]; then
+           success_count=$(jq 'length' /tmp/adr_success.json)
+         fi
 
-        if [ -f /tmp/adr_conflicts.txt.b64 ]; then
-          conflict_count=$(wc -l < /tmp/adr_conflicts.txt.b64)
-        fi
+         if [ -s /tmp/adr_conflicts.json ]; then
+           conflict_count=$(jq 'length' /tmp/adr_conflicts.json)
+         fi
 
         if [ $conflict_count -gt 0 ]; then
           # Create a failing check for conflicts

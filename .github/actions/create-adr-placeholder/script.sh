@@ -15,18 +15,29 @@ if [ ! -f "$SUCCESS_FILE" ]; then
   exit 1
 fi
 
- # Validate we're operating within allowed workspace (path traversal protection)
- WORKSPACE_ROOT=$(realpath -e .)
- if [[ ! "$WORKSPACE_ROOT" =~ ^/tmp.*|^/home.*|^/Users.* ]]; then
+# Validate JSON format
+if ! jq empty "$SUCCESS_FILE" 2>/dev/null; then
+  echo "Error: SUCCESS_FILE '$SUCCESS_FILE' is not valid JSON" >&2
+  exit 1
+fi
+
+# Validate we're operating within allowed workspace (path traversal protection)
+WORKSPACE_ROOT=$(realpath -e .)
+if [[ ! "$WORKSPACE_ROOT" =~ ^/tmp.*|^/home.*|^/Users.* ]]; then
   echo "Error: Unexpected workspace root '$WORKSPACE_ROOT'" >&2
   exit 1
 fi
 
-while read -r encoded_line || [[ -n "$encoded_line" ]]; do
-  decoded_line=$(echo "$encoded_line" | base64 -d)
-  IFS=: read -r adr_file adr_number status <<< "$decoded_line"
-  status=$(echo "$status" | tr -d '\r')
+# Read JSON entry
+status=$(jq -r '.status' "$SUCCESS_FILE")
+
+# Iterate over all entries in JSON array
+jq -c '.[]' "$SUCCESS_FILE" | while IFS= read -r entry; do
+  status=$(echo "$entry" | jq -r '.status')
+
   if [ "$status" = "OK" ]; then
+    adr_file=$(echo "$entry" | jq -r '.file')
+    adr_number=$(echo "$entry" | jq -r '.number')
     adr_filename=$(basename "$adr_file")
     current_date=$(date -u +%Y-%m-%d)
 
@@ -39,9 +50,10 @@ while read -r encoded_line || [[ -n "$encoded_line" ]]; do
       adr_title="Untitled ADR"
     fi
 
-    # Path traversal protection: resolve and validate adr_file is within workspace
-    if ! real_adr_file=$(realpath -e "$adr_file" 2>/dev/null); then
-      echo "Error: File '$adr_file' does not exist or cannot be resolved" >&2
+    # Path traversal protection: validate adr_file path is within workspace
+    # Convert to absolute path for validation, but don't require file to exist yet
+    if ! real_adr_file=$(realpath -m "$adr_file" 2>/dev/null); then
+      echo "Error: File path '$adr_file' is invalid" >&2
       exit 1
     fi
 
@@ -50,6 +62,11 @@ while read -r encoded_line || [[ -n "$encoded_line" ]]; do
       exit 1
     fi
 
+    # Create directory if needed
+    adr_dir=$(dirname "$adr_file")
+    mkdir -p "$adr_dir"
+
+    # Create ADR file with YAML frontmatter
     printf '---
 id: ADR-%s
 title: %s
@@ -63,5 +80,7 @@ date: %s
     printf '*Status:* proposed\n\n' >> "$adr_file"
     printf '**Related PR:** %s\n\n' "$PR_URL" >> "$adr_file"
     printf 'This ADR is currently being developed in linked pull request above.\nPlease refer to that PR for current content and discussion.\n' >> "$adr_file"
+
+    echo "Created placeholder: $adr_file"
   fi
-done < "$SUCCESS_FILE"
+done
