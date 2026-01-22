@@ -67,6 +67,7 @@ case "$SCENARIO" in
     echo "This file intentionally uses existing number $EXISTING_NUM" >> "$TEST_FILE"
     git add "$TEST_FILE"
     git commit -m "test: add conflicting ADR $EXISTING_NUM for act test" >/dev/null
+    TEST_SHA=$(git rev-parse HEAD)
     EXPECTED_LOG="CONFLICT: ADR number $EXISTING_NUM already exists"
     ;;
   
@@ -79,6 +80,7 @@ case "$SCENARIO" in
     echo "# Test ADR for success scenario" > "$TEST_FILE"
     git add "$TEST_FILE"
     git commit -m "test: add new ADR $NEXT_NUM for act test" >/dev/null
+    TEST_SHA=$(git rev-parse HEAD)
     EXPECTED_LOG="OK: ADR number $NEXT_NUM is available"
     ;;
   
@@ -88,6 +90,7 @@ case "$SCENARIO" in
     echo "<!-- updated -->" >> "$DESIGNS_DIR/000-adr-template.md"
     git add "$DESIGNS_DIR/000-adr-template.md"
     git commit -m "test: modify template without adding new ADR" >/dev/null
+    TEST_SHA=$(git rev-parse HEAD)
     EXPECTED_LOG="No new ADR files found"
     ;;
   
@@ -100,12 +103,9 @@ esac
 #############################################
 # Generate event JSON
 #############################################
-# Use BASE_SHA for HEAD_SHA when NOT skipping checkout
-# When SKIP_CHECKOUT is true, we let the checkout action use its default
-# (github.event.pull_request.head.sha), so act will checkout the test branch
-if [ "$SKIP_CHECKOUT" != 'true' ]; then
-  HEAD_SHA="$BASE_SHA"
-fi
+# For local act testing, always use the test commit SHA
+# This ensures act works with local repository state
+HEAD_SHA="$TEST_SHA"
 HEAD_REF="$TEST_BRANCH"
 
 echo "==> Generating event payload"
