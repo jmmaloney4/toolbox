@@ -7,6 +7,7 @@ This directory contains integration tests for the ADR management workflow using 
 1. Install act: `brew install act` (macOS) or see https://nektosact.com/installation/
 2. Install Docker Desktop or compatible container runtime
 3. Pull runner image: `docker pull catthehacker/ubuntu:act-latest`
+4. Run from a git repository with a clean working directory
 
 ## Usage
 
