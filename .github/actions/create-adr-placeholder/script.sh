@@ -21,15 +21,12 @@ if ! jq empty "$SUCCESS_FILE" 2>/dev/null; then
   exit 1
 fi
 
-# Validate we're operating within allowed workspace (path traversal protection)
+# Path traversal protection: validate workspace root using git
 WORKSPACE_ROOT=$(realpath -e .)
-if [[ ! "$WORKSPACE_ROOT" =~ ^/tmp.*|^/home.*|^/Users.* ]]; then
-  echo "Error: Unexpected workspace root '$WORKSPACE_ROOT'" >&2
+if [ ! -d "$WORKSPACE_ROOT/.git" ]; then
+  echo "Error: Not in a git repository: '$WORKSPACE_ROOT'" >&2
   exit 1
 fi
-
-# Read JSON entry
-status=$(jq -r '.status' "$SUCCESS_FILE")
 
 # Iterate over all entries in JSON array
 jq -c '.[]' "$SUCCESS_FILE" | while IFS= read -r entry; do
@@ -41,6 +38,12 @@ jq -c '.[]' "$SUCCESS_FILE" | while IFS= read -r entry; do
     adr_filename=$(basename "$adr_file")
     current_date=$(date -u +%Y-%m-%d)
 
+    # Validate adr_number is 3-digit numeric
+    if [[ ! "$adr_number" =~ ^[0-9]{3}$ ]]; then
+      echo "Error: Invalid ADR number '$adr_number' (must be 3-digit numeric)" >&2
+      exit 1
+    fi
+
     # Bash regex for title extraction with error handling
     if [[ "$adr_filename" =~ ^[0-9]{3}-(.*)\.md$ ]]; then
       slug="${BASH_REMATCH[1]}"
@@ -50,15 +53,17 @@ jq -c '.[]' "$SUCCESS_FILE" | while IFS= read -r entry; do
       adr_title="Untitled ADR"
     fi
 
-    # Path traversal protection: validate adr_file path is within workspace
+    # Path traversal protection: validate adr_file path is within docs/internal/designs/
     # Convert to absolute path for validation, but don't require file to exist yet
     if ! real_adr_file=$(realpath -m "$adr_file" 2>/dev/null); then
       echo "Error: File path '$adr_file' is invalid" >&2
       exit 1
     fi
 
-    if [[ ! "$real_adr_file" =~ ^"$WORKSPACE_ROOT" ]]; then
-      echo "Error: Path traversal detected: '$real_adr_file' is outside workspace '$WORKSPACE_ROOT'" >&2
+    # Enforce directory boundary with trailing separator
+    DESIGNS_DIR="$WORKSPACE_ROOT/docs/internal/designs"
+    if [[ ! "$real_adr_file" =~ ^"$DESIGNS_DIR"/ ]]; then
+      echo "Error: Path '$adr_file' is outside allowed directory 'docs/internal/designs/'" >&2
       exit 1
     fi
 
@@ -66,7 +71,7 @@ jq -c '.[]' "$SUCCESS_FILE" | while IFS= read -r entry; do
     adr_dir=$(dirname "$adr_file")
     mkdir -p "$adr_dir"
 
-    # Create ADR file with YAML frontmatter
+    # Create ADR file with YAML frontmatter using printf (prevents shell injection)
     printf '---
 id: ADR-%s
 title: %s

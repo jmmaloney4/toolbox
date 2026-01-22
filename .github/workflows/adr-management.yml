@@ -125,8 +125,10 @@ jobs:
         fi
 
     - name: Create ADR placeholder files
-      if: steps.detect-adrs.outputs.has_new_adrs == 'true'
-      uses: jmmaloney4/toolbox/.github/actions/create-adr-placeholder@main
+      if: |
+        steps.detect-adrs.outputs.has_new_adrs == 'true' &&
+        hashFiles('/tmp/adr_success.json') != ''
+      uses: ./.github/actions/create-adr-placeholder
       with:
         success_file: /tmp/adr_success.json
         pr_url: ${{ github.event.pull_request.html_url }}
@@ -243,7 +245,9 @@ jobs:
 
     - name: Create check status
       if: steps.detect-adrs.outputs.has_new_adrs == 'true'
-      run: |-
+      run: |
+        set -euo pipefail
+
         # Count successes and conflicts
         success_count=0
         conflict_count=0
