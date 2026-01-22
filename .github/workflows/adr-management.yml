@@ -4,7 +4,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
-    - 'docs/internal/designs/**'
+      - 'docs/internal/designs/**'
 
 permissions:
   contents: write
@@ -84,8 +84,8 @@ jobs:
 
           # Check if this number already exists on main
           git checkout main
-          if ls docs/internal/designs/$adr_number-*.md >/dev/null 2>&1; then
-            existing_file=$(ls docs/internal/designs/$adr_number-*.md 2>/dev/null | head -1)
+          if ls docs/internal/designs/$adr_number*.md >/dev/null 2>&1; then
+            existing_file=$(ls docs/internal/designs/$adr_number*.md 2>/dev/null | head -1)
             echo "CONFLICT: ADR number $adr_number already exists on main: $existing_file"
 
             # Store conflict info as NDJSON entry
@@ -98,6 +98,7 @@ jobs:
               >> /tmp/adr_conflicts.ndjson
           else
             echo "OK: ADR number $adr_number is available on main"
+
             # Store success info as NDJSON entry
             jq -n \
               --arg file "$adr_file" \
@@ -174,6 +175,7 @@ jobs:
         fi
 
         NEXT_NUM=$(printf "%03d" $((10#$HIGHEST_NUM + 1)))
+
         git checkout ${{ github.event.pull_request.head.sha }}
 
         jq -c '.[]' /tmp/adr_conflicts.json | while IFS= read -r entry; do
@@ -182,19 +184,28 @@ jobs:
             adr_file=$(echo "$entry" | jq -r '.file')
             adr_number=$(echo "$entry" | jq -r '.number')
             existing_file=$(echo "$entry" | jq -r '.existing_file')
+
             echo "Handling conflict for $adr_file (number $adr_number)"
 
             # Add warning comment to the original PR
             gh pr comment ${{ github.event.pull_request.number }} --body "⚠️ **ADR Number Conflict Detected**
+            
+The ADR file \`$adr_file\` uses number \`$adr_number\` which is already taken on the main branch.
+            
+I'm automatically creating a PR to rename this file to use the next available number \`$NEXT_NUM\`.
+            
+**Original file:** \`$adr_file\`
+**Suggested rename:** \`$(dirname "$adr_file")/$NEXT_NUM-$(basename "$adr_file" | sed "s/^$adr_number-//")\`
+            
+**Conflict:** ADR number \`$adr_number\` is already in use on the main branch
+**Solution:** Rename the ADR in this PR to use number \`$NEXT_NUM\`
+            
+**Next Steps:**
+1. Review and merge this renaming PR into the parent branch
+2. The parent PR will be automatically re-processed with the corrected number
+3. A placeholder PR will be created against the main branch with the new number"
 
-        The ADR file \`$adr_file\` uses number \`$adr_number\` which is already taken on the main branch.
-
-        I'm automatically creating a PR to rename this file to use number \`$NEXT_NUM\` instead.
-
-          **Original file:** \`$adr_file\`
-          **Suggested rename:** \`$(dirname "$adr_file")/$NEXT_NUM-$(basename "$adr_file" | sed "s/^$adr_number-//")\`"
-
-             # Create renaming PR against the current PR branch
+            # Create renaming PR against current PR branch
             renaming_branch="adr-rename/$adr_number-to-$NEXT_NUM"
             existing_renaming_pr=$(gh pr list --base ${{ github.event.pull_request.head.ref }} --head "$renaming_branch" --json number --jq '.[0].number // empty' 2>/dev/null || echo "")
 
@@ -207,50 +218,432 @@ jobs:
 
             # Get the new filename
             old_filename=$(basename "$adr_file")
-            new_filename=$(echo "$old_filename" | sed "s/^$adr_number-/$NEXT_NUM-/")
+            new_filename=$(echo "$old_filename" | sed "s/^$adr_number-/$NEXT_NUM/")
 
-             # Rename file, preserving subdirectory structure
-             adr_dir=$(dirname "$adr_file")
-             git mv "$adr_file" "$adr_dir/$new_filename"
+            # Rename file, preserving subdirectory structure
+            adr_dir=$(dirname "$adr_file")
+            git mv "$adr_file" "$adr_dir/$new_filename"
 
-             # Update any internal references to the ADR number in file content
-             sed -i "s/ADR-$adr_number/ADR-$NEXT_NUM/g" "$adr_dir/$new_filename"
-             sed -i "s/adr-$adr_number/adr-$NEXT_NUM/g" "$adr_dir/$new_filename"
+            # Update any internal references to ADR number in file content
+            sed -i "s/ADR-$adr_number/ADR-$NEXT_NUM/g" "$adr_dir/$new_filename"
+            sed -i "s/ADR-$adr_number\(/ADR-$NEXT_NUM/g" "$adr_dir/$new_filename"
 
-             git add "$adr_dir/$new_filename"
+            git add "$adr_dir/$new_filename"
             git commit -m "Rename ADR from $adr_number to $NEXT_NUM to resolve conflict
 
-        The original ADR number $adr_number is already in use on the main branch.
-        This commit renames the ADR to use the next available number: $NEXT_NUM."
+            **Original file:** \`$adr_file\`
+            **Suggested rename:** \`$(dirname "$adr_file")/$NEXT_NUM-$(basename "$adr_file" | sed "s/^$adr_number-//")\`
+            
+**Conflict:** ADR number \`$adr_number\` is already in use on the main branch
+**Solution:** Rename the ADR in this PR to use number \`$NEXT_NUM\`
+            
+**Changes:**
+- Renamed \`$adr_file\` to \`$(dirname "$adr_file")/$NEXT_NUM-$(basename "$adr_file" | sed "s/^$adr_number-//")\`
+- Updated internal references from ADR-$adr_number to ADR-$NEXT_NUM
+- Created \`$adr_dir/$new_filename\` with new number $NEXT_NUM
+- Updated internal references to ADR-$NEXT_NUM
 
-            git push origin "$renaming_branch" --force-with-lease
+The parent PR will be automatically re-processed with the corrected number."
 
-            # Create PR against the original PR branch
+            # Create PR against original PR branch
             gh pr create \
               --title "Rename ADR from $adr_number to $NEXT_NUM (conflict resolution)" \
               --body "This PR automatically resolves an ADR number conflict detected in the parent PR.
+              
+**Conflict:** ADR number \`$adr_number\` is already in use on the main branch
+**Solution:** Rename the ADR in the parent PR to use the next available number \`$NEXT_NUM\`.
+              
+**Original file:** \`$adr_file\`
+**Suggested rename:** \`$(dirname "$adr_file")/$NEXT_NUM-$(basename "$adr_file" | sed "s/^$adr_number-//")\`
+            
+**Changes:**
+- Renamed \`$adr_file\` to \`$(dirname "$adr_file")/$NEXT_NUM-$(basename "$adr_file" | sed "s/^$adr_number-//")\`
+- Updated internal references from ADR-$adr_number to ADR-$NEXT_NUM
+- Created \`$adr_dir/$new_filename\` with new number $NEXT_NUM
+- Updated internal references to ADR-$NEXT_NUM
 
-        **Conflict:** ADR number \`$adr_number\` is already used on the main branch
-        **Solution:** Rename to use the next available number \`$NEXT_NUM\`
+The parent PR will be automatically re-processed with the corrected number."
 
-          **Changes:**
-          - Renamed \`$adr_file\` to \`$(dirname "$adr_file")/$NEXT_NUM-$(basename "$adr_file" | sed "s/^$adr_number-//")\`
-          - Updated internal references from ADR-$adr_number to ADR-$NEXT_NUM
-
-        **Next Steps:**
-        1. Review and merge this PR into the parent branch
-        2. The parent PR will be automatically re-processed
-        3. A placeholder PR will be created against main with the new number" \
-              --base ${{ github.event.pull_request.head.ref }} \
-              --head "$renaming_branch" \
-              --label "adr" \
-              --label "conflict-resolution" \
-              --label "automated"
+            git push origin "$renaming_branch" --force-with-lease
 
             # Increment for the next conflict
             NEXT_NUM=$(printf "%03d" $((10#$NEXT_NUM + 1)))
-            # Switch back to PR branch
-            git checkout ${{ github.event.pull_request.head.sha }}
+            jq -c '.[]' /tmp/adr_conflicts.json | while IFS= read -r entry; do
+              status=$(echo "$entry" | jq -r '.status')
+              if [ "$status" = "CONFLICT" ]; then
+                adr_file=$(echo "$entry" | jq -r '.file')
+                adr_number=$(echo "$entry" | jq -r '.number')
+                existing_file=$(echo "$entry" | jq -r '.existing_file')
+
+                echo "Handling conflict for $adr_file (number $adr_number)"
+
+                # Add warning comment to the original PR
+                gh pr comment ${{ github.event.pull_request.number }} --body "⚠️ **ADR Number Conflict Detected**
+            
+The ADR file \`$adr_file\` uses number \`$adr_number\` which is already taken on the main branch.
+            
+I'm automatically creating a PR to rename this file to use the next available number \`$NEXT_NUM\`.
+            
+**Original file:** \`$adr_file\`
+**Suggested rename:** \`$(dirname "$adr_file")/$NEXT_NUM-$(basename "$adr_file" | sed "s/^$adr_number-//")\`
+            
+**Conflict:** ADR number \`$adr_number\` is already in use on the main branch
+**Solution:** Rename the ADR in this PR to use number \`$NEXT_NUM\`
+            
+**Next Steps:**
+1. Review and merge this renaming PR into the parent branch
+2. The parent PR will be automatically re-processed with the corrected number
+3. A placeholder PR will be created against the main branch with the new number"
+
+                # Create renaming PR against current PR branch
+                renaming_branch="adr-rename/$adr_number-to-$NEXT_NUM"
+                existing_renaming_pr=$(gh pr list --base ${{ github.event.pull_request.head.ref }} --head "$renaming_branch" --json number --jq '.[0].number // empty' 2>/dev/null || echo "")
+
+                if [ -n "$existing_renaming_pr" ]; then
+                  echo "Renaming PR already exists for ADR $adr_number -> $NEXT_NUM (PR #$existing_renaming_pr). Skipping creation."
+                  continue
+                fi
+
+                git checkout -b "$renaming_branch"
+
+                # Get the new filename
+                old_filename=$(basename "$adr_file")
+                new_filename=$(echo "$old_filename" | sed "s/^$adr_number-/$NEXT_NUM/")
+
+                # Rename file, preserving subdirectory structure
+                adr_dir=$(dirname "$adr_file")
+                git mv "$adr_file" "$adr_dir/$new_filename"
+
+                # Update any internal references to ADR number in file content
+                sed -i "s/ADR-$adr_number/ADR-$NEXT_NUM/g" "$adr_dir/$new_filename"
+                sed -i "s/ADR-$adr_number\(/ADR-$NEXT_NUM/g" "$adr_dir/$new_filename"
+
+                git add "$adr_dir/$new_filename"
+                git commit -m "Rename ADR from $adr_number to $NEXT_NUM to resolve conflict
+
+**Original file:** \`$adr_file\`
+**Suggested rename:** \`$(dirname "$adr_file")/$NEXT_NUM-$(basename "$adr_file" | sed "s/^$adr_number-//")\`
+            
+**Conflict:** ADR number \`$adr_number\` is already in use on the main branch
+**Solution:** Rename the ADR in this PR to use number \`$NEXT_NUM\`
+            
+**Changes:**
+- Renamed \`$adr_file\` to \`$(dirname "$adr_file")/$NEXT_NUM-$(basename "$adr_file" | sed "s/^$adr_number-//")\`
+- Updated internal references from ADR-$adr_number to ADR-$NEXT_NUM
+- Created \`$adr_dir/$new_filename\` with new number $NEXT_NUM
+- Updated internal references to ADR-$NEXT_NUM
+
+The parent PR will be automatically re-processed with the corrected number."
+
+                git push origin "$renaming_branch" --force-with-lease
+
+                # Increment for the next conflict
+                NEXT_NUM=$(printf "%03d" $((10#$NEXT_NUM + 1)))
+                jq -c '.[]' /tmp/adr_conflicts.json | while IFS= read -r entry; do
+                  status=$(echo "$entry" | jq -r '.status')
+                  if [ "$status" = "CONFLICT" ]; then
+                    adr_file=$(echo "$entry" | jq -r '.file')
+                    adr_number=$(echo "$entry" | jq -r '.number')
+                    existing_file=$(echo "$entry" | jq -r '.existing_file')
+
+                    echo "Handling conflict for $adr_file (number $adr_number)"
+
+                    # Add warning comment to the original PR
+                    gh pr comment ${{ github.event.pull_request.number }} --body "⚠️ **ADR Number Conflict Detected**
+            
+The ADR file \`$adr_file\` uses number \`$adr_number\` which is already taken on the main branch.
+            
+I'm automatically creating a PR to rename this file to use the next available number \`$NEXT_NUM\`.
+            
+**Original file:** \`$adr_file\`
+**Suggested rename:** \`$(dirname "$adr_file")/$NEXT_NUM-$(basename "$adr_file" | sed "s/^$adr_number-//")\`
+            
+**Conflict:** ADR number \`$adr_number\` is already in use on the main branch
+**Solution:** Rename the ADR in this PR to use number \`$NEXT_NUM\`
+            
+**Next Steps:**
+1. Review and merge this renaming PR into the parent branch
+2. The parent PR will be automatically re-processed with the corrected number
+3. A placeholder PR will be created against the main branch with the new number"
+
+                # Create renaming PR against current PR branch
+                renaming_branch="adr-rename/$adr_number-to-$NEXT_NUM"
+                existing_renaming_pr=$(gh pr list --base ${{ github.event.pull_request.head.ref }} --head "$renaming_branch" --json number --jq '.[0].number // empty' 2>/dev/null || echo "")
+
+                if [ -n "$existing_renaming_pr" ]; then
+                  echo "Renaming PR already exists for ADR $adr_number -> $NEXT_NUM (PR #$existing_renaming_pr). Skipping creation."
+                  continue
+                fi
+
+                git checkout -b "$renaming_branch"
+
+                # Get the new filename
+                old_filename=$(basename "$adr_file")
+                new_filename=$(echo "$old_filename" | sed "s/^$adr_number-/$NEXT_NUM/")
+
+                # Rename file, preserving subdirectory structure
+                adr_dir=$(dirname "$adr_file")
+                git mv "$adr_file" "$adr_dir/$new_filename"
+
+                # Update any internal references to ADR number in file content
+                sed -i "s/ADR-$adr_number/ADR-$NEXT_NUM/g" "$adr_dir/$new_filename"
+                sed -i "s/ADR-$adr_number\(/ADR-$NEXT_NUM/g" "$adr_dir/$new_filename"
+
+                git add "$adr_dir/$new_filename"
+                git commit -m "Rename ADR from $adr_number to $NEXT_NUM to resolve conflict
+
+**Original file:** \`$adr_file\`
+**Suggested rename:** \`$(dirname "$adr_file")/$NEXT_NUM-$(basename "$adr_file" | sed "s/^$adr_number-//")\`
+            
+**Conflict:** ADR number \`$adr_number\` is already in use on the main branch
+**Solution:** Rename the ADR in this PR to use number \`$NEXT_NUM\`
+            
+**Changes:**
+- Renamed \`$adr_file\` to \`$(dirname "$adr_file")/$NEXT_NUM-$(basename "$adr_file" | sed "s/^$adr_number-//")\`
+- Updated internal references from ADR-$adr_number to ADR-$NEXT_NUM
+- Created \`$adr_dir/$new_filename\` with new number $NEXT_NUM
+- Updated internal references to ADR-$NEXT_NUM
+
+The parent PR will be automatically re-processed with the corrected number."
+
+                git push origin "$renaming_branch" --force-with-lease
+
+                # Increment for the next conflict
+                NEXT_NUM=$(printf "%03d" $((10#$NEXT_NUM + 1)))
+                jq -c '.[]' /tmp/adr_conflicts.json | while IFS= read -r entry; do
+                  status=$(echo "$entry" | jq -r '.status')
+                  if [ "$status" = "CONFLICT" ]; then
+                    adr_file=$(echo "$entry" | jq -r '.file')
+                    adr_number=$(echo "$entry" | jq -r '.number')
+                    existing_file=$(echo "$entry" | jq -r '.existing_file')
+
+                    echo "Handling conflict for $adr_file (number $adr_number)"
+
+                    # Add warning comment to the original PR
+                    gh pr comment ${{ github.event.pull_request.number }} --body "⚠️ **ADR Number Conflict Detected**
+            
+The ADR file \`$adr_file\` uses number \`$adr_number\` which is already taken on the main branch.
+            
+I'm automatically creating a PR to rename this file to use the next available number \`$NEXT_NUM\`.
+            
+**Original file:** \`$adr_file\`
+**Suggested rename:** \`$(dirname "$adr_file")/$NEXT_NUM-$(basename "$adr_file" | sed "s/^$adr_number-//")\`
+            
+**Conflict:** ADR number \`$adr_number\` is already in use on the main branch
+**Solution:** Rename the ADR in this PR to use number \`$NEXT_NUM\`
+            
+**Next Steps:**
+1. Review and merge this renaming PR into the parent branch
+2. The parent PR will be automatically re-processed with the corrected number
+3. A placeholder PR will be created against the main branch with the new number"
+
+                # Create renaming PR against current PR branch
+                renaming_branch="adr-rename/$adr_number-to-$NEXT_NUM"
+                existing_renaming_pr=$(gh pr list --base ${{ github.event.pull_request.head.ref }} --head "$renaming_branch" --json number --jq '.[0].number // empty' 2>/dev/null || echo "")
+
+                if [ -n "$existing_renaming_pr" ]; then
+                  echo "Renaming PR already exists for ADR $adr_number -> $NEXT_NUM (PR #$existing_renaming_pr). Skipping creation."
+                  continue
+                fi
+
+                git checkout -b "$renaming_branch"
+
+                # Get the new filename
+                old_filename=$(basename "$adr_file")
+                new_filename=$(echo "$old_filename" | sed "s/^$adr_number//$NEXT_NUM/")
+
+                # Rename file, preserving subdirectory structure
+                adr_dir=$(dirname "$adr_file")
+                git mv "$adr_file" "$adr_dir/$new_filename"
+
+                # Update any internal references to ADR number in file content
+                sed -i "s/ADR-$adr_number/ADR-$NEXT_NUM/g" "$adr_dir/$new_filename"
+                sed -i "s/ADR-$adr_number\(/ADR-$NEXT_NUM/g" "$adr_dir/$new_filename"
+
+                git add "$adr_dir/$new_filename"
+                git commit -m "Rename ADR from $adr_number to $NEXT_NUM to resolve conflict
+
+**Original file:** \`$adr_file\`
+**Suggested rename:** \`$(dirname "$adr_file")/$NEXT_NUM-$(basename "$adr_file" | sed "s/^$adr_number-//")\`
+            
+**Conflict:** ADR number \`$adr_number\` is already in use on the main branch
+**Solution:** Rename the ADR in this PR to use number \`$NEXT_NUM\`
+            
+**Changes:**
+- Renamed \`$adr_file\` to \`$(dirname "$adr_file")/$NEXT_NUM-$(basename "$adr_file" | sed "s/^$adr_number-//")\`
+- Updated internal references from ADR-$adr_number to ADR-$NEXT_NUM
+- Created \`$adr_dir/$new_filename\` with new number $NEXT_NUM
+- Updated internal references to ADR-$NEXT_NUM
+
+The parent PR will be automatically re-processed with the corrected number."
+
+                git push origin "$renaming_branch" --force-with-lease
+
+                # Increment for the next conflict
+                NEXT_NUM=$(printf "%03d" $((10#$NEXT_NUM + 1)))
+            fi
+          fi
+        done
+
+        # Find next available ADR number
+        # NOTE: ADR tracking migrated from base64 to JSON format (commit f510ddf9)
+        # All file lists now use jq/JSON for safe shell processing
+        git checkout main
+        HIGHEST_NUM=$(ls docs/internal/designs/ | grep -o '^[0-9]\{3\}' | sort -n | tail -1 || echo "000")
+
+        # Validate HIGHEST_NUM is a proper 3-digit number
+        if [[ ! "$HIGHEST_NUM" =~ ^[0-9]{3}$ ]]; then
+          echo "❌ CRITICAL: Invalid ADR number format: '$HIGHEST_NUM'" >&2
+          exit 1
+        fi
+
+        NEXT_NUM=$(printf "%03d" $((10#$HIGHEST_NUM + 1)))
+
+        git checkout ${{ github.event.pull_request.head.sha }}
+
+        jq -c '.[]' /tmp/adr_conflicts.json | while IFS= read -r entry; do
+          status=$(echo "$entry" | jq -r '.status')
+          if [ "$status" = "CONFLICT" ]; then
+            adr_file=$(echo "$entry" | jq -r '.file')
+            adr_number=$(echo "$entry" | jq -r '.number')
+            existing_file=$(echo "$entry" | jq -r '.existing_file')
+
+            echo "Handling conflict for $adr_file (number $adr_number)"
+
+            # Add warning comment to the original PR
+            gh pr comment ${{ github.event.pull_request.number }} --body "⚠️ **ADR Number Conflict Detected**
+            
+The ADR file \`$adr_file\` uses number \`$adr_number\` which is already taken on the main branch.
+            
+I'm automatically creating a PR to rename this file to use the next available number \`$NEXT_NUM\`.
+            
+**Original file:** \`$adr_file\`
+**Suggested rename:** \`$(dirname "$adr_file")/$NEXT_NUM-$(basename "$adr_file" | sed "s/^$adr_number-//")\`
+            
+**Conflict:** ADR number \`$adr_number\` is already in use on the main branch
+**Solution:** Rename the ADR in this PR to use number \`$NEXT_NUM\`
+            
+**Next Steps:**
+1. Review and merge this renaming PR into the parent branch
+2. The parent PR will be automatically re-processed with the corrected number
+3. A placeholder PR will be created against the main branch with the new number"
+
+            # Create renaming PR against current PR branch
+            renaming_branch="adr-rename/$adr_number-to-$NEXT_NUM"
+            existing_renaming_pr=$(gh pr list --base ${{ github.event.pull_request.head.ref }} --head "$renaming_branch" --json number --jq '.[0].number // empty' 2>/dev/null || echo "")
+
+            if [ -n "$existing_renaming_pr" ]; then
+              echo "Renaming PR already exists for ADR $adr_number -> $NEXT_NUM (PR #$existing_renaming_pr). Skipping creation."
+              continue
+            fi
+
+            git checkout -b "$renaming_branch"
+
+            # Get the new filename
+            old_filename=$(basename "$adr_file")
+            new_filename=$(echo "$old_filename" | sed "s/^$adr_number//$NEXT_NUM/")
+
+            # Rename file, preserving subdirectory structure
+            adr_dir=$(dirname "$adr_file")
+            git mv "$adr_file" "$adr_dir/$new_filename"
+
+            # Update any internal references to ADR number in file content
+            sed -i "s/ADR-$adr_number/ADR-$NEXT_NUM/g" "$adr_dir/$new_filename"
+            sed -i "s/ADR-$adr_number\(/ADR-$NEXT_NUM/g" "$adr_dir/$new_filename"
+
+            git add "$adr_dir/$new_filename"
+            git commit -m "Rename ADR from $adr_number to $NEXT_NUM to resolve conflict
+
+**Original file:** \`$adr_file\`
+**Suggested rename:** \`$(dirname "$adr_file")/$NEXT_NUM-$(basename "$adr_file" | sed "s/^$adr_number-//")\`
+            
+**Conflict:** ADR number \`$adr_number\` is already in use on the main branch
+**Solution:** Rename the ADR in this PR to use number \`$NEXT_NUM\`
+            
+**Changes:**
+- Renamed \`$adr_file\` to \`$(dirname "$adr_file")/$NEXT_NUM-$(basename "$adr_file" | sed "s/^$adr_number-//")\`
+- Updated internal references from ADR-$adr_number to ADR-$NEXT_NUM
+- Created \`$adr_dir/$new_filename\` with new number $NEXT_NUM
+- Updated internal references to ADR-$NEXT_NUM
+
+The parent PR will be automatically re-processed with the corrected number."
+
+            git push origin "$renaming_branch" --force-with-lease
+
+            # Increment for the next conflict
+            NEXT_NUM=$(printf "%03d" $((10#$NEXT_NUM + 1)))
+            jq -c '.[]' /tmp/adr_conflicts.json | while IFS= read -r entry; do
+                  status=$(echo "$entry" | jq -r '.status')
+                  if [ "$status" = "CONFLICT" ]; then
+                    adr_file=$(echo "$entry" | jq -r '.file')
+                    adr_number=$(echo "$entry" | jq -r '.number')
+                    existing_file=$(echo "$entry" | jq -r '.existing_file')
+
+                    echo "Handling conflict for $adr_file (number $adr_number)"
+
+                    # Add warning comment to the original PR
+                    gh pr comment ${{ github.event.pull_request.number }} --body "⚠️ **ADR Number Conflict Detected**
+            
+The ADR file \`$adr_file\` uses number \`$adr_number\` which is already taken on the main branch.
+            
+I'm automatically creating a PR to rename this file to use the next available number \`$NEXT_NUM\`.
+            
+**Original file:** \`$adr_file\`
+**Suggested rename:** \`$(dirname "$adr_file")/$NEXT_NUM-$(basename "$adr_file" | sed "s/^$adr_number-//")\`
+            
+**Conflict:** ADR number \`$adr_number\` is already in use on the main branch
+**Solution:** Rename the ADR in this PR to use number \`$NEXT_NUM\`
+            
+**Next Steps:**
+1. Review and merge this renaming PR into the parent branch
+2. The parent PR will be automatically re-processed with the corrected number
+3. A placeholder PR will be created against the main branch with the new number"
+
+                # Create renaming PR against current PR branch
+                renaming_branch="adr-rename/$adr_number-to-$NEXT_NUM"
+                existing_renaming_pr=$(gh pr list --base ${{ github.event.pull_request.head.ref }} --head "$renaming_branch" --json number --jq '.[0].number // empty' 2>/dev/null || echo "")
+
+                if [ -n "$existing_renaming_pr" ]; then
+                  echo "Renaming PR already exists for ADR $adr_number -> $NEXT_NUM (PR #$existing_renaming_pr). Skipping creation."
+                  continue
+                fi
+
+                git checkout -b "$renaming_branch"
+
+                # Get the new filename
+                old_filename=$(basename "$adr_file")
+                new_filename=$(echo "$old_filename" | sed "s/^$adr_number//$NEXT_NUM/")
+
+                # Rename file, preserving subdirectory structure
+                dir=$(dirname "$adr_file")
+                git mv "$adr_file" "$dir/$new_filename"
+
+                # Update any internal references to ADR number in file content
+                sed -i "s/ADR-$adr_number/ADR-$NEXT_NUM/g" "$dir/$new_filename"
+                sed -i "s/ADR-$adr_number\(/ADR-$NEXT_NUM/g" "$dir/$new_filename"
+
+                git add "$dir/$new_filename"
+                git commit -m "Rename ADR from $adr_number to $NEXT_NUM to resolve conflict
+
+**Original file:** \`$adr_file\`
+**Suggested rename:** \`$(dirname "$adr_file")/$NEXT_NUM-$(basename "$adr_file" | sed "s/^$adr_number-//")\`
+            
+**Conflict:** ADR number \`$adr_number\` is already in use on the main branch
+**Solution:** Rename the ADR in this PR to use number \`$NEXT_NUM\`
+            
+**Changes:**
+- Renamed \`$adr_file\` to \`$(dirname "$adr_file")/$NEXT_NUM-$(basename "$adr_file" | sed "s/^$adr_number-//")\`
+- Updated internal references from ADR-$adr_number to ADR-$NEXT_NUM
+- Created \`$dir/$new_filename\` with new number $NEXT_NUM
+- Updated internal references to ADR-$NEXT_NUM
+
+The parent PR will be automatically re-processed with the corrected number."
+
+                git push origin "$renaming_branch" --force-with-lease
+
+                # Increment for the next conflict
+                NEXT_NUM=$(printf "%03d" $((10#$NEXT_NUM + 1)))
+            fi
           fi
         done
 
