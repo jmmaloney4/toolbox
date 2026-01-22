@@ -124,15 +124,6 @@ jobs:
           fi
         fi
 
-    - name: Create ADR placeholder files
-      if: |
-        steps.detect-adrs.outputs.has_new_adrs == 'true' &&
-        steps.success-adrs.outputs.has_success == 'true'
-      uses: ./.github/actions/create-adr-placeholder
-      with:
-        success_file: /tmp/adr_success.json
-        pr_url: ${{ github.event.pull_request.html_url }}
-
     - name: Check success ADRs
       id: success-adrs
       if: steps.detect-adrs.outputs.has_new_adrs == 'true'
@@ -142,6 +133,15 @@ jobs:
         else
           echo "has_success=false" >> $GITHUB_OUTPUT
         fi
+
+    - name: Create ADR placeholder files
+      if: |
+        steps.detect-adrs.outputs.has_new_adrs == 'true' &&
+        steps.success-adrs.outputs.has_success == 'true'
+      uses: ./.github/actions/create-adr-placeholder
+      with:
+        success_file: /tmp/adr_success.json
+        pr_url: ${{ github.event.pull_request.html_url }}
 
     - name: Handle conflicting ADRs (add comments and create renaming PRs)
       if: steps.detect-adrs.outputs.has_new_adrs == 'true'
