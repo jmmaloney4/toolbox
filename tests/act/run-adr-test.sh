@@ -12,6 +12,7 @@ EVENT_FILE="$SCRIPT_DIR/.pr-event.json"  # Generated, gitignored
 TEST_BRANCH="test/act-adr-integration-$$"
 DESIGNS_DIR="docs/internal/designs"
 RUNNER_IMAGE="catthehacker/ubuntu:act-latest"
+SKIP_CHECKOUT="${SKIP_CHECKOUT:-true}"
 
 #############################################
 # Cleanup trap
