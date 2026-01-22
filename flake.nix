@@ -55,6 +55,7 @@
           buildInputs = with pkgs; [
             pnpm
             envsubst
+            act
           ];
         };
       };
