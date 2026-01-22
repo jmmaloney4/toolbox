@@ -103,12 +103,8 @@ HEAD_SHA=$(git rev-parse HEAD)
 HEAD_REF="$TEST_BRANCH"
 
 echo "==> Generating event payload"
-sed \
-  -e "s/__HEAD_SHA__/$HEAD_SHA/g" \
-  -e "s/__HEAD_REF__/$HEAD_REF/g" \
-  -e "s/__BASE_SHA__/$BASE_SHA/g" \
-  -e "s/__HEAD_REF__/$HEAD_REF/g" \
-  "$EVENT_TEMPLATE" > "$EVENT_FILE"
+export HEAD_SHA HEAD_REF BASE_SHA
+envsubst < "$EVENT_TEMPLATE" > "$EVENT_FILE"
 
 echo "Event payload:"
 cat "$EVENT_FILE"
