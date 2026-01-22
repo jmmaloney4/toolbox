@@ -16,7 +16,7 @@ if [ ! -f "$SUCCESS_FILE" ]; then
 fi
 
 # Validate JSON format
-if ! jq empty "$SUCCESS_FILE" 2>/dev/null; then
+if ! jq empty -- "$SUCCESS_FILE" 2>/dev/null; then
   echo "Error: SUCCESS_FILE '$SUCCESS_FILE' is not valid JSON" >&2
   exit 1
 fi
@@ -29,7 +29,7 @@ if [ ! -d "$WORKSPACE_ROOT/.git" ]; then
 fi
 
 # Iterate over all entries in JSON array
-jq -c '.[]' "$SUCCESS_FILE" | while IFS= read -r entry; do
+jq -c '.[]' -- "$SUCCESS_FILE" | while IFS= read -r entry; do
   status=$(echo "$entry" | jq -r '.status')
 
   if [ "$status" = "OK" ]; then
