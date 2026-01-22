@@ -126,24 +126,40 @@ jobs:
 
     - name: Create ADR placeholder files
       if: steps.detect-adrs.outputs.has_new_adrs == 'true'
-       uses: jmmaloney4/toolbox/.github/actions/create-adr-placeholder@main
-       with:
-         success_file: /tmp/adr_success.json
-         pr_url: ${{ github.event.pull_request.html_url }}
+      uses: jmmaloney4/toolbox/.github/actions/create-adr-placeholder@main
+      with:
+        success_file: /tmp/adr_success.json
+        pr_url: ${{ github.event.pull_request.html_url }}
 
     - name: Handle conflicting ADRs (add comments and create renaming PRs)
       if: steps.detect-adrs.outputs.has_new_adrs == 'true'
       run: |
         set -euo pipefail
 
+        # Validate that JSON file exists from previous step
         if [ ! -s /tmp/adr_conflicts.json ]; then
           echo "No conflicting ADRs to process"
           exit 0
         fi
 
-        # Find is next available ADR number
+        # Validate JSON format before processing
+        if ! jq empty /tmp/adr_conflicts.json 2>/dev/null; then
+          echo "❌ CRITICAL: /tmp/adr_conflicts.json is not valid JSON" >&2
+          exit 1
+        fi
+
+        # Find next available ADR number
+        # NOTE: ADR tracking migrated from base64 to JSON format (commit f510ddf9)
+        # All file lists now use jq/JSON for safe shell processing
         git checkout main
-        HIGHEST_NUM=$(ls docs/internal/designs/ | grep -o '^[0-9]\{3\}' | sort -n | tail -1)
+        HIGHEST_NUM=$(ls docs/internal/designs/ | grep -o '^[0-9]\{3\}' | sort -n | tail -1 || echo "000")
+
+        # Validate HIGHEST_NUM is a proper 3-digit number
+        if [[ ! "$HIGHEST_NUM" =~ ^[0-9]{3}$ ]]; then
+          echo "❌ CRITICAL: Invalid ADR number format: '$HIGHEST_NUM'" >&2
+          exit 1
+        fi
+
         NEXT_NUM=$(printf "%03d" $((10#$HIGHEST_NUM + 1)))
         git checkout ${{ github.event.pull_request.head.sha }}
 
@@ -162,12 +178,10 @@ jobs:
 
         I'm automatically creating a PR to rename this file to use number \`$NEXT_NUM\` instead.
 
-         **Original file:** \`$adr_file\`
-         **Suggested rename:** \`$(dirname "$adr_file")/$NEXT_NUM-$(basename "$adr_file" | sed "s/^$adr_number-//")\`"
+          **Original file:** \`$adr_file\`
+          **Suggested rename:** \`$(dirname "$adr_file")/$NEXT_NUM-$(basename "$adr_file" | sed "s/^$adr_number-//")\`"
 
-         **Changes:**
-         - Renamed \`$adr_file\` to \`$(dirname "$adr_file")/$new_filename\`
-            # Create renaming PR against the current PR branch
+             # Create renaming PR against the current PR branch
             renaming_branch="adr-rename/$adr_number-to-$NEXT_NUM"
             existing_renaming_pr=$(gh pr list --base ${{ github.event.pull_request.head.ref }} --head "$renaming_branch" --json number --jq '.[0].number // empty' 2>/dev/null || echo "")
 
@@ -206,9 +220,9 @@ jobs:
         **Conflict:** ADR number \`$adr_number\` is already used on the main branch
         **Solution:** Rename to use the next available number \`$NEXT_NUM\`
 
-         **Changes:**
-         - Renamed \`$adr_file\` to \`$(dirname "$adr_file")/$new_filename\`
-         - Updated internal references from ADR-$adr_number to ADR-$NEXT_NUM
+          **Changes:**
+          - Renamed \`$adr_file\` to \`$(dirname "$adr_file")/$NEXT_NUM-$(basename "$adr_file" | sed "s/^$adr_number-//")\`
+          - Updated internal references from ADR-$adr_number to ADR-$NEXT_NUM
 
         **Next Steps:**
         1. Review and merge this PR into the parent branch
@@ -225,22 +239,22 @@ jobs:
             # Switch back to PR branch
             git checkout ${{ github.event.pull_request.head.sha }}
           fi
-        done < /tmp/adr_conflicts.txt.b64
+        done
 
-     - name: Create check status
-       if: steps.detect-adrs.outputs.has_new_adrs == 'true'
-       run: |-
-         # Count successes and conflicts
-         success_count=0
-         conflict_count=0
+    - name: Create check status
+      if: steps.detect-adrs.outputs.has_new_adrs == 'true'
+      run: |-
+        # Count successes and conflicts
+        success_count=0
+        conflict_count=0
 
-         if [ -s /tmp/adr_success.json ]; then
-           success_count=$(jq 'length' /tmp/adr_success.json)
-         fi
+        if [ -s /tmp/adr_success.json ]; then
+          success_count=$(jq 'length' /tmp/adr_success.json)
+        fi
 
-         if [ -s /tmp/adr_conflicts.json ]; then
-           conflict_count=$(jq 'length' /tmp/adr_conflicts.json)
-         fi
+        if [ -s /tmp/adr_conflicts.json ]; then
+          conflict_count=$(jq 'length' /tmp/adr_conflicts.json)
+        fi
 
         if [ $conflict_count -gt 0 ]; then
           # Create a failing check for conflicts
