@@ -15,9 +15,9 @@ if [ ! -f "$SUCCESS_FILE" ]; then
   exit 1
 fi
 
-# Validate we're operating within allowed workspace (path traversal protection)
-WORKSPACE_ROOT=$(pwd)
-if [[ ! "$WORKSPACE_ROOT" =~ ^/tmp.*|^/home.*|^/Users.* ]]; then
+ # Validate we're operating within allowed workspace (path traversal protection)
+ WORKSPACE_ROOT=$(realpath -e .)
+ if [[ ! "$WORKSPACE_ROOT" =~ ^/tmp.*|^/home.*|^/Users.* ]]; then
   echo "Error: Unexpected workspace root '$WORKSPACE_ROOT'" >&2
   exit 1
 fi
