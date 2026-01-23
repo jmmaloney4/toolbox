@@ -1,9 +1,9 @@
-name: Create ADR Placeholders
-description: Creates placeholder ADR files for successful ADRs with links to PR
+name: Create ADR Placeholder
+description: Creates placeholder ADR file on main branch with link to PR
 
 inputs:
-  success_file:
-    description: The path to file containing successful ADR info
+  adr_files:
+    description: Path to file containing list of ADR files (one per line)
     required: true
   pr_url:
     description: The pull request URL
@@ -12,8 +12,8 @@ inputs:
 runs:
   using: composite
   steps:
-  - run: bash ${{ github.action_path }}/script.sh
-    shell: bash
+  - shell: bash
+    run: ${{ github.action_path }}/script.sh
     env:
-      SUCCESS_FILE: ${{ inputs.success_file }}
+      ADR_FILES: ${{ inputs.adr_files }}
       PR_URL: ${{ inputs.pr_url }}
