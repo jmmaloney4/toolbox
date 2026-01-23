@@ -73,6 +73,9 @@ jobs:
       max-parallel: 1
       matrix:
         include: ${{ fromJson(needs.detect.outputs.matrix_include) }}
+        exclude:
+          # Exclude images from this job - they're built and pushed separately
+          - is_image: true
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
@@ -90,9 +93,9 @@ jobs:
           echo "Building via nix-fast-build: $attr"
           # Build only missing (uncached) derivations, with CI-friendly logs and no out-link
           nix-fast-build --skip-cached --no-nom --no-link --flake "$attr"
-  push-images:
-    name: "🐳 push ${{ matrix.package-name }}"
-    needs: [detect, build]
+  build-and-push-images:
+    name: "🐳 build+push ${{ matrix.package-name }}"
+    needs: [detect]
     # Only run if there are actually images to push
     if: ${{ needs.detect.outputs.images_to_push != '[]' }}
     strategy:
