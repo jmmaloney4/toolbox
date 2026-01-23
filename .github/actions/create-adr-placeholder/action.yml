@@ -1,0 +1,19 @@
+name: Create ADR Placeholder
+description: Creates placeholder ADR file on main branch with link to PR
+
+inputs:
+  adr_files:
+    description: Path to file containing list of ADR files (one per line)
+    required: true
+  pr_url:
+    description: The pull request URL
+    required: true
+
+runs:
+  using: composite
+  steps:
+  - shell: bash
+    run: ${{ github.action_path }}/script.sh
+    env:
+      ADR_FILES: ${{ inputs.adr_files }}
+      PR_URL: ${{ inputs.pr_url }}
