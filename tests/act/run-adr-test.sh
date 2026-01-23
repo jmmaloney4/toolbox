@@ -133,7 +133,7 @@ ACT_OUTPUT=$(mktemp)
 # -v: verbose output for debugging
 # --container-architecture: explicitly set architecture for M-series Macs
 # -C: use current directory as workspace (sets GITHUB_WORKSPACE)
-# --env vars.SKIP_CHECKOUT: skip checkout action to use local files directly
+# act automatically sets ACT=true, which skips checkout in the workflow
 # We expect gh/git push to fail (no real remote), but we verify the logic ran
 act pull_request \
   -W "$WORKFLOW" \
@@ -141,7 +141,6 @@ act pull_request \
   -P ubuntu-latest="$RUNNER_IMAGE" \
   -j manage-adrs \
   --env GH_TOKEN=fake-token-for-local-test \
-  --env vars.SKIP_CHECKOUT=true \
   --container-architecture linux/amd64 \
   -v \
   2>&1 | tee "$ACT_OUTPUT" || true
