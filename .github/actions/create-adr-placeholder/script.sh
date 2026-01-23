@@ -3,6 +3,7 @@ set -euo pipefail
 
 ADR_FILES="${ADR_FILES:?ADR_FILES env var is required}"
 PR_URL="${PR_URL:?PR_URL env var is required}"
+BASE_BRANCH="${BASE_BRANCH:-main}"
 
 if [ ! -f "$ADR_FILES" ]; then
   echo "Error: ADR_FILES '$ADR_FILES' does not exist" >&2
@@ -13,9 +14,9 @@ fi
 git config user.name "GitHub Actions ADR Bot"
 git config user.email "actions@github.com"
 
-# Fetch latest main to reduce race condition window
-git fetch origin main
-git checkout origin/main -b main-placeholder
+# Fetch latest base branch to reduce race condition window
+git fetch origin "${BASE_BRANCH}"
+git checkout "origin/${BASE_BRANCH}" -b main-placeholder
 
 current_date=$(date -u +%Y-%m-%d)
 
@@ -71,6 +72,6 @@ else
   git commit -m "Reserve ADR number(s) for PR
 
 Related PR: ${PR_URL}"
-  git push origin main-placeholder:main
-  echo "Pushed placeholder(s) to main"
+  git push origin "main-placeholder:${BASE_BRANCH}"
+  echo "Pushed placeholder(s) to ${BASE_BRANCH}"
 fi

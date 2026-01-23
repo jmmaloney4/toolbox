@@ -8,6 +8,10 @@ inputs:
   pr_url:
     description: The pull request URL
     required: true
+  base_branch:
+    description: Base branch to reserve ADR numbers on (e.g., main)
+    required: false
+    default: main
 
 runs:
   using: composite
@@ -17,3 +21,4 @@ runs:
     env:
       ADR_FILES: ${{ inputs.adr_files }}
       PR_URL: ${{ inputs.pr_url }}
+      BASE_BRANCH: ${{ inputs.base_branch }}
