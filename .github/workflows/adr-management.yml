@@ -1,10 +1,11 @@
 name: ADR Management
 
+
 on:
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
-      - 'docs/internal/designs/**'
+      - 'docs/internal/designs/*.md'
 
 permissions:
   contents: write
@@ -24,7 +25,10 @@ jobs:
         fetch-depth: 0
 
     - name: Fetch main branch
-      run: git fetch origin main:main
+      run: |
+        git fetch origin main
+        git checkout main
+        git checkout -
 
     - name: Detect new ADR files
       id: detect
@@ -51,6 +55,7 @@ jobs:
 
         has_conflict=false
         conflict_messages=""
+        seen_numbers=""
 
         while IFS= read -r adr_file; do
           [ -z "$adr_file" ] && continue
@@ -63,6 +68,13 @@ jobs:
             continue
           fi
 
+          # Check for duplicate within this PR
+          if [[ ",$seen_numbers," == *",$adr_number,"* ]]; then
+            echo "DUPLICATE: ADR $adr_number appears multiple times in this PR"
+            has_conflict=true
+            conflict_messages="${conflict_messages}- \`${adr_file}\` uses number \`${adr_number}\` which is duplicated in this PR\n"
+          fi
+          seen_numbers="${seen_numbers},${adr_number}"
           # Check if this number already exists on main
           if git ls-tree main --name-only -- "docs/internal/designs/${adr_number}-"*.md 2>/dev/null | grep -q .; then
             existing=$(git ls-tree main --name-only -- "docs/internal/designs/${adr_number}-"*.md | head -1)
@@ -75,17 +87,16 @@ jobs:
         if [ "$has_conflict" = "true" ]; then
           echo "has_conflict=true" >> $GITHUB_OUTPUT
 
-          # Post a simple comment about the conflict
+          # Post a simple comment about conflict
           gh pr comment "$PR_NUMBER" --body "## ⚠️ ADR Number Conflict
 
-        One or more ADR files in this PR use numbers that already exist on the main branch:
+        One or more ADR files in this PR use numbers that already exist on main branch:
 
         $(echo -e "$conflict_messages")
 
         Please rename your ADR file(s) to use an available number."
           exit 0
         fi
-
         echo "has_conflict=false" >> $GITHUB_OUTPUT
 
     - name: Create and push placeholder to main
