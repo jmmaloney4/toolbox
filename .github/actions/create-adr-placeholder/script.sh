@@ -34,14 +34,9 @@ while IFS= read -r adr_file; do
     continue
   fi
   # Extract title from filename (e.g., 001-my-title.md -> My Title)
-  if [[ "$adr_filename" =~ ^[0-9]{3}-(.*)\.md$ ]]; then
+  if [[ "$adr_filename" =~ ^[0-9]{3}-(.*)\.md$ ]] && [ -n "${BASH_REMATCH[1]}" ]; then
     slug="${BASH_REMATCH[1]}"
-    # Handle empty slug (e.g., 001-.md)
-    if [ -n "$slug" ]; then
-      adr_title=$(echo "$slug" | tr '-' ' ' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)} 1')
-    else
-      adr_title="Untitled ADR"
-    fi
+    adr_title=$(echo "$slug" | tr '-' ' ' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)} 1')
   else
     adr_title="Untitled ADR"
   fi
