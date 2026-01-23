@@ -151,15 +151,41 @@ act pull_request \
 echo ""
 echo "==> Checking assertions..."
 
+PASS_COUNT=0
+FAIL_COUNT=0
+PASSED_ASSERTIONS=()
+FAILED_ASSERTIONS=()
+
+ASSERTION_NAME="expected log message"
+
 if grep -q "$EXPECTED_LOG" "$ACT_OUTPUT"; then
   echo "✅ PASS: Found expected log message: '$EXPECTED_LOG'"
+  PASS_COUNT=$((PASS_COUNT + 1))
+  PASSED_ASSERTIONS+=("$ASSERTION_NAME")
   EXIT_CODE=0
 else
   echo "❌ FAIL: Did not find expected log message: '$EXPECTED_LOG'"
+  FAIL_COUNT=$((FAIL_COUNT + 1))
+  FAILED_ASSERTIONS+=("$ASSERTION_NAME")
   echo ""
   echo "--- Captured output ---"
   cat "$ACT_OUTPUT"
   EXIT_CODE=1
+fi
+
+echo ""
+echo "==> Test summary"
+echo "    Passed: $PASS_COUNT"
+echo "    Failed: $FAIL_COUNT"
+if [ ${#PASSED_ASSERTIONS[@]} -gt 0 ]; then
+  echo "    Passed assertions: ${PASSED_ASSERTIONS[*]}"
+else
+  echo "    Passed assertions: None"
+fi
+if [ ${#FAILED_ASSERTIONS[@]} -gt 0 ]; then
+  echo "    Failed assertions: ${FAILED_ASSERTIONS[*]}"
+else
+  echo "    Failed assertions: None"
 fi
 
 rm -f "$ACT_OUTPUT"
