@@ -90,7 +90,7 @@ jobs:
 
     - name: Create and push placeholder to main
       if: steps.detect.outputs.has_new_adrs == 'true' && steps.process.outputs.has_conflict != 'true'
-      uses: jmmaloney4/toolbox/.github/actions/create-adr-placeholder@main
+      uses: ./.github/actions/create-adr-placeholder
       with:
         adr_files: /tmp/new_adrs.txt
         pr_url: ${{ github.event.pull_request.html_url }}
