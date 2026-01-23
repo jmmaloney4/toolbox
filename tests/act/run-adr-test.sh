@@ -12,7 +12,6 @@ EVENT_FILE="$SCRIPT_DIR/.pr-event.json"  # Generated, gitignored
 TEST_BRANCH="test/act-adr-integration-$$"
 DESIGNS_DIR="docs/internal/designs"
 RUNNER_IMAGE="catthehacker/ubuntu:act-latest"
-SKIP_CHECKOUT="${SKIP_CHECKOUT:-true}"
 
 #############################################
 # Cleanup trap
@@ -68,7 +67,8 @@ case "$SCENARIO" in
     git add "$TEST_FILE"
     git commit -m "test: add conflicting ADR $EXISTING_NUM for act test" >/dev/null
     TEST_SHA=$(git rev-parse HEAD)
-    EXPECTED_LOG="CONFLICT: ADR number $EXISTING_NUM already exists"
+    # New workflow outputs: "CONFLICT: ADR XXX already exists on main: path/to/file"
+    EXPECTED_LOG="CONFLICT: ADR $EXISTING_NUM already exists on main:"
     ;;
   
   success)
@@ -81,17 +81,19 @@ case "$SCENARIO" in
     git add "$TEST_FILE"
     git commit -m "test: add new ADR $NEXT_NUM for act test" >/dev/null
     TEST_SHA=$(git rev-parse HEAD)
-    EXPECTED_LOG="OK: ADR number $NEXT_NUM is available"
+    # New workflow outputs: "Created placeholder: path/to/file" from script.sh
+    EXPECTED_LOG="Created placeholder:"
     ;;
   
   no-adr)
-    echo "==> Scenario: No new ADR files"
+    echo "==> Scenario: No new ADR files (modify existing)"
     # Touch a non-ADR file in designs
     echo "<!-- updated -->" >> "$DESIGNS_DIR/000-adr-template.md"
     git add "$DESIGNS_DIR/000-adr-template.md"
     git commit -m "test: modify template without adding new ADR" >/dev/null
     TEST_SHA=$(git rev-parse HEAD)
-    EXPECTED_LOG="No new ADR files found"
+    # New workflow outputs nothing special, just sets has_new_adrs=false
+    EXPECTED_LOG="has_new_adrs=false"
     ;;
   
   *)
@@ -103,8 +105,6 @@ esac
 #############################################
 # Generate event JSON
 #############################################
-# For local act testing, always use the test commit SHA
-# This ensures act works with local repository state
 HEAD_SHA="$TEST_SHA"
 HEAD_REF="$TEST_BRANCH"
 
@@ -122,18 +122,16 @@ echo ""
 echo "==> Running act..."
 echo "    Workflow: $WORKFLOW"
 echo "    Image: $RUNNER_IMAGE"
+echo "    Scenario: $SCENARIO"
 echo ""
 
 # Capture output for assertion
 ACT_OUTPUT=$(mktemp)
 
 # Run act
-# --artifact-server-path: disable artifact server (not needed)
 # -j manage-adrs: run only this job
 # -v: verbose output for debugging
 # --container-architecture: explicitly set architecture for M-series Macs
-# -C: use current directory as workspace (sets GITHUB_WORKSPACE)
-# act automatically sets ACT=true, which skips checkout in the workflow
 # We expect gh/git push to fail (no real remote), but we verify the logic ran
 act pull_request \
   -W "$WORKFLOW" \
@@ -156,37 +154,74 @@ FAIL_COUNT=0
 PASSED_ASSERTIONS=()
 FAILED_ASSERTIONS=()
 
-ASSERTION_NAME="expected log message"
+# Assertion 1: Expected log message for the scenario
+ASSERTION_NAME="expected log message for $SCENARIO scenario"
 
 if grep -q "$EXPECTED_LOG" "$ACT_OUTPUT"; then
   echo "✅ PASS: Found expected log message: '$EXPECTED_LOG'"
   PASS_COUNT=$((PASS_COUNT + 1))
   PASSED_ASSERTIONS+=("$ASSERTION_NAME")
-  EXIT_CODE=0
 else
   echo "❌ FAIL: Did not find expected log message: '$EXPECTED_LOG'"
   FAIL_COUNT=$((FAIL_COUNT + 1))
   FAILED_ASSERTIONS+=("$ASSERTION_NAME")
-  echo ""
-  echo "--- Captured output ---"
-  cat "$ACT_OUTPUT"
-  EXIT_CODE=1
 fi
 
+# Assertion 2: For conflict scenario, verify gh pr comment was attempted
+if [ "$SCENARIO" = "conflict" ]; then
+  ASSERTION_NAME="gh pr comment attempted"
+  if grep -q "gh pr comment" "$ACT_OUTPUT"; then
+    echo "✅ PASS: gh pr comment was attempted"
+    PASS_COUNT=$((PASS_COUNT + 1))
+    PASSED_ASSERTIONS+=("$ASSERTION_NAME")
+  else
+    echo "❌ FAIL: gh pr comment was not attempted"
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+    FAILED_ASSERTIONS+=("$ASSERTION_NAME")
+  fi
+fi
+
+# Assertion 3: For success scenario, verify git push was attempted
+if [ "$SCENARIO" = "success" ]; then
+  ASSERTION_NAME="git push to main attempted"
+  if grep -q "git push origin main" "$ACT_OUTPUT"; then
+    echo "✅ PASS: git push to main was attempted"
+    PASS_COUNT=$((PASS_COUNT + 1))
+    PASSED_ASSERTIONS+=("$ASSERTION_NAME")
+  else
+    echo "❌ FAIL: git push to main was not attempted"
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+    FAILED_ASSERTIONS+=("$ASSERTION_NAME")
+  fi
+fi
+
+#############################################
+# Summary
+#############################################
 echo ""
 echo "==> Test summary"
+echo "    Scenario: $SCENARIO"
 echo "    Passed: $PASS_COUNT"
 echo "    Failed: $FAIL_COUNT"
 if [ ${#PASSED_ASSERTIONS[@]} -gt 0 ]; then
-  echo "    Passed assertions: ${PASSED_ASSERTIONS[*]}"
-else
-  echo "    Passed assertions: None"
+  echo "    Passed assertions:"
+  for assertion in "${PASSED_ASSERTIONS[@]}"; do
+    echo "      - $assertion"
+  done
 fi
 if [ ${#FAILED_ASSERTIONS[@]} -gt 0 ]; then
-  echo "    Failed assertions: ${FAILED_ASSERTIONS[*]}"
-else
-  echo "    Failed assertions: None"
+  echo "    Failed assertions:"
+  for assertion in "${FAILED_ASSERTIONS[@]}"; do
+    echo "      - $assertion"
+  done
+  echo ""
+  echo "--- Captured output (last 100 lines) ---"
+  tail -100 "$ACT_OUTPUT"
 fi
 
 rm -f "$ACT_OUTPUT"
-exit $EXIT_CODE
+
+if [ $FAIL_COUNT -gt 0 ]; then
+  exit 1
+fi
+exit 0
