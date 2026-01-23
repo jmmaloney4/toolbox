@@ -24,8 +24,15 @@ while IFS= read -r adr_file; do
   [ -z "$adr_file" ] && continue
 
   # Security: Prevent path traversal and validate path
-  if echo "$adr_file" | grep -q '\.\.' || [[ ! "$adr_file" =~ ^docs/internal/designs/ ]]; then
-    echo "Error: Invalid or unsafe ADR file path: $adr_file" >&2
+  if echo "$adr_file" | grep -q '\.\.'; then
+    echo "Error: Unsafe ADR file path (contains '..'): $adr_file" >&2
+    continue
+  fi
+  
+  # Validate path is within repository bounds and doesn't start with /
+  if [[ "$adr_file" =~ ^/ ]] || [[ ! "$adr_file" =~ ^[^/][^/]*/[^/].*\.md$ ]]; then
+    echo "Error: Invalid ADR file path format: $adr_file" >&2
+    echo "Expected: relative path to .md file (e.g., 'docs/adr/001-my-adr.md')" >&2
     continue
   fi
   adr_filename=$(basename "$adr_file")
