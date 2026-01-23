@@ -27,15 +27,12 @@ while IFS= read -r adr_file; do
     echo "Error: Invalid or unsafe ADR file path: $adr_file" >&2
     continue
   fi
-
   adr_filename=$(basename "$adr_file")
   adr_number=$(echo "$adr_filename" | grep -o '^[0-9]\{3\}' || echo "")
-
   if [ -z "$adr_number" ]; then
     echo "Warning: Could not extract ADR number from $adr_filename, skipping"
     continue
   fi
-
   # Extract title from filename (e.g., 001-my-title.md -> My Title)
   if [[ "$adr_filename" =~ ^[0-9]{3}-(.*)\.md$ ]]; then
     slug="${BASH_REMATCH[1]}"
