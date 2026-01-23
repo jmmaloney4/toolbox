@@ -3,3 +3,7 @@ tests/act/.pr-event.json
 
 .direnv/
 .pre-commit-config.yaml
+just-flake.just
+
+**/node_modules/
+**/dist/
