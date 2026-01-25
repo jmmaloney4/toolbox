@@ -15,8 +15,8 @@ git config user.name "GitHub Actions ADR Bot"
 git config user.email "actions@github.com"
 
 # Fetch latest base branch to reduce race condition window
-git fetch origin "${BASE_BRANCH}"
-git checkout "origin/${BASE_BRANCH}" -b main-placeholder
+  git fetch origin "${BASE_BRANCH}"
+  git checkout "origin/${BASE_BRANCH}" -b "${BASE_BRANCH}-placeholder"
 
 current_date=$(date -u +%Y-%m-%d)
 
@@ -30,9 +30,9 @@ while IFS= read -r adr_file; do
   fi
   
   # Validate path is within repository bounds and doesn't start with /
-  if [[ "$adr_file" =~ ^/ ]] || [[ ! "$adr_file" =~ ^[^/][^/]*/[^/].*\.md$ ]]; then
+  if [[ "$adr_file" =~ ^/ ]] || [[ ! "$adr_file" =~ ^[^/].*/[^/]+\.md$ ]]; then
     echo "Error: Invalid ADR file path format: $adr_file" >&2
-    echo "Expected: relative path to .md file (e.g., 'docs/adr/001-my-adr.md')" >&2
+    echo "Expected: relative path to .md file (e.g., 'docs/adr/001-my-adr.md' or 'docs/adr/v1/001-test.md')" >&2
     continue
   fi
   adr_filename=$(basename "$adr_file")
@@ -79,6 +79,6 @@ else
   git commit -m "Reserve ADR number(s) for PR
 
 Related PR: ${PR_URL}"
-  git push origin "main-placeholder:${BASE_BRANCH}"
+  git push origin "${BASE_BRANCH}-placeholder:${BASE_BRANCH}"
   echo "Pushed placeholder(s) to ${BASE_BRANCH}"
 fi
