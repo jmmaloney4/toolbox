@@ -29,6 +29,12 @@ while IFS= read -r adr_file; do
     continue
   fi
   
+  # Security: Prevent path traversal and validate path
+  if echo "$adr_file" | grep -q '\.\.'; then
+    echo "Error: Unsafe ADR file path (contains '..'): $adr_file" >&2
+    continue
+  fi
+  
   # Validate path is within repository bounds and doesn't start with /
   if [[ "$adr_file" =~ ^/ ]] || [[ ! "$adr_file" =~ ^[^/].*/[^/]+\.md$ ]]; then
     echo "Error: Invalid ADR file path format: $adr_file" >&2
