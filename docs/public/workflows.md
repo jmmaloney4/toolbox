@@ -305,8 +305,9 @@ jobs:
   - **pr_url**: Pull request URL (for placeholder content)
 - **Optional inputs**:
   - **runs-on**: Runner label (defaults to `ubuntu-latest`)
-  - **base_ref**: Base branch/ref to compare against (defaults to `main`)
   - **adr_glob**: ADR file glob to watch (defaults to `docs/internal/decisions/*.md`)
+  - **adr_glob**: ADR file glob to watch (defaults to `docs/internal/decisions/*.md`)
+  - **base_ref**: Base branch/ref to compare against (defaults to `main`)
 
 #### Minimal consumer workflow (copy-paste)
 
