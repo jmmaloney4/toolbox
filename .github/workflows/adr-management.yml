@@ -23,7 +23,7 @@ on:
       adr_glob:
         description: "ADR file glob to watch (relative to repo root)"
         required: false
-        default: "docs/internal/designs/*.md"
+        default: "docs/internal/decisions/*.md"
         type: string
       pr_number:
         description: 'Pull request number (required for commenting)'
