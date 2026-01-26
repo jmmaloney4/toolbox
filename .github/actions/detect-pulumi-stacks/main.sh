@@ -11,6 +11,23 @@ while IFS= read -r -d '' proj; do
   proj=$(dirname "$proj")
   # Remove ./ prefix if present for cleaner output
   proj_clean=${proj#./}
+  
+  # Check if project path matches any exclude pattern
+  if [[ -n "${IGNORE_PROJECTS:-}" ]]; then
+    # Split by comma
+    IFS=',' read -ra IGNORE_LIST <<< "$IGNORE_PROJECTS"
+    for pattern in "${IGNORE_LIST[@]}"; do
+      # Trim leading/trailing whitespace (bash parameter expansion)
+      pattern="${pattern#"${pattern%%[![:space:]]*}"}"
+      pattern="${pattern%"${pattern##*[![:space:]]}"}"
+      # Check for exact match
+      if [[ "$proj_clean" == "$pattern" ]]; then
+        echo "Skipping ignored project: $proj_clean" >&2
+        continue 2
+      fi
+    done
+  fi
+
   for stackfile in "$proj"/Pulumi.*.yaml; do
     [ -e "$stackfile" ] || continue
     # Use shell parameter expansion to robustly extract stack name
