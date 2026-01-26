@@ -19,7 +19,7 @@ while IFS= read -r -d '' proj; do
     IFS=',' read -ra IGNORE_LIST <<< "$IGNORE_PROJECTS"
     for pattern in "${IGNORE_LIST[@]}"; do
       # Trim whitespace
-      pattern=$(echo "$pattern" | xargs)
+      read -r pattern <<< "$pattern"
       # Check for exact match
       if [[ "$proj_clean" == "$pattern" ]]; then
         skip=1
