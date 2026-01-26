@@ -84,10 +84,11 @@ done < "$ADR_FILES"
 if git diff --cached --quiet; then
   echo "No changes to commit"
 else
+  # Join numbers with commas for commit message
+  joined_numbers=$(IFS=, ; echo "${created_numbers[*]}")
+
   if [ -z "$COMMIT_MESSAGE" ]; then
     # Generate conventional commit message
-    # Join numbers with commas
-    joined_numbers=$(IFS=, ; echo "${created_numbers[*]}")
 
     if [ -n "$PR_NUMBER" ]; then
       subject="chore(docs): reserve ADR ${joined_numbers} for PR #${PR_NUMBER}"
@@ -100,7 +101,6 @@ else
 Related PR: ${PR_URL}"
   else
     # Replace {{adr_numbers}} placeholder in custom message
-    joined_numbers=$(IFS=, ; echo "${created_numbers[*]}")
     COMMIT_MESSAGE="${COMMIT_MESSAGE//\{\{adr_numbers\}\}/$joined_numbers}"
   fi
 
