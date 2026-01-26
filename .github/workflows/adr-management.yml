@@ -21,9 +21,9 @@ on:
         default: main
         type: string
       adr_glob:
-        description: "ADR file glob to watch (relative to repo root)"
+        description: 'ADR file glob to watch (relative to repo root)'
+        default: "docs/internal/designs/*.md"
         required: false
-        default: "docs/internal/decisions/*.md"
         type: string
       pr_number:
         description: 'Pull request number (required for commenting)'
