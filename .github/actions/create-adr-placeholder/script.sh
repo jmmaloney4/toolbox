@@ -24,15 +24,18 @@ while IFS= read -r adr_file; do
   [ -z "$adr_file" ] && continue
 
   # Security: Prevent path traversal and validate path
-  if [[ "$adr_file" == *'..'* ]]; then
-    echo "Error: Unsafe ADR file path (contains '..'): $adr_file" >&2
+  # 1. Prevent directory traversal (../) anywhere in path
+  if [[ "$adr_file" =~ (^|/)\.\.(/|$) ]]; then
+    printf "Error: Unsafe ADR file path (contains '..'): %s\n" "$adr_file" >&2
     continue
   fi
   
-  # Validate path is within repository bounds
-  if [[ ! "$adr_file" =~ ^[^/].*/[^/]+\.md$ ]]; then
-    echo "Error: Invalid ADR file path format: $adr_file" >&2
-    echo "Expected: relative path to .md file (e.g., 'docs/adr/001-my-adr.md' or 'docs/adr/v1/001-test.md')" >&2
+  # 2. Must be a relative path to a markdown file (optionally with directories)
+  # Regex allows: 'foo.md', 'dir/foo.md', 'dir/subdir/foo.md'
+  # Rejects: '/foo.md' (absolute), 'foo.txt' (wrong extension)
+  if [[ "$adr_file" =~ ^/ ]] || [[ ! "$adr_file" =~ ^([^/].*/)*[^/]+\.md$ ]]; then
+    printf "Error: Invalid ADR file path format: %s\n" "$adr_file" >&2
+    printf "Expected: relative path to .md file (e.g., 'docs/adr/001.md')\n" >&2
     continue
   fi
   adr_filename=$(basename "$adr_file")

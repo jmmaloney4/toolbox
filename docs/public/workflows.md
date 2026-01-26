@@ -297,7 +297,7 @@ jobs:
 
 - **Path**: `.github/workflows/adr-management.yml` (callable-only)
 - **Purpose**: Reserve ADR numbers by creating placeholder ADR files on the base branch and comment on PRs when ADR numbers conflict
-- **Important**: This workflow runs under `workflow_call`, so the caller must pass PR context (`pr_number`, `pr_url`, `base_ref`, and the PR head `ref`).
+- **Important**: This workflow runs under `workflow_call`, so the caller must pass PR context (`pr_number`, `pr_url`, and the PR head `ref`).
 - **Required inputs**:
   - **repository**: Repository to checkout (`owner/repo`), typically `${{ github.repository }}`
   - **ref**: PR head SHA or ref to operate on (recommended: `${{ github.event.pull_request.head.sha }}`)
