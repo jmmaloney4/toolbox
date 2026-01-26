@@ -16,8 +16,8 @@ while IFS= read -r -d '' proj; do
   if [[ -n "${IGNORE_PROJECTS:-}" ]]; then
     skip=0
     # Split by comma
-    IFS=',' read -ra ADDR <<< "$IGNORE_PROJECTS"
-    for pattern in "${ADDR[@]}"; do
+    IFS=',' read -ra IGNORE_LIST <<< "$IGNORE_PROJECTS"
+    for pattern in "${IGNORE_LIST[@]}"; do
       # Trim whitespace
       pattern=$(echo "$pattern" | xargs)
       # Check for exact match
