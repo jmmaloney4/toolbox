@@ -35,6 +35,10 @@ on:
         description: 'Whether the PR head comes from a fork'
         required: false
         type: boolean
+      ignore_projects:
+        description: 'Comma-separated list of Pulumi projects (paths) to ignore'
+        required: false
+        type: string
 jobs:
   detect-pulumi-stacks:
     name: "🧩 detect pulumi stacks"
@@ -58,6 +62,8 @@ jobs:
       - name: Detect all (project, stack) pairs
         id: set-matrix
         uses: jmmaloney4/toolbox/.github/actions/detect-pulumi-stacks@main
+        with:
+          ignore_projects: ${{ inputs.ignore_projects }}
   pulumi-preview-and-deploy:
     name: "🔍☁️ pulumi preview + deploy"
     needs: detect-pulumi-stacks
