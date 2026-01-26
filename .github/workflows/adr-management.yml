@@ -1,107 +1,142 @@
 name: ADR Management
-
-
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-    paths:
-      - 'docs/internal/designs/*.md'
-
+  workflow_call:
+    inputs:
+      runs-on:
+        description: 'Runner label for all jobs'
+        required: false
+        default: ubuntu-latest
+        type: string
+      repository:
+        description: 'Repository to checkout and operate on (owner/repo)'
+        required: true
+        type: string
+      ref:
+        description: 'Git ref (SHA/branch) to checkout and operate on'
+        required: true
+        type: string
+      base_ref:
+        description: 'Base branch/ref to compare against (e.g., main)'
+        required: false
+        default: main
+        type: string
+      adr_glob:
+        description: 'ADR file glob to watch (relative to repo root)'
+        default: "docs/internal/designs/*.md"
+        required: false
+        type: string
+      pr_number:
+        description: 'Pull request number (required for commenting)'
+        required: true
+        type: number
+      pr_url:
+        description: 'Pull request URL (used in placeholder content)'
+        required: true
+        type: string
 permissions:
   contents: write
   pull-requests: write
-
 jobs:
   manage-adrs:
     name: ADR Management
     if: github.actor != 'github-actions[bot]'
-    runs-on: ubuntu-latest
-
+    runs-on: ${{ inputs.runs-on }}
     steps:
-    - name: Checkout PR branch
-      uses: actions/checkout@v4
-      with:
-        ref: ${{ github.event.pull_request.head.sha }}
-        fetch-depth: 0
-
-    - name: Fetch main branch
-      run: |
-        git fetch origin main
-        git checkout main
-        git checkout -
-
-    - name: Detect new ADR files
-      id: detect
-      run: |
-        NEW_ADRS=$(git diff --name-only --diff-filter=A main..HEAD -- 'docs/internal/designs/*.md' || true)
-        if [ -z "$NEW_ADRS" ]; then
-          echo "has_new_adrs=false" >> $GITHUB_OUTPUT
-          exit 0
-        fi
-        echo "has_new_adrs=true" >> $GITHUB_OUTPUT
-        echo "$NEW_ADRS" > /tmp/new_adrs.txt
-        echo "New ADR files:"
-        cat /tmp/new_adrs.txt
-
-    - name: Check for conflicts and process ADRs
-      if: steps.detect.outputs.has_new_adrs == 'true'
-      id: process
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        PR_NUMBER: ${{ github.event.pull_request.number }}
-        PR_URL: ${{ github.event.pull_request.html_url }}
-      run: |
-        set -euo pipefail
-
-        has_conflict=false
-        conflict_messages=""
-        seen_numbers=""
-
-        while IFS= read -r adr_file; do
-          [ -z "$adr_file" ] && continue
-
-          adr_filename=$(basename "$adr_file")
-          adr_number=$(echo "$adr_filename" | grep -o '^[0-9]\{3\}' || echo "")
-
-          if [ -z "$adr_number" ]; then
-            echo "Warning: Could not extract ADR number from $adr_filename"
-            continue
+      - name: Checkout repository
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          repository: ${{ inputs.repository }}
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+      - name: Fetch base branch
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "${{ inputs.base_ref }}"
+      - name: Detect new ADR files
+        id: detect
+        env:
+          ADR_GLOB: ${{ inputs.adr_glob }}
+          BASE_REF: ${{ inputs.base_ref }}
+        run: |
+          set -euo pipefail
+          NEW_ADRS=$(git diff --name-only --diff-filter=A "origin/${BASE_REF}..HEAD" -- "$ADR_GLOB" || true)
+          if [ -z "$NEW_ADRS" ]; then
+            echo "has_new_adrs=false" >> $GITHUB_OUTPUT
+            exit 0
           fi
+          echo "has_new_adrs=true" >> $GITHUB_OUTPUT
+          echo "$NEW_ADRS" > /tmp/new_adrs.txt
+          echo "New ADR files:"
+          cat /tmp/new_adrs.txt
+      - name: Check for conflicts and process ADRs
+        if: steps.detect.outputs.has_new_adrs == 'true'
+        id: process
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ inputs.repository }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          PR_URL: ${{ inputs.pr_url }}
+          BASE_REF: ${{ inputs.base_ref }}
+          ADR_GLOB: ${{ inputs.adr_glob }}
+        run: |
+          set -euo pipefail
 
-          # Check for duplicate within this PR
-          if [[ ",$seen_numbers," == *",$adr_number,"* ]]; then
-            echo "DUPLICATE: ADR $adr_number appears multiple times in this PR"
-            has_conflict=true
-            conflict_messages="${conflict_messages}- \`${adr_file}\` uses number \`${adr_number}\` which is duplicated in this PR\n"
+          has_conflict=false
+          conflict_messages=""
+          seen_numbers=""
+
+          while IFS= read -r adr_file; do
+            [ -z "$adr_file" ] && continue
+
+            adr_filename=$(basename "$adr_file")
+            adr_number=$(echo "$adr_filename" | grep -o '^[0-9]\{3\}' || echo "")
+
+            if [ -z "$adr_number" ]; then
+              echo "Warning: Could not extract ADR number from $adr_filename"
+              continue
+            fi
+
+            # Check for duplicate within this PR
+            if [[ ",$seen_numbers," == *",$adr_number,"* ]]; then
+              echo "DUPLICATE: ADR $adr_number appears multiple times in this PR"
+              has_conflict=true
+              conflict_messages="${conflict_messages}- \`${adr_file}\` uses number \`${adr_number}\` which is duplicated in this PR\n"
+            fi
+            seen_numbers="${seen_numbers},${adr_number}"
+            # Check if this number already exists on the base branch
+            # Use ls-tree with the glob to find all relevant files, then grep for the specific number
+            # This handles both 001.md and 001-title.md patterns and avoids directory assumptions
+            existing=$(git ls-tree -r --name-only "origin/${BASE_REF}" -- "$ADR_GLOB" 2>/dev/null | grep -E "(^|/)${adr_number}([^0-9]|$)" | head -1 || true)
+
+            if [ -n "$existing" ]; then
+              echo "CONFLICT: ADR $adr_number already exists on ${BASE_REF}: $existing"
+              has_conflict=true
+              conflict_messages="${conflict_messages}- \`${adr_file}\` uses number \`${adr_number}\` which conflicts with \`${existing}\`\n"
+            fi
+          done < /tmp/new_adrs.txt
+
+          if [ "$has_conflict" = "true" ]; then
+            echo "has_conflict=true" >> $GITHUB_OUTPUT
+
+            # Post a simple comment about conflict
+            cat <<EOF > /tmp/conflict_comment.md
+          ## ⚠️ ADR Number Conflict
+
+          One or more ADR files in this PR use numbers that already exist on base branch \`${BASE_REF}\`:
+
+          $(echo -e "$conflict_messages")
+
+          Please rename your ADR file(s) to use an available number.
+          EOF
+            
+            gh pr comment "$PR_NUMBER" --body-file /tmp/conflict_comment.md
+            exit 0
           fi
-          seen_numbers="${seen_numbers},${adr_number}"
-          # Check if this number already exists on main
-          if git ls-tree main --name-only -- "docs/internal/designs/${adr_number}-"*.md 2>/dev/null | grep -q .; then
-            existing=$(git ls-tree main --name-only -- "docs/internal/designs/${adr_number}-"*.md | head -1)
-            echo "CONFLICT: ADR $adr_number already exists on main: $existing"
-            has_conflict=true
-            conflict_messages="${conflict_messages}- \`${adr_file}\` uses number \`${adr_number}\` which conflicts with \`${existing}\`\n"
-          fi
-        done < /tmp/new_adrs.txt
-
-        if [ "$has_conflict" = "true" ]; then
-          echo "has_conflict=true" >> $GITHUB_OUTPUT
-
-          # Post a simple comment about conflict
-          gh pr comment "$PR_NUMBER" --body "## ⚠️ ADR Number Conflict
-
-        One or more ADR files in this PR use numbers that already exist on main branch:
-
-        $(echo -e "$conflict_messages")
-
-        Please rename your ADR file(s) to use an available number."
-          exit 0
-        fi
-        echo "has_conflict=false" >> $GITHUB_OUTPUT
-
-    - name: Create and push placeholder to main
-      if: steps.detect.outputs.has_new_adrs == 'true' && steps.process.outputs.has_conflict != 'true'
-      uses: ./.github/actions/create-adr-placeholder
-      with:
-        adr_files: /tmp/new_adrs.txt
-        pr_url: ${{ github.event.pull_request.html_url }}
+          echo "has_conflict=false" >> $GITHUB_OUTPUT
+      - name: Create and push placeholder to main
+        if: steps.detect.outputs.has_new_adrs == 'true' && steps.process.outputs.has_conflict != 'true'
+        uses: jmmaloney4/toolbox/.github/actions/create-adr-placeholder@main
+        with:
+          adr_files: /tmp/new_adrs.txt
+          pr_url: ${{ inputs.pr_url }}
+          base_branch: ${{ inputs.base_ref }}

@@ -3,6 +3,7 @@ set -euo pipefail
 
 ADR_FILES="${ADR_FILES:?ADR_FILES env var is required}"
 PR_URL="${PR_URL:?PR_URL env var is required}"
+BASE_BRANCH="${BASE_BRANCH:-main}"
 
 if [ ! -f "$ADR_FILES" ]; then
   echo "Error: ADR_FILES '$ADR_FILES' does not exist" >&2
@@ -13,9 +14,9 @@ fi
 git config user.name "GitHub Actions ADR Bot"
 git config user.email "actions@github.com"
 
-# Fetch latest main to reduce race condition window
-git fetch origin main
-git checkout origin/main -b main-placeholder
+# Fetch latest base branch to reduce race condition window
+git fetch origin "${BASE_BRANCH}"
+git checkout "origin/${BASE_BRANCH}" -b "${BASE_BRANCH}-placeholder"
 
 current_date=$(date -u +%Y-%m-%d)
 
@@ -23,8 +24,18 @@ while IFS= read -r adr_file; do
   [ -z "$adr_file" ] && continue
 
   # Security: Prevent path traversal and validate path
-  if echo "$adr_file" | grep -q '\.\.' || [[ ! "$adr_file" =~ ^docs/internal/designs/ ]]; then
-    echo "Error: Invalid or unsafe ADR file path: $adr_file" >&2
+  # 1. Prevent directory traversal (../) anywhere in path
+  if [[ "$adr_file" =~ (^|/)\.\.(/|$) ]]; then
+    printf "Error: Unsafe ADR file path (contains '..'): %s\n" "$adr_file" >&2
+    continue
+  fi
+  
+  # 2. Must be a relative path to a markdown file (optionally with directories)
+  # Regex allows: 'foo.md', 'dir/foo.md', 'dir/subdir/foo.md'
+  # Rejects: '/foo.md' (absolute), 'foo.txt' (wrong extension)
+  if [[ "$adr_file" =~ ^/ ]] || [[ ! "$adr_file" =~ ^([^/].*/)*[^/]+\.md$ ]]; then
+    printf "Error: Invalid ADR file path format: %s\n" "$adr_file" >&2
+    printf "Expected: relative path to .md file (e.g., 'docs/adr/001.md')\n" >&2
     continue
   fi
   adr_filename=$(basename "$adr_file")
@@ -71,6 +82,6 @@ else
   git commit -m "Reserve ADR number(s) for PR
 
 Related PR: ${PR_URL}"
-  git push origin main-placeholder:main
-  echo "Pushed placeholder(s) to main"
+  git push origin "${BASE_BRANCH}-placeholder:${BASE_BRANCH}"
+  echo "Pushed placeholder(s) to ${BASE_BRANCH}"
 fi
