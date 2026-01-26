@@ -18,8 +18,9 @@ while IFS= read -r -d '' proj; do
     # Split by comma
     IFS=',' read -ra IGNORE_LIST <<< "$IGNORE_PROJECTS"
     for pattern in "${IGNORE_LIST[@]}"; do
-      # Trim whitespace
-      read -r pattern <<< "$pattern"
+      # Trim leading/trailing whitespace (bash parameter expansion)
+      pattern="${pattern#"${pattern%%[![:space:]]*}"}"
+      pattern="${pattern%"${pattern##*[![:space:]]}"}"
       # Check for exact match
       if [[ "$proj_clean" == "$pattern" ]]; then
         skip=1
