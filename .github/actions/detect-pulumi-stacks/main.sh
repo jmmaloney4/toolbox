@@ -14,7 +14,6 @@ while IFS= read -r -d '' proj; do
   
   # Check if project path matches any exclude pattern
   if [[ -n "${IGNORE_PROJECTS:-}" ]]; then
-    skip=0
     # Split by comma
     IFS=',' read -ra IGNORE_LIST <<< "$IGNORE_PROJECTS"
     for pattern in "${IGNORE_LIST[@]}"; do
@@ -23,14 +22,10 @@ while IFS= read -r -d '' proj; do
       pattern="${pattern%"${pattern##*[![:space:]]}"}"
       # Check for exact match
       if [[ "$proj_clean" == "$pattern" ]]; then
-        skip=1
-        break
+        echo "Skipping ignored project: $proj_clean" >&2
+        continue 2
       fi
     done
-    if [[ $skip -eq 1 ]]; then
-      echo "Skipping ignored project: $proj_clean" >&2
-      continue
-    fi
   fi
 
   for stackfile in "$proj"/Pulumi.*.yaml; do
