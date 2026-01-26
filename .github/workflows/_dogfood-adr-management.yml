@@ -1,4 +1,4 @@
-name: ADR Management (dogfood)
+name: 📝 adr (dogfood)
 
 on:
   pull_request:

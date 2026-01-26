@@ -1,4 +1,4 @@
-name: ADR Management
+name: 📝 adr
 on:
   workflow_call:
     inputs:
