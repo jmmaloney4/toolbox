@@ -8,6 +8,12 @@ inputs:
   pr_url:
     description: The pull request URL
     required: true
+  pr_number:
+    description: The pull request number (optional, used for commit message)
+    required: false
+  commit_message:
+    description: Custom commit message (optional). Use {{adr_numbers}} placeholder.
+    required: false
   base_branch:
     description: Base branch to reserve ADR numbers on (e.g., main)
     required: false
@@ -21,4 +27,6 @@ runs:
     env:
       ADR_FILES: ${{ inputs.adr_files }}
       PR_URL: ${{ inputs.pr_url }}
+      PR_NUMBER: ${{ inputs.pr_number }}
+      COMMIT_MESSAGE: ${{ inputs.commit_message }}
       BASE_BRANCH: ${{ inputs.base_branch }}

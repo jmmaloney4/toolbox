@@ -33,6 +33,10 @@ on:
         description: 'Pull request URL (used in placeholder content)'
         required: true
         type: string
+      commit_message:
+        description: 'Custom commit message for reservation (optional). Use {{adr_numbers}} placeholder.'
+        required: false
+        type: string
 permissions:
   contents: write
   pull-requests: write
@@ -85,4 +89,6 @@ jobs:
         with:
           adr_files: /tmp/new_adrs.txt
           pr_url: ${{ inputs.pr_url }}
+          pr_number: ${{ inputs.pr_number }}
+          commit_message: ${{ inputs.commit_message }}
           base_branch: ${{ inputs.base_ref }}
