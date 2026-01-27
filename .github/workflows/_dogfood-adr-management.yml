@@ -1,15 +1,12 @@
 name: 📝 adr (dogfood)
-
 on:
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
       - 'docs/internal/designs/*.md'
-
 permissions:
   contents: write
   pull-requests: write
-
 jobs:
   adr-management:
     if: github.actor != 'github-actions[bot]'
