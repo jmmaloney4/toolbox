@@ -12,7 +12,7 @@
       inputs.dream2nix.follows = "dream2nix";
     };
 
-    dream2nix.url = "github:nix-community/dream2nix";
+    dream2nix.url = "github:nix-community/dream2nix/legacy";
 
     ### Flake / Project Inputs ###
     flake-parts = {
