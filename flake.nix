@@ -37,8 +37,7 @@
       ];
 
       jackpkgs.pulumi.enable = false;
-
-      jackpkgs.nodejs.packages.sector7 = ./packages/sector7;
+      jackpkgs.nodejs.enable = true;
 
       perSystem = {
         config,
