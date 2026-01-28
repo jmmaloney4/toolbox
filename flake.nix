@@ -26,6 +26,7 @@
     self,
     nixpkgs,
     jackpkgs,
+    dream2nix,
     flake-parts,
     systems,
   } @ inputs:
