@@ -9,7 +9,10 @@
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.flake-parts.follows = "flake-parts";
       inputs.systems.follows = "systems";
+      inputs.dream2nix.follows = "dream2nix";
     };
+
+    dream2nix.url = "github:nix-community/dream2nix";
 
     ### Flake / Project Inputs ###
     flake-parts = {
