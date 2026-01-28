@@ -1,5 +1,5 @@
 import * as pulumi from "@pulumi/pulumi";
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect } from "vitest";
 
 // Mock Pulumi runtime before importing the component
 pulumi.runtime.setMocks({
