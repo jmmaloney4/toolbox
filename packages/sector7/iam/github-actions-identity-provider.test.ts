@@ -15,17 +15,19 @@ pulumi.runtime.setMocks({
 			};
 		}
 		if (args.type === "gcp:iam/workloadIdentityPool:WorkloadIdentityPool") {
+			const poolId = args.inputs.workloadIdentityPoolId;
 			state = {
 				...state,
-				workloadIdentityPoolId: "projects/test-project/locations/global/workloadIdentityPools/test-pool",
-				name: "projects/test-project/locations/global/workloadIdentityPools/test-pool",
+				workloadIdentityPoolId: poolId,
+				name: `projects/test-project/locations/global/workloadIdentityPools/${poolId}`,
 			};
 		}
 		if (args.type === "gcp:iam/workloadIdentityPoolProvider:WorkloadIdentityPoolProvider") {
 			const providerId = args.inputs.workloadIdentityPoolProviderId;
+			const poolId = args.inputs.workloadIdentityPoolId;
 			state = {
 				...state,
-				name: `projects/test-project/locations/global/workloadIdentityPools/test-pool/providers/${providerId}`,
+				name: `projects/test-project/locations/global/workloadIdentityPools/${poolId}/providers/${providerId}`,
 			};
 		}
 		return {
