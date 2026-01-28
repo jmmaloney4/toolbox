@@ -59,8 +59,11 @@ describe("GithubActionsWorkloadIdentityProvider", () => {
 			},
 		});
 
-		// Verify Service Account Email
-		const saEmail = await new Promise<string>(resolve => provider.serviceAccountEmail.apply(resolve));
+		// Verify Service Account Email and Provider Resource Name
+		const [saEmail, providerResource] = await new Promise<[string, string]>(resolve =>
+			pulumi.all([provider.serviceAccountEmail, provider.workloadIdentityProviderResource]).apply(resolve)
+		);
+
 		expect(saEmail).toBeDefined();
 		// Expect sa-{owner}-{repo}-{stack} format (stack is 'test' in mocks usually, or whatever pulumi.getStack() returns)
 		// We'll check for the owner/repo part which is most critical
@@ -68,7 +71,6 @@ describe("GithubActionsWorkloadIdentityProvider", () => {
 		expect(saEmail).toMatch(/@test-project\.iam\.gserviceaccount\.com$/);
 
 		// Verify Provider Resource Name
-		const providerResource = await new Promise<string>(resolve => provider.workloadIdentityProviderResource.apply(resolve));
 		expect(providerResource).toBeDefined();
 		// Expect provider-{owner}-{repo}-{stack} format
 		expect(providerResource).toContain("provider-jmmaloney4-toolbox-");
