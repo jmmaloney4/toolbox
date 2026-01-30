@@ -238,7 +238,7 @@ export class WorkerSite extends pulumi.ComponentResource {
 			? pulumi.output(args.r2Bucket.prefix)
 			: undefined;
 		const scriptContent = prefix
-			? prefix.apply((p) => generateWorkerScript(bucketBinding, p))
+			? prefix.apply((p: string) => generateWorkerScript(bucketBinding, p))
 			: generateWorkerScript(bucketBinding);
 
 		this.worker = new cloudflare.WorkersScript(
@@ -255,7 +255,7 @@ export class WorkerSite extends pulumi.ComponentResource {
 					},
 					{
 						name: "CACHE_TTL_SECONDS",
-						text: pulumi.output(cacheTtl).apply((ttl) => ttl.toString()),
+						text: pulumi.output(cacheTtl).apply((ttl: number) => ttl.toString()),
 						type: "plain_text",
 					},
 				],
@@ -331,7 +331,7 @@ export class WorkerSite extends pulumi.ComponentResource {
 									args.githubIdentityProviderId,
 								])
 								.apply(
-									([orgs, idpId]) =>
+									([orgs, idpId]: [string[], string]) =>
 										orgs.map((org) => ({
 											github: {
 												identityProviderId: idpId,
@@ -349,7 +349,7 @@ export class WorkerSite extends pulumi.ComponentResource {
 						name: pulumi
 							.all([args.name, domain, pathConfig.pattern])
 							.apply(
-								([n, d, p]) =>
+								([n, d, p]: [string, string, string]) =>
 									`${n}-${d}-${p.replace(/\//g, "-").replace(/\*/g, "all")}`,
 							),
 						domain: pulumi.interpolate`${domain}${pathConfig.pattern}`,
@@ -376,15 +376,5 @@ export class WorkerSite extends pulumi.ComponentResource {
 		// Outputs
 		this.boundDomains = pulumi.output(args.domains);
 		this.workerName = this.worker.scriptName;
-
-		this.registerOutputs({
-			bucket: this.bucket,
-			worker: this.worker,
-			workerDomains: this.workerDomains,
-			dnsRecords: this.dnsRecords,
-			accessApplications: this.accessApplications,
-			boundDomains: this.boundDomains,
-			workerName: this.workerName,
-		});
 	}
 }

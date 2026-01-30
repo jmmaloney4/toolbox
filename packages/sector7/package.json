@@ -32,15 +32,20 @@
 		"test": "vitest run",
 		"prepack": "npm run build"
 	},
-	"peerDependencies": {
-		"@pulumi/pulumi": "^3.0.0",
-		"@pulumi/cloudflare": "^5.0.0 || ^6.0.0",
-		"@pulumi/gcp": "^9.0.0"
-	},
-	"devDependencies": {
+	"dependencies": {
 		"@pulumi/pulumi": "^3.205.0",
 		"@pulumi/cloudflare": "^6.0.0",
-		"@pulumi/gcp": "^9.3.0",
-		"vitest": "^1.0.0"
+		"@pulumi/gcp": "^9.3.0"
+	},
+	"peerDependencies": {
+		"@pulumi/pulumi": "^3.0.0",
+		"@pulumi/cloudflare": "^4.16.0",
+		"@pulumi/gcp": "^6.67.0"
+	},
+	"devDependencies": {
+		"@types/node": "^22.19.3",
+		"rimraf": "^6.1.0",
+		"typescript": "^5.9.2",
+		"vitest": "^1.3.1"
 	}
 }

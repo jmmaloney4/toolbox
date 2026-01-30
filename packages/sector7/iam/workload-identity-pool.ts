@@ -69,10 +69,5 @@ export class WorkloadIdentityPoolResource extends pulumi.ComponentResource {
 		this.name = pool.name as pulumi.Output<string>;
 		this.workloadIdentityPoolId =
 			pool.workloadIdentityPoolId as pulumi.Output<string>;
-
-		this.registerOutputs({
-			name: this.name,
-			workloadIdentityPoolId: this.workloadIdentityPoolId,
-		});
 	}
 }

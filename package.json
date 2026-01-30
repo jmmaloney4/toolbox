@@ -8,6 +8,11 @@
 		"build": "cd packages/sector7 && npm run build",
 		"clean": "cd packages/sector7 && npm run clean"
 	},
+	"dependencies": {
+		"@pulumi/pulumi": "^3.205.0",
+		"@pulumi/cloudflare": "^6.0.0",
+		"@pulumi/gcp": "^9.3.0"
+	},
 	"devDependencies": {
 		"typescript": "^5.9.2",
 		"rimraf": "^6.1.0",
