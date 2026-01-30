@@ -4,12 +4,9 @@
 	"version": "0.3.3",
 	"description": "Toolbox monorepo",
 	"license": "MPL-2.0",
-	"workspaces": [
-		"packages/*"
-	],
 	"scripts": {
-		"build": "npm run build -ws",
-		"clean": "npm run clean -ws"
+		"build": "npm run build --workspace=packages/sector7",
+		"clean": "npm run clean --workspace=packages/sector7"
 	},
 	"devDependencies": {
 		"typescript": "^5.9.2",
