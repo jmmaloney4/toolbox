@@ -258,10 +258,5 @@ export class GithubActionsWorkloadIdentityProvider extends pulumi.ComponentResou
 		// Export the service account email and workload identity provider resource
 		this.serviceAccountEmail = serviceAccount.email;
 		this.workloadIdentityProviderResource = pulumi.interpolate`${provider.name}`;
-
-		this.registerOutputs({
-			serviceAccountEmail: this.serviceAccountEmail,
-			workloadIdentityProviderResource: this.workloadIdentityProviderResource,
-		});
 	}
 }
