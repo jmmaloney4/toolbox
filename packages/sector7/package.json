@@ -30,7 +30,7 @@
 		"clean": "rimraf dist",
 		"build": "tsc -p tsconfig.json",
 		"test": "vitest run",
-		"prepack": "pnpm run build"
+		"prepack": "npm run build"
 	},
 	"peerDependencies": {
 		"@pulumi/pulumi": "^3.0.0",

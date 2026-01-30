@@ -59,7 +59,6 @@
             config.jackpkgs.outputs.devShell
           ];
           buildInputs = with pkgs; [
-            pnpm
             envsubst
           ];
         };
