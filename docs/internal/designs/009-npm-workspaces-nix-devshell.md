@@ -114,3 +114,13 @@ No security or privacy implications.
 - jackpkgs ADR-020: Migrate from dream2nix to buildNpmPackage (documents `installPhase` behavior)
 - npm workspaces documentation: https://docs.npmjs.com/cli/v10/using-npm/workspaces
 - Nix `noBrokenSymlinks` check: Part of standard fixup phase
+
+# Appendix: Lockfile Maintenance
+
+**Never use `npm install --package-lock-only`** - it regenerates lockfiles without `resolved` URLs, which jackpkgs' `import-npm-lock` requires.
+
+Use standard npm commands:
+- Add: `npm install <package>`
+- Remove: `npm uninstall <package>`
+- Update: `npm update` or `npm update <package>`
+- After manual package.json edits: `npm install`
