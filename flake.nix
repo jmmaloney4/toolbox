@@ -5,14 +5,14 @@
     nixpkgs.url = "github:nixos/nixpkgs/70801e06d9730c4f1704fbd3bbf5b8e11c03a2a7"; # https://github.com/NixOS/nixpkgs/issues/483584
 
     jackpkgs = {
-      url = "github:jmmaloney4/jackpkgs";
+      url = "github:jmmaloney4/jackpkgs/buildnpmpackage";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.flake-parts.follows = "flake-parts";
       inputs.systems.follows = "systems";
-      inputs.dream2nix.follows = "dream2nix";
+      # inputs.dream2nix.follows = "dream2nix";
     };
 
-    dream2nix.url = "github:nix-community/dream2nix/legacy";
+    # dream2nix.url = "github:nix-community/dream2nix/legacy";
 
     ### Flake / Project Inputs ###
     flake-parts = {
@@ -26,7 +26,7 @@
     self,
     nixpkgs,
     jackpkgs,
-    dream2nix,
+    # dream2nix,
     flake-parts,
     systems,
   } @ inputs:
