@@ -194,15 +194,16 @@
         "uv2nix": "uv2nix"
       },
       "locked": {
-        "lastModified": 1769815597,
-        "narHash": "sha256-wckHnAftXOXAAQYRInj0dhubFaAi8Q1gU+sm7CQVyI4=",
+        "lastModified": 1769896938,
+        "narHash": "sha256-/3GSPze/woD5H4FOTJ3YI5cvpx/KTq39YVK5ACuACnA=",
         "owner": "jmmaloney4",
         "repo": "jackpkgs",
-        "rev": "f034fdebe66e2a8a0f8e7745af5b12364b0789aa",
+        "rev": "85859b88589d755ef582e0fb0cfbe0c3501b5621",
         "type": "github"
       },
       "original": {
         "owner": "jmmaloney4",
+        "ref": "npm-workspace-lockfile",
         "repo": "jackpkgs",
         "type": "github"
       }

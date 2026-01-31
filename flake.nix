@@ -5,7 +5,7 @@
     nixpkgs.url = "github:nixos/nixpkgs/70801e06d9730c4f1704fbd3bbf5b8e11c03a2a7"; # https://github.com/NixOS/nixpkgs/issues/483584
 
     jackpkgs = {
-      url = "github:jmmaloney4/jackpkgs";
+      url = "github:jmmaloney4/jackpkgs/npm-workspace-lockfile";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.flake-parts.follows = "flake-parts";
       inputs.systems.follows = "systems";
@@ -56,7 +56,6 @@
             config.jackpkgs.outputs.devShell
           ];
           buildInputs = with pkgs; [
-            pnpm
             envsubst
           ];
         };
