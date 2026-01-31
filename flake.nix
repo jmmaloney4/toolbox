@@ -37,6 +37,8 @@
       ];
 
       jackpkgs.pulumi.enable = false;
+      jackpkgs.nodejs.enable = true;
+      jackpkgs.checks.typescript.enable = true;
 
       perSystem = {
         config,
