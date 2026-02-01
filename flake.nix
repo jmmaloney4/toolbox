@@ -48,8 +48,39 @@
         system,
         lib,
         ...
-      }: {
+      }: let
+        nodejsPackage = pkgs.nodejs_22;
+        nodeModulesFixed = pkgs.buildNpmPackage {
+          pname = "node-modules";
+          version = "1.0.0";
+          src = ./.;
+          nodejs = nodejsPackage;
+          npmDeps = pkgs.importNpmLock {npmRoot = ./.;};
+          npmConfigHook = pkgs.importNpmLock.npmConfigHook;
+          installPhase = ''
+            mkdir -p "$out/node_modules"
+            cp -a node_modules/. "$out/node_modules"
+            if [ -d packages ]; then
+              cp -a packages "$out"
+            fi
+          '';
+        };
+        nodejsDevShellFixed = pkgs.mkShell {
+          packages = [
+            nodejsPackage
+          ];
+          shellHook = ''
+            if [ -d "${nodeModulesFixed}/node_modules/.bin" ]; then
+              export PATH="${nodeModulesFixed}/node_modules/.bin:$PATH"
+            fi
+          '';
+        };
+      in {
         pre-commit.settings.hooks.mypy.enable = lib.mkForce false;
+
+        # Override nodeModules to keep workspace symlinks resolvable
+        jackpkgs.outputs.nodeModules = lib.mkForce nodeModulesFixed;
+        jackpkgs.outputs.nodejsDevShell = lib.mkForce nodejsDevShellFixed;
 
         devShells.default = pkgs.mkShell {
           inputsFrom = [
