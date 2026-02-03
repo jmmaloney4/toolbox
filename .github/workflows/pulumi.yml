@@ -39,6 +39,10 @@ on:
         description: 'Comma-separated list of Pulumi projects (paths) to ignore'
         required: false
         type: string
+      nodejs_package_manager:
+        description: 'Node.js package manager to use: "pnpm", "npm", or "none"'
+        required: true
+        type: string
 jobs:
   detect-pulumi-stacks:
     name: "🧩 detect pulumi stacks"
@@ -103,8 +107,12 @@ jobs:
           echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" >> ~/.npmrc
           echo "always-auth=true" >> ~/.npmrc
       - name: Install pnpm dependencies
-        if: ${{ hashFiles('pnpm-lock.yaml') != '' }}
+        if: ${{ inputs.nodejs_package_manager == 'pnpm' }}
         run: nix develop .#ci-pulumi --command pnpm install --frozen-lockfile
+        shell: bash
+      - name: Install npm dependencies
+        if: ${{ inputs.nodejs_package_manager == 'npm' }}
+        run: nix develop .#ci-pulumi --command npm ci
         shell: bash
       - name: derive artifact-safe name
         id: names
