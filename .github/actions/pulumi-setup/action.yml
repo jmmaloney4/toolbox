@@ -25,3 +25,4 @@ runs:
       run: |
         echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> "$GITHUB_ENV"
         echo "PULUMI_NODEJS_PACKAGE_MANAGER=${{ inputs.nodejs_package_manager }}" >> "$GITHUB_ENV"
+    # Set PULUMI_NODEJS_PACKAGE_MANAGER for Pulumi's internal auto-detection (defense-in-depth)
