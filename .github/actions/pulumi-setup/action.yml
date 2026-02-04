@@ -7,6 +7,9 @@ inputs:
   google_service_account_email:
     description: Service account email
     required: true
+  nodejs_package_manager:
+    description: 'Node.js package manager: "pnpm", "npm", or "none"'
+    required: true
 runs:
   using: composite
   steps:
@@ -21,3 +24,4 @@ runs:
     - shell: bash
       run: |
         echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> "$GITHUB_ENV"
+        echo "PULUMI_NODEJS_PACKAGE_MANAGER=${{ inputs.nodejs_package_manager }}" >> "$GITHUB_ENV"

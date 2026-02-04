@@ -173,11 +173,18 @@ jobs:
       google_workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
       google_service_account_email: ${{ vars.GCP_SERVICE_ACCOUNT_EMAIL }}
       pulumi_backend_url: gs://${{ vars.PULUMI_BACKEND_BUCKET }}
+      nodejs_package_manager: pnpm  # Required: "pnpm", "npm", or "none"
 
       # PR context (enables commenting on PRs)
       pr_number: ${{ (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && github.event.pull_request.number || 0 }}
       is_fork: ${{ (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && github.event.pull_request.head.repo.fork }}
 ```
+
+**Required inputs:**
+- `nodejs_package_manager`: Package manager for Node.js dependencies. Valid values:
+  - `"pnpm"`: Use pnpm (recommended for most projects)
+  - `"npm"`: Use npm
+  - `"none"`: Skip dependency installation (for non-Node.js Pulumi projects)
 
 **Note**: Ensure each Pulumi stack defines `gcp:project` in its stack configuration to specify the target GCP project.
 

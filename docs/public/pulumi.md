@@ -86,6 +86,7 @@ jobs:
       google_workload_identity_provider: ${{ vars.GOOGLE_WORKLOAD_IDENTITY_PROVIDER }}
       google_service_account_email: ${{ vars.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
       pulumi_backend_url: ${{ vars.PULUMI_BACKEND_URL }} # e.g., gs://my-pulumi-state
+      nodejs_package_manager: pnpm  # Required: "pnpm", "npm", or "none"
 ```
 
 Notes:
