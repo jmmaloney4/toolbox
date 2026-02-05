@@ -20,6 +20,19 @@ on:
         required: false
         default: 'cavinsresearch'
         type: string
+      registry:
+        description: 'Container registry (ghcr.io, gcr.io, us-docker.pkg.dev, etc.)'
+        required: false
+        default: 'ghcr.io'
+        type: string
+      google_workload_identity_provider:
+        description: 'GCP Workload Identity Provider (required for GCR/GAR)'
+        required: false
+        type: string
+      google_service_account_email:
+        description: 'GCP service account email (required for GCR/GAR)'
+        required: false
+        type: string
     secrets:
       REGISTRY_PASSWORD:
         description: 'Registry password/token (usually GITHUB_TOKEN)'
@@ -103,10 +116,13 @@ jobs:
     with:
       runs-on: ${{ inputs.runs-on }}
       package-name: ${{ matrix.package-name }}
+      registry: ${{ inputs.registry }}
       namespace: ${{ inputs.image-namespace }}
       repository: ${{ inputs.repository }}
       ref: ${{ inputs.ref }}
       # Tag with PR number if PR, otherwise SHA + branch/latest
       tags: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || format('sha-{0},{1}{2}', github.sha, github.ref_name, github.ref_name == 'main' && ',latest' || '') }}
+      google_workload_identity_provider: ${{ inputs.google_workload_identity_provider }}
+      google_service_account_email: ${{ inputs.google_service_account_email }}
     secrets:
       REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD || secrets.GITHUB_TOKEN }}
