@@ -39,6 +39,10 @@ on:
         description: 'Comma-separated list of Pulumi projects (paths) to ignore'
         required: false
         type: string
+      nodejs_package_manager:
+        description: 'Node.js package manager: "pnpm", "npm", or "none"'
+        required: true
+        type: string
 jobs:
   detect-pulumi-stacks:
     name: "🧩 detect pulumi stacks"
@@ -92,19 +96,38 @@ jobs:
         with:
           repository: ${{ inputs.repository }}
           ref: ${{ inputs.ref }}
+      - name: Validate nodejs_package_manager input
+        shell: bash
+        run: |
+          case "${{ inputs.nodejs_package_manager }}" in
+            pnpm|npm|none)
+              echo "✓ Valid package manager: ${{ inputs.nodejs_package_manager }}"
+              ;;
+            *)
+              echo "❌ Error: Invalid nodejs_package_manager value '${{ inputs.nodejs_package_manager }}'"
+              echo "   Must be one of: pnpm, npm, none"
+              exit 1
+              ;;
+          esac
       - uses: jmmaloney4/toolbox/.github/actions/pulumi-setup@main
         with:
           google_workload_identity_provider: ${{ inputs.google_workload_identity_provider }}
           google_service_account_email: ${{ inputs.google_service_account_email }}
+          nodejs_package_manager: ${{ inputs.nodejs_package_manager }}
           # Auth & registry for GitHub Packages (public or private still needs a token)
       - name: Configure .npmrc for GitHub Packages
+        if: ${{ inputs.nodejs_package_manager != 'none' }}
         run: |
           echo "@jmmaloney4:registry=https://npm.pkg.github.com" >> ~/.npmrc
           echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" >> ~/.npmrc
           echo "always-auth=true" >> ~/.npmrc
       - name: Install pnpm dependencies
-        if: ${{ hashFiles('pnpm-lock.yaml') != '' }}
+        if: ${{ inputs.nodejs_package_manager == 'pnpm' }}
         run: nix develop .#ci-pulumi --command pnpm install --frozen-lockfile
+        shell: bash
+      - name: Install npm dependencies
+        if: ${{ inputs.nodejs_package_manager == 'npm' }}
+        run: nix develop .#ci-pulumi --command npm ci
         shell: bash
       - name: derive artifact-safe name
         id: names
