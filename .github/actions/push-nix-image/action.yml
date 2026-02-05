@@ -21,6 +21,10 @@ inputs:
     description: 'Nix system'
     required: false
     default: 'x86_64-linux'
+  use-gcp-auth:
+    description: 'Whether to use GCP OIDC authentication (vs username/password)'
+    required: false
+    default: 'false'
   registry-username:
     description: 'Registry username (defaults to github.actor)'
     required: false
@@ -38,6 +42,7 @@ runs:
         INPUT_IMAGE_NAME: ${{ inputs.image-name }}
         INPUT_TAGS: ${{ inputs.tags }}
         INPUT_SYSTEM: ${{ inputs.system }}
+        INPUT_USE_GCP_AUTH: ${{ inputs.use-gcp-auth }}
         INPUT_REGISTRY_USERNAME: ${{ inputs.registry-username }}
         INPUT_REGISTRY_PASSWORD: ${{ inputs.registry-password }}
       run: $GITHUB_ACTION_PATH/main.sh
