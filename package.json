@@ -4,9 +4,10 @@
 	"version": "0.3.3",
 	"description": "Toolbox monorepo",
 	"license": "MPL-2.0",
+	"workspaces": ["packages/*"],
 	"scripts": {
-		"build": "pnpm -r build",
-		"clean": "pnpm -r clean"
+		"build": "npm run build -ws",
+		"clean": "npm run clean -ws"
 	},
 	"devDependencies": {
 		"typescript": "^5.9.2",
