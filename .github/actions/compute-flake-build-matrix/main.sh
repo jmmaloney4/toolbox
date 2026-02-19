@@ -12,7 +12,7 @@ fi
 PROBE_TIMEOUT_SECONDS="${PROBE_TIMEOUT_SECONDS:-180}"
 
 tmp_all="$(mktemp)"
-select_expr="$(< .github/actions/compute-flake-build-matrix/select.nix)"
+select_expr="$(< "${GITHUB_ACTION_PATH}/select.nix")"
 echo "Running nix-eval-jobs to detect flake outputs..." >&2
 nix run github:nix-community/nix-eval-jobs --option extra-substituters "https://nix-community.cachix.org" --option extra-trusted-public-keys "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=" -- \
   --flake . \
