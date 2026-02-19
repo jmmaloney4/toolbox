@@ -3,18 +3,22 @@ set -euo pipefail
 
 # Detect current Nix system (e.g., aarch64-darwin, x86_64-linux)
 system="$(nix eval --impure --raw --expr 'builtins.currentSystem')"
-echo "System: $system"
+if [[ ! "$system" =~ ^[A-Za-z0-9_-]+$ ]]; then
+  echo "Invalid system string: $system" >&2
+  exit 1
+fi
 
 # Set probe timeout from input or default
 PROBE_TIMEOUT_SECONDS="${PROBE_TIMEOUT_SECONDS:-180}"
 
 tmp_all="$(mktemp)"
+select_expr="$(< "${GITHUB_ACTION_PATH}/select.nix")"
 echo "Running nix-eval-jobs to detect flake outputs..." >&2
 nix run github:nix-community/nix-eval-jobs --option extra-substituters "https://nix-community.cachix.org" --option extra-trusted-public-keys "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=" -- \
   --flake . \
   --check-cache-status \
   --meta \
-  --select 'outputs: let system = "'"$system"'"; in builtins.listToAttrs (map (catName: let cat = builtins.getAttr catName outputs; in { name = catName; value = if builtins.isAttrs cat && builtins.hasAttr system cat then { ${system} = builtins.getAttr system cat; } else {}; }) (builtins.attrNames outputs))' > "$tmp_all"
+  --select "(${select_expr}) \"${system}\"" > "$tmp_all"
 
 # Transform nix-eval-jobs output to matrix format
 echo "Processing nix-eval-jobs output..." >&2
