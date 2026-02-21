@@ -8,9 +8,11 @@ let
 
   pick = name:
     let
-      category = outputs.${name} or {};
+      category = outputs.${name} or null;
     in
-    if builtins.isAttrs category && builtins.hasAttr system category
+    if category != null
+      && builtins.isAttrs category
+      && builtins.hasAttr system category
     then category.${system} // {recurseForDerivations = true;}
     else {};
 in
