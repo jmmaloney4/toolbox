@@ -31,19 +31,22 @@ all_outputs=$(nix -L run nixpkgs#jq -- -s -c --arg system "$system" '
     # Handle both shapes; reconstruct a full flake_attr for the 2-part case using $system.
     | map(
         (.attr | split(".")) as $parts
-        | (($parts | length) >= 3) as $long
-        | (if $long then $parts[2] else ($parts[1] // "default") end) as $name
+        # select.nix pre-filters to the current system, so nix-eval-jobs always emits
+        # 2-part attrs of the form "<category>.<name>" where <name> may itself contain
+        # dots (e.g. "packages.python3.requests"). The old $long heuristic
+        # (length >= 3 → treat as 3-part) is therefore wrong for dotted names and has
+        # been removed. Assumption: select.nix is always used; callers that bypass it
+        # and rely on 3-part attrs are not supported by this script.
+        #
+        # Risk: a 1-part attr (no dot) would produce an empty $name.
+        # Mitigation: retain the "// \"default\"" fallback below.
+        | ($parts[1:] | join(".")) as $name
         | {
           attr: .attr,
           category: ($parts[0] // "unknown"),
-          system:   (if $long then $parts[1] else $system end),
-          name:     $name,
-          flake_attr: (
-            if $long
-            then ".#" + .attr
-            else ".#" + $parts[0] + "." + $system + "." + $name
-            end
-          ),
+          system:   $system,
+          name:     ($name // "default"),
+          flake_attr: (".#" + $parts[0] + "." + $system + "." + $name),
           cached: ((.cacheStatus == "cached") or (.cacheStatus == "local") or (.isCached == true)),
           store_path: (.outputs.out // (.drvPath // "unknown")),
           is_image: (($parts[-1] // "" | endswith("-image")) // false)
