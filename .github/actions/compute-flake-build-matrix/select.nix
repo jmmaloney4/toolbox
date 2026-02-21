@@ -8,7 +8,7 @@ let
 
   pick = name:
     let
-      category = outputs.${name} or null;
+      category = builtins.getAttr name outputs;
     in
     if category != null
       && builtins.isAttrs category
