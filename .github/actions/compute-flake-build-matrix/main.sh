@@ -22,21 +22,31 @@ nix run github:nix-community/nix-eval-jobs --option extra-substituters "https://
 
 # Transform nix-eval-jobs output to matrix format
 echo "Processing nix-eval-jobs output..." >&2
-all_outputs=$(nix -L run nixpkgs#jq -- -s -c '
+all_outputs=$(nix -L run nixpkgs#jq -- -s -c --arg system "$system" '
     # Filter out non-objects and ensure attr exists (handles error messages or malformed lines)
     map(select(type == "object" and .attr != null))
-    # Parse each JSON object and extract matrix fields
-    # Keep output image flag for next step
-    | map({
-      attr: .attr,
-      category: ((.attr | split(".") | .[0]) // "unknown"),
-      system: ((.attr | split(".") | .[1]) // "unknown"), 
-      name: ((.attr | split(".") | .[2]) // "default"),
-      flake_attr: (".#" + .attr),
-      cached: ((.cacheStatus == "cached") or (.cacheStatus == "local") or (.isCached == true)),
-      store_path: (.outputs.out // (.drvPath // "unknown")),
-      is_image: (((.attr | split(".") | .[2] // "" | endswith("-image")) // false))
-    })
+    # Parse each JSON object and extract matrix fields.
+    # After select.nix narrows to packages/checks for the current system, nix-eval-jobs emits
+    # 2-part attrs (e.g. "packages.foo") rather than 3-part ("packages.x86_64-linux.foo").
+    # Handle both shapes; reconstruct a full flake_attr for the 2-part case using $system.
+    | map(
+        (.attr | split(".")) as $parts
+        | {
+          attr: .attr,
+          category: ($parts[0] // "unknown"),
+          system:   (if ($parts | length) >= 3 then $parts[1] else $system end),
+          name:     (if ($parts | length) >= 3 then $parts[2] else ($parts[1] // "default") end),
+          flake_attr: (
+            if ($parts | length) >= 3
+            then ".#" + .attr
+            else ".#" + $parts[0] + "." + $system + "." + ($parts[1] // "default")
+            end
+          ),
+          cached: ((.cacheStatus == "cached") or (.cacheStatus == "local") or (.isCached == true)),
+          store_path: (.outputs.out // (.drvPath // "unknown")),
+          is_image: (($parts[-1] // "" | endswith("-image")) // false)
+        }
+      )
   ' "$tmp_all")
 
 echo "All detected outputs: $all_outputs"
