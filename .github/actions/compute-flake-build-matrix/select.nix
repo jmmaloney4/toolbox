@@ -1,12 +1,20 @@
-system: outputs: let
+system: outputs:
+let
+  # Categories to expose for building. Extend this list to add more.
+  categories = [
+    "packages"
+    "checks"
+  ];
+
   pick = name:
-    if
-      builtins.hasAttr name outputs
-      && builtins.isAttrs (builtins.getAttr name outputs)
-      && builtins.hasAttr system (builtins.getAttr name outputs)
-    then (builtins.getAttr system (builtins.getAttr name outputs)) // {recurseForDerivations = true;}
+    let
+      category = outputs.${name} or {};
+    in
+    if builtins.isAttrs category && builtins.hasAttr system category
+    then category.${system} // {recurseForDerivations = true;}
     else {};
-in {
-  packages = pick "packages";
-  checks = pick "checks";
-}
+in
+builtins.listToAttrs (map (name: {
+  inherit name;
+  value = pick name;
+}) categories)
