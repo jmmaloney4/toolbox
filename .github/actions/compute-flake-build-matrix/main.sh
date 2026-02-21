@@ -31,15 +31,17 @@ all_outputs=$(nix -L run nixpkgs#jq -- -s -c --arg system "$system" '
     # Handle both shapes; reconstruct a full flake_attr for the 2-part case using $system.
     | map(
         (.attr | split(".")) as $parts
+        | (($parts | length) >= 3) as $long
+        | (if $long then $parts[2] else ($parts[1] // "default") end) as $name
         | {
           attr: .attr,
           category: ($parts[0] // "unknown"),
-          system:   (if ($parts | length) >= 3 then $parts[1] else $system end),
-          name:     (if ($parts | length) >= 3 then $parts[2] else ($parts[1] // "default") end),
+          system:   (if $long then $parts[1] else $system end),
+          name:     $name,
           flake_attr: (
-            if ($parts | length) >= 3
+            if $long
             then ".#" + .attr
-            else ".#" + $parts[0] + "." + $system + "." + ($parts[1] // "default")
+            else ".#" + $parts[0] + "." + $system + "." + $name
             end
           ),
           cached: ((.cacheStatus == "cached") or (.cacheStatus == "local") or (.isCached == true)),
