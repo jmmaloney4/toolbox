@@ -22,21 +22,36 @@ nix run github:nix-community/nix-eval-jobs --option extra-substituters "https://
 
 # Transform nix-eval-jobs output to matrix format
 echo "Processing nix-eval-jobs output..." >&2
-all_outputs=$(nix -L run nixpkgs#jq -- -s -c '
+all_outputs=$(nix -L run nixpkgs#jq -- -s -c --arg system "$system" '
     # Filter out non-objects and ensure attr exists (handles error messages or malformed lines)
     map(select(type == "object" and .attr != null))
-    # Parse each JSON object and extract matrix fields
-    # Keep output image flag for next step
-    | map({
-      attr: .attr,
-      category: ((.attr | split(".") | .[0]) // "unknown"),
-      system: ((.attr | split(".") | .[1]) // "unknown"), 
-      name: ((.attr | split(".") | .[2]) // "default"),
-      flake_attr: (".#" + .attr),
-      cached: ((.cacheStatus == "cached") or (.cacheStatus == "local") or (.isCached == true)),
-      store_path: (.outputs.out // (.drvPath // "unknown")),
-      is_image: (((.attr | split(".") | .[2] // "" | endswith("-image")) // false))
-    })
+    # Parse each JSON object and extract matrix fields.
+    # After select.nix narrows to packages/checks for the current system, nix-eval-jobs emits
+    # 2-part attrs (e.g. "packages.foo") rather than 3-part ("packages.x86_64-linux.foo").
+    # Handle both shapes; reconstruct a full flake_attr for the 2-part case using $system.
+    | map(
+        (.attr | split(".")) as $parts
+        # select.nix pre-filters to the current system, so nix-eval-jobs always emits
+        # 2-part attrs of the form "<category>.<name>" where <name> may itself contain
+        # dots (e.g. "packages.python3.requests"). The old $long heuristic
+        # (length >= 3 → treat as 3-part) is therefore wrong for dotted names and has
+        # been removed. Assumption: select.nix is always used; callers that bypass it
+        # and rely on 3-part attrs are not supported by this script.
+        #
+        # Risk: a 1-part attr (no dot) would produce an empty $name.
+        # Mitigation: retain the "// \"default\"" fallback below.
+        | ($parts[1:] | join(".")) as $name
+        | {
+          attr: .attr,
+          category: ($parts[0] // "unknown"),
+          system:   $system,
+          name:     ($name // "default"),
+          flake_attr: (".#" + $parts[0] + "." + $system + "." + $name),
+          cached: ((.cacheStatus == "cached") or (.cacheStatus == "local") or (.isCached == true)),
+          store_path: (.outputs.out // (.drvPath // "unknown")),
+          is_image: (($parts[-1] // "" | endswith("-image")) // false)
+        }
+      )
   ' "$tmp_all")
 
 echo "All detected outputs: $all_outputs"
