@@ -1,0 +1,53 @@
+name: 'GCP OIDC Authentication'
+description: 'Authenticate to Google Cloud via Workload Identity Federation'
+inputs:
+  workload_identity_provider:
+    description: 'GCP Workload Identity Provider resource name (e.g., projects/.../locations/global/workloadIdentityPools/.../providers/...)'
+    required: true
+  service_account_email:
+    description: 'GCP service account email (e.g., github-actions@project.iam.gserviceaccount.com)'
+    required: true
+  install_gcloud:
+    description: 'Whether to install gcloud CLI'
+    required: false
+    default: 'true'
+  token_format:
+    description: 'Token format (access_token or id_token)'
+    required: false
+    default: 'access_token'
+runs:
+  using: "composite"
+  steps:
+    - name: Validate inputs
+      shell: bash
+      run: |
+        if [ -z "${{ inputs.workload_identity_provider }}" ] || [ -z "${{ inputs.service_account_email }}" ]; then
+          echo "❌ Error: Both workload_identity_provider and service_account_email must be provided"
+          exit 1
+        fi
+        echo "✅ GCP authentication inputs validated"
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+      with:
+        workload_identity_provider: ${{ inputs.workload_identity_provider }}
+        service_account: ${{ inputs.service_account_email }}
+        token_format: ${{ inputs.token_format }}
+    - name: Setup gcloud CLI
+      if: inputs.install_gcloud == 'true'
+      uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+    - name: Verify authentication
+      shell: bash
+      run: |
+        if ! command -v gcloud &> /dev/null; then
+          echo "❌ Error: gcloud CLI not found after setup"
+          exit 1
+        fi
+
+        if ! gcloud auth print-access-token &> /dev/null; then
+          echo "❌ Error: Failed to obtain GCP access token"
+          echo "   This may indicate authentication failed or insufficient permissions"
+          exit 1
+        fi
+
+        echo "✅ GCP authentication successful"
+        echo "   Service account: ${{ inputs.service_account_email }}"

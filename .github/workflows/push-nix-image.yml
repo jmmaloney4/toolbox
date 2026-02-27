@@ -40,6 +40,14 @@ on:
         description: 'Git ref to checkout'
         required: true
         type: string
+      google_workload_identity_provider:
+        description: 'GCP Workload Identity Provider (optional, for GCR/GAR)'
+        required: false
+        type: string
+      google_service_account_email:
+        description: 'GCP service account email (optional, for GCR/GAR)'
+        required: false
+        type: string
     secrets:
       REGISTRY_USERNAME:
         description: 'Registry username (defaults to github.actor)'
@@ -60,6 +68,13 @@ jobs:
         with:
           repository: ${{ inputs.repository }}
           ref: ${{ inputs.ref }}
+      - name: Authenticate to Google Cloud
+        if: inputs.google_workload_identity_provider != ''
+        uses: jmmaloney4/toolbox/.github/actions/gcp-auth@main
+        with:
+          workload_identity_provider: ${{ inputs.google_workload_identity_provider }}
+          service_account_email: ${{ inputs.google_service_account_email }}
+          install_gcloud: 'true'
       - name: Install Nix
         uses: jmmaloney4/toolbox/.github/actions/nix-setup@main
         with:
@@ -74,5 +89,6 @@ jobs:
           image-name: ${{ inputs.image-name }}
           tags: ${{ inputs.tags }}
           system: ${{ inputs.system }}
+          use-gcp-auth: ${{ inputs.google_workload_identity_provider != '' }}
           registry-username: ${{ secrets.REGISTRY_USERNAME || github.actor }}
           registry-password: ${{ secrets.REGISTRY_PASSWORD }}
