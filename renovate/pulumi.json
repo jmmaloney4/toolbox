@@ -1,7 +1,6 @@
 {
 	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
 	"description": "Pulumi-specific Renovate configuration with regex managers for custom dependency extraction",
-	"includePaths": ["**/Pulumi.yaml", "**/Pulumi.*.yaml"],
 	"regexManagers": [
 		{
 			"fileMatch": ["(^|.*\\/)?Pulumi(\\..+)?\\.yaml$"],
