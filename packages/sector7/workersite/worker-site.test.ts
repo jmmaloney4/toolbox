@@ -1,7 +1,7 @@
 import * as pulumi from "@pulumi/pulumi";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { WorkerSite, type WorkerSiteArgs } from "./worker-site";
 import { generateWorkerScript } from "./worker-site-script";
-import { type WorkerSiteArgs, WorkerSite } from "./worker-site";
 
 type MockResource = {
 	type: string;
@@ -52,7 +52,10 @@ function resourcesFor(componentName: string): MockResource[] {
 	);
 }
 
-function countResources(resources: MockResource[], typeNames: string[]): number {
+function countResources(
+	resources: MockResource[],
+	typeNames: string[],
+): number {
 	return resources.filter((resource) =>
 		typeNames.some((typeName) => resource.type.includes(typeName)),
 	).length;
@@ -86,9 +89,16 @@ describe("WorkerSite", () => {
 		const resources = resourcesFor(componentName);
 
 		expect(countResources(resources, ["WorkersScript"])).toBe(1);
-		expect(countResources(resources, ["WorkerDomain", "WorkersCustomDomain"])).toBe(1);
+		expect(
+			countResources(resources, ["WorkerDomain", "WorkersCustomDomain"]),
+		).toBe(1);
 		expect(countResources(resources, ["Record", "DnsRecord"])).toBe(1);
-		expect(countResources(resources, ["ZeroTrustAccessApplication", "AccessApplication"])).toBe(1);
+		expect(
+			countResources(resources, [
+				"ZeroTrustAccessApplication",
+				"AccessApplication",
+			]),
+		).toBe(1);
 
 		const workerResource = resources.find((r) =>
 			r.type.includes("WorkersScript"),
@@ -103,7 +113,9 @@ describe("WorkerSite", () => {
 					...baseArgs(),
 					paths: [{ pattern: "/private/*", access: "github-org" }],
 				}),
-		).toThrow("githubIdentityProviderId is required when using github-org access");
+		).toThrow(
+			"githubIdentityProviderId is required when using github-org access",
+		);
 	});
 
 	it("skips DNS record creation when manageDns is false", async () => {
@@ -116,7 +128,9 @@ describe("WorkerSite", () => {
 		const resources = resourcesFor(componentName);
 
 		expect(countResources(resources, ["Record", "DnsRecord"])).toBe(0);
-		expect(countResources(resources, ["WorkerDomain", "WorkersCustomDomain"])).toBe(1);
+		expect(
+			countResources(resources, ["WorkerDomain", "WorkersCustomDomain"]),
+		).toBe(1);
 	});
 
 	it("creates an R2 bucket when r2Bucket.create is true", async () => {
@@ -136,9 +150,9 @@ describe("WorkerSite", () => {
 		const workerResource = resources.find((r) =>
 			r.type.includes("WorkersScript"),
 		);
-		const r2Binding = (workerResource?.inputs.bindings as Array<Record<string, unknown>>).find(
-			(binding) => binding.name === "R2_BUCKET",
-		);
+		const r2Binding = (
+			workerResource?.inputs.bindings as Array<Record<string, unknown>>
+		).find((binding) => binding.name === "R2_BUCKET");
 
 		expect(r2Binding).toBeDefined();
 		expect(r2Binding?.bucketName).toBeDefined();
@@ -168,7 +182,9 @@ describe("WorkerSite", () => {
 		await settleSite(site);
 		const resources = resourcesFor(componentName);
 
-		expect(countResources(resources, ["WorkerDomain", "WorkersCustomDomain"])).toBe(2);
+		expect(
+			countResources(resources, ["WorkerDomain", "WorkersCustomDomain"]),
+		).toBe(2);
 		expect(countResources(resources, ["Record", "DnsRecord"])).toBe(2);
 	});
 
@@ -185,7 +201,12 @@ describe("WorkerSite", () => {
 		await settleSite(site);
 		const resources = resourcesFor(componentName);
 
-		expect(countResources(resources, ["ZeroTrustAccessApplication", "AccessApplication"])).toBe(4);
+		expect(
+			countResources(resources, [
+				"ZeroTrustAccessApplication",
+				"AccessApplication",
+			]),
+		).toBe(4);
 	});
 });
 

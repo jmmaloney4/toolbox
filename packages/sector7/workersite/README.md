@@ -5,6 +5,7 @@ A Pulumi ComponentResource for hosting static sites on Cloudflare Workers with Z
 ## Features
 
 **Phase 2 (Current):**
+
 - R2-backed Worker serving static files with Cache API
 - Multiple domains via WorkerDomain
 - Automatic DNS record creation
@@ -15,16 +16,19 @@ A Pulumi ComponentResource for hosting static sites on Cloudflare Workers with Z
 - ETag and observability headers (X-Cache-Status)
 
 **Future Phases:**
+
 - Phase 3: SPA fallback, custom 404 pages, range request support
 
 ## Prerequisites
 
 1. **Cloudflare Account**: You need a Cloudflare account with:
+
    - A zone (domain) configured and using Cloudflare nameservers
    - Zero Trust enabled
    - GitHub Identity Provider configured in Cloudflare Access
 
 2. **GitHub Identity Provider**: Create this in Cloudflare Access first:
+
    - Go to Zero Trust → Settings → Authentication
    - Add GitHub as a login method
    - Note the Identity Provider ID (you'll need this)
@@ -117,12 +121,14 @@ wrangler r2 object put docs-site-assets/blog/post.html --file dist/blog/post.htm
 ```
 
 **Directory Index**: The Worker automatically appends `index.html` to directory paths:
+
 - `https://docs.example.com/` → fetches `index.html`
 - `https://docs.example.com/blog/` → fetches `blog/index.html`
 
 ## Path Patterns
 
 Access Applications support wildcards in paths:
+
 - `/blog/*` - matches `/blog/post.html`, `/blog/2024/article.html`, etc.
 - `/research/*` - matches `/research/data.json`, `/research/docs/paper.pdf`, etc.
 - `/*` - matches all paths (global access control)
@@ -140,6 +146,7 @@ Phase 2 automatically creates DNS records for all domains:
 - **Proxied**: Yes (enables Cloudflare proxy)
 
 **Requirements**:
+
 - Domain must already be a zone in your Cloudflare account
 - Zone must use Cloudflare nameservers
 - DNS propagation may take a few minutes
@@ -148,55 +155,60 @@ Phase 2 automatically creates DNS records for all domains:
 
 ### WorkerSiteArgs
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `accountId` | `string` | Yes | Cloudflare account ID |
-| `zoneId` | `string` | Yes | Cloudflare zone ID |
-| `name` | `string` | Yes | Name for Worker and resources |
-| `domains` | `string[]` | Yes | Domains to bind (e.g., `["docs.example.com", "www.docs.example.com"]`) |
-| `manageDns` | `boolean` | No | Automatically create DNS records for domains (default: true) |
-| `r2Bucket.bucketName` | `string` | Yes | R2 bucket name |
-| `r2Bucket.create` | `boolean` | No | Create bucket if not exists (default: false) |
-| `r2Bucket.prefix` | `string` | No | Optional object key prefix |
-| `githubIdentityProviderId` | `string` | No | GitHub IdP ID from Cloudflare Access (required when any path uses `access: "github-org"`) |
-| `githubOrganizations` | `string[]` | No | GitHub org names for restricted access (required when any path uses `access: "github-org"`) |
-| `paths` | `PathConfig[]` | Yes | Path access configurations (see below) |
-| `cacheTtlSeconds` | `number` | No | Cache TTL in seconds (default: 31536000 = 1 year) |
+| Field                      | Type           | Required | Description                                                                                 |
+| -------------------------- | -------------- | -------- | ------------------------------------------------------------------------------------------- |
+| `accountId`                | `string`       | Yes      | Cloudflare account ID                                                                       |
+| `zoneId`                   | `string`       | Yes      | Cloudflare zone ID                                                                          |
+| `name`                     | `string`       | Yes      | Name for Worker and resources                                                               |
+| `domains`                  | `string[]`     | Yes      | Domains to bind (e.g., `["docs.example.com", "www.docs.example.com"]`)                      |
+| `manageDns`                | `boolean`      | No       | Automatically create DNS records for domains (default: true)                                |
+| `r2Bucket.bucketName`      | `string`       | Yes      | R2 bucket name                                                                              |
+| `r2Bucket.create`          | `boolean`      | No       | Create bucket if not exists (default: false)                                                |
+| `r2Bucket.prefix`          | `string`       | No       | Optional object key prefix                                                                  |
+| `githubIdentityProviderId` | `string`       | No       | GitHub IdP ID from Cloudflare Access (required when any path uses `access: "github-org"`)   |
+| `githubOrganizations`      | `string[]`     | No       | GitHub org names for restricted access (required when any path uses `access: "github-org"`) |
+| `paths`                    | `PathConfig[]` | Yes      | Path access configurations (see below)                                                      |
+| `cacheTtlSeconds`          | `number`       | No       | Cache TTL in seconds (default: 31536000 = 1 year)                                           |
 
 ### PathConfig
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `pattern` | `string` | Yes | Path pattern (e.g., `/blog/*`) |
-| `access` | `"public" \| "github-org"` | Yes | Access level: public (everyone) or github-org (org members) |
+| Field     | Type                       | Required | Description                                                 |
+| --------- | -------------------------- | -------- | ----------------------------------------------------------- |
+| `pattern` | `string`                   | Yes      | Path pattern (e.g., `/blog/*`)                              |
+| `access`  | `"public" \| "github-org"` | Yes      | Access level: public (everyone) or github-org (org members) |
 
 ## Troubleshooting
 
 **Assets return 404:**
+
 - Verify files are uploaded to R2 bucket
 - Check object key paths match URL paths
 - Remember directory index: `/blog/` needs `blog/index.html` in R2
 - Check `X-Cache-Status` header to see if cache HIT or MISS
 
 **Access not prompting for login:**
+
 - Verify GitHub IdP is configured in Cloudflare Access
 - Check Access Application domain matches your domain
 - Ensure path patterns are correct
 - Try incognito/private mode to test fresh session
 
 **Cache not working:**
+
 - Verify you're using a custom domain (not `*.workers.dev`)
 - Check `X-Cache-Status` header in response
 - First request will always be MISS
 - Cache API requires WorkerDomain (automatic in Phase 2)
 
 **DNS not resolving:**
+
 - Verify domain is a zone in Cloudflare
 - Check nameservers point to Cloudflare
 - Wait a few minutes for DNS propagation
 - Verify AAAA record exists with value `100::`
 
 **Worker errors:**
+
 - Check Worker logs in Cloudflare dashboard
 - Verify R2 bucket binding is correct
 - Ensure bucket exists and has correct name
@@ -205,19 +217,23 @@ Phase 2 automatically creates DNS records for all domains:
 ## Performance Tips
 
 1. **Cache TTL**: Set appropriate TTL for your use case
+
    - Static assets (images, fonts): 1 year (default)
    - Frequently updated content: 1 hour to 1 day
    - Dynamic-ish content: 5-15 minutes
 
 2. **Content Hashing**: Use hashed filenames for cache busting
+
    - `app.abc123.js` instead of `app.js`
    - Allows long cache TTLs with instant updates
 
 3. **R2 Costs**: Edge cache dramatically reduces R2 requests
+
    - First request: R2 fetch ($0.36/million Class A ops)
    - Subsequent requests: Edge cache (free)
 
 4. **Monitor Cache Hit Rate**:
+
    - Check `X-Cache-Status` headers
    - High HIT rate = good performance + low costs
    - Low HIT rate = may need longer TTL
@@ -245,6 +261,7 @@ Phase 2 has **breaking changes** from Phase 1:
 ```
 
 **Migration steps:**
+
 1. Update `domain` → `domains` (wrap in array)
 2. Combine `publicPath` + `restrictedPath` → `paths` array
 3. Optional: Add `cacheTtlSeconds` for custom cache TTL

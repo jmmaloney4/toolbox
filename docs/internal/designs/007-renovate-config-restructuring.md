@@ -14,9 +14,11 @@ links: []
 # Context
 
 ## Problem Statement
+
 Our Renovate configuration is currently split across multiple files in the `renovate/` directory with conflicting and inconsistent automerge rules. The current structure makes it difficult to enforce a clear policy: minor/patch updates should be grouped by ecosystem and automerged, while major updates should be individual PRs requiring manual review.
 
 ## Current File Structure
+
 ```
 renovate/
 ├── default.json              # Base configuration
@@ -31,6 +33,7 @@ renovate/
 ## Current Issues
 
 1. **Conflicting automerge rules**: Multiple files define automerge behavior leading to conflicts
+
    - `security.json:15` sets `automerge: false` for major updates
    - However, ecosystem-specific groups in `package-groups.json` (TypeScript:8, Node.js:14, Testing:20, Arrow:26, Rust:33, Docker:39, GitHub Actions:46), `pulumi.json:21`, and `nix.json` (41, 49, 58) set `automerge: true` without filtering by update type
    - Result: Major updates are automerged despite the intention to require manual review
@@ -44,12 +47,14 @@ renovate/
 ## Scope
 
 **In scope:**
+
 - Restructuring Renovate configuration files for clear update type separation
 - Ensuring major updates are never automerged
 - Grouping minor/patch updates by ecosystem with automerge enabled
 - Covering all major package ecosystems (Rust, Python, Node.js, Docker, GitHub Actions, Pulumi, Nix, etc.)
 
 **Out of scope:**
+
 - Changing base Renovate settings (schedules, PR limits, etc.)
 - Modifying regex managers for custom dependency extraction
 - Altering vulnerability alert handling
@@ -84,6 +89,7 @@ renovate/
 ### `major-updates.json`
 
 Contains a single package rule that applies to ALL major version updates across all ecosystems:
+
 - MUST disable automerge (`automerge: false`)
 - MUST NOT group updates — each package receives its own individual PR (achieved by setting `groupName: null` to override any grouping from inherited presets like `config:best-practices`)
 - MUST require manual review (assigns reviewers)
@@ -93,6 +99,7 @@ Contains a single package rule that applies to ALL major version updates across 
 ### `minor-patch-automerge.json`
 
 Contains multiple package rules, one per ecosystem, with the following characteristics:
+
 - MUST explicitly match only minor and patch updates (via `matchUpdateTypes: ["minor", "patch"]`)
 - MUST group updates by ecosystem using descriptive group names
 - MUST enable automerge (`automerge: true`)
@@ -100,10 +107,12 @@ Contains multiple package rules, one per ecosystem, with the following character
 - SHOULD cover all major package ecosystems in use: Rust (cargo), Python (pip/poetry), Node.js Core (runtime tooling), TypeScript, Testing (Jest), Arrow ecosystem, Docker Images, GitHub Actions, Pulumi packages, and Nix dependencies (with sub-groups for PyPI and GitHub sources)
 
 ### `pulumi.json` & `nix.json`
+
 - MUST contain only `regexManagers` for custom dependency extraction
 - MUST NOT contain package rules (moved to `minor-patch-automerge.json`)
 
 ### `security.json`
+
 - MUST handle vulnerability alerts (unchanged)
 - MAY contain security patch rules or these MAY be moved to `minor-patch-automerge.json`
 - SHOULD remove redundant major update rules (now in `major-updates.json`)
@@ -111,6 +120,7 @@ Contains multiple package rules, one per ecosystem, with the following character
 # Consequences
 
 ## Positive
+
 - **Clear policy enforcement**: Major updates will never be automerged due to explicit rule priority
 - **Easier maintenance**: Adding a new ecosystem requires only adding a group to `minor-patch-automerge.json`
 - **Better visibility**: Developers can quickly understand the update policy by reading two files
@@ -119,24 +129,29 @@ Contains multiple package rules, one per ecosystem, with the following character
 - **Explicit over implicit**: The use of `matchUpdateTypes` makes intent clear
 
 ## Negative
+
 - **Migration effort**: Need to update existing configuration files and test the changes
 - **More files**: Adds two new files to the configuration (7→8 files total)
 - **Initial learning**: Team needs to understand the new structure
 
 ## Neutral
+
 - **Regex managers**: Pulumi and Nix files become simpler (only regex managers) but still necessary
 - **Total file count**: Overall count increases slightly (7→8 files)
 
 # Alternatives
 
 ## Alternative A: Single monolithic file
+
 Combine all rules into one large configuration file.
 
 **Pros:**
+
 - Single file to review
 - No need to track which file contains which rule
 
 **Cons:**
+
 - Difficult to maintain as it grows
 - Harder to understand structure at a glance
 - Merge conflicts more likely
@@ -148,10 +163,12 @@ Combine all rules into one large configuration file.
 Organize configuration files in a nested directory structure with one file per ecosystem (e.g., `renovate/ecosystems/rust.json`, `renovate/ecosystems/python.json`, etc.).
 
 **Pros:**
+
 - Very clear separation by ecosystem
 - Easy to find ecosystem-specific rules
 
 **Cons:**
+
 - Splits update type policy across many files
 - Harder to ensure consistent major vs minor/patch handling
 - More files to maintain
@@ -159,13 +176,16 @@ Organize configuration files in a nested directory structure with one file per e
 **Decision:** Rejected. Update type separation is more important than ecosystem separation.
 
 ## Alternative C: Keep current structure, add override rules
+
 Add high-priority override rules for major updates without restructuring.
 
 **Pros:**
+
 - Minimal changes required
 - No file migration needed
 
 **Cons:**
+
 - Doesn't address root cause (mixing concerns)
 - Still difficult to understand which rules apply
 - Future confusion likely
@@ -182,16 +202,19 @@ Add high-priority override rules for major updates without restructuring.
 # Operational Notes
 
 ## Observability
+
 - Monitor Renovate Dashboard for PR volume and merge rates
 - Track time-to-merge for major vs minor/patch updates
 - Review automerge failures in Renovate logs
 
 ## Cost
+
 - No direct cost impact
 - May reduce developer time spent on routine minor/patch updates
 - Major updates still require manual review time
 
 ## Rollout Plan
+
 1. Create new configuration files
 2. Test locally with `renovate-config-validator`
 3. Commit changes and monitor first batch of PRs
@@ -199,6 +222,7 @@ Add high-priority override rules for major updates without restructuring.
 5. Verify minor/patch updates ARE automerged and grouped correctly
 
 ## Backout Plan
+
 - Revert to previous configuration via git if issues arise
 - Configuration changes take effect immediately for new PRs
 - Existing PRs may need manual intervention
@@ -206,6 +230,7 @@ Add high-priority override rules for major updates without restructuring.
 # Implementation Notes
 
 ## Steps
+
 1. Create `major-updates.json` with catch-all rule for major updates
 2. Create `minor-patch-automerge.json` with ecosystem-specific groups
 3. Update `all.json` to extend new configuration files
@@ -216,6 +241,7 @@ Add high-priority override rules for major updates without restructuring.
 8. Commit changes and monitor initial PRs
 
 ## Ecosystems to Cover
+
 - Rust (cargo)
 - Python (pip, poetry, pypi)
 - Node.js (npm, pnpm, yarn)
@@ -227,9 +253,11 @@ Add high-priority override rules for major updates without restructuring.
 - TypeScript/Testing packages
 
 ## Owner
+
 - jmmaloney4
 
 ## Timeline
+
 - Implementation: Single work session
 - Validation: 1-2 weeks of monitoring
 
@@ -244,10 +272,13 @@ Add high-priority override rules for major updates without restructuring.
 # Appendix A: Workspace vs Package-Level Differentiation
 
 ## Question
+
 Should we differentiate between workspace-level dependencies (monorepo root) and package-level dependencies when grouping ecosystem updates?
 
 ## Repository Context
+
 This repository is a monorepo with the following structure:
+
 - **Workspace root** (`package.json`): Shared development tooling (TypeScript, @types/node, rimraf)
 - **Packages** (`packages/*/package.json`): Package-specific dependencies (e.g., Pulumi packages in sector7)
 
@@ -256,6 +287,7 @@ This repository is a monorepo with the following structure:
 ### Case FOR Differentiation
 
 **Potential benefits:**
+
 1. **Blast radius visibility**: Workspace-level updates affect all packages, so separate PRs make the impact more visible
 2. **Different risk profiles**: Even for minor/patch updates, a workspace-level TypeScript update could theoretically break multiple packages
 3. **Selective policies**: Could automerge package-level minor/patch but manually review workspace-level changes
@@ -266,6 +298,7 @@ Implementation approach would use `matchFileNames` to distinguish workspace root
 ### Case AGAINST Differentiation
 
 **Why the current ecosystem-only approach is sufficient:**
+
 1. **Major updates already protected**: The high-risk changes (major versions) already receive individual PRs with manual review via `major-updates.json`
 2. **Minor/patch are inherently low-risk**: By semantic versioning contract, these updates should not introduce breaking changes
 3. **Dev tooling is especially safe**: TypeScript and build tool minor/patch updates are typically very stable
@@ -285,6 +318,7 @@ Implementation approach would use `matchFileNames` to distinguish workspace root
 ### When Differentiation WOULD Be Valuable
 
 Future consideration: Differentiation should be reconsidered if:
+
 - Runtime dependencies are added at the workspace level
 - The monorepo grows to have packages with significantly different stability requirements
 - Staged rollout patterns are needed (e.g., update workspace first, then packages)
@@ -294,6 +328,7 @@ Future consideration: Differentiation should be reconsidered if:
 ### Configuration Note
 
 If differentiation is needed in the future, use `matchFileNames` to distinguish:
+
 - Workspace: `"matchFileNames": ["package.json"]` (root only)
 - Packages: `"matchFileNames": ["packages/**/package.json"]`
 

@@ -181,6 +181,7 @@ jobs:
 ```
 
 **Required inputs:**
+
 - `nodejs_package_manager`: Package manager for Node.js dependencies. Valid values:
   - `"pnpm"`: Use pnpm (recommended for most projects)
   - `"npm"`: Use npm
@@ -343,6 +344,7 @@ jobs:
       pr_number: ${{ github.event.pull_request.number }}
       pr_url: ${{ github.event.pull_request.html_url }}
 ```
+
 ## Usage Notes
 
 - All workflows are designed to be called from other repositories using the `uses:` syntax

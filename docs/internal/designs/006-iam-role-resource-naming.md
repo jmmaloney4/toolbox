@@ -18,17 +18,20 @@ links:
 PR #74 improves Pulumi resource naming for `gcp.projects.IAMMember` resources by including project ID and role information instead of incrementing indices (e.g., `github-wif-provider-sa-cavins-admin-cloudkms-admin` vs `github-wif-provider-sa-role-0`). This significantly improves readability in Pulumi previews and state management.
 
 During code review, gemini-code-assist identified that the initial implementation's role sanitization logic (`role.replace(/^roles\//, "").replace(/\./g, "-")`) only handles predefined GCP roles (e.g., `roles/storage.admin`) but does not properly handle:
+
 - **Custom project-level roles**: `projects/my-project-123/roles/deployBot`
 - **Custom organization-level roles**: `organizations/123456789/roles/customOrgRole`
 
 These non-predefined role formats would produce overly long or slash-containing resource names, reducing readability and potentially causing issues.
 
 **In scope:**
+
 - Sanitization strategy for all GCP IAM role formats in Pulumi resource names
 - Error handling for invalid role identifiers
 - Documentation and maintainability
 
 **Out of scope:**
+
 - Validation of GCP role format compliance (GCP APIs handle this)
 - Length limiting of role IDs (GCP enforces 3-64 character limits)
 - Testing infrastructure (deferred to ADR-004)
@@ -45,16 +48,19 @@ We MUST implement a `sanitizeRoleForResourceName` function that:
 4. **Validates input** by throwing an error if the role ID cannot be extracted (empty string, malformed path)
 
 The function MUST handle all three GCP role formats:
+
 - Predefined: `roles/storage.admin` → `storage-admin`
 - Custom project: `projects/my-project/roles/deployBot` → `deploybot`
 - Custom org: `organizations/123/roles/my_custom.role` → `my-custom-role`
 
 The function SHOULD:
+
 - Include comprehensive JSDoc documentation with examples
 - Throw meaningful errors that include the problematic role string
 - Be placed near the other naming helper functions in the module
 
 The function SHOULD NOT:
+
 - Validate GCP role format compliance (delegated to GCP API)
 - Enforce length limits on role IDs (GCP handles this)
 - Perform complex pattern matching or regex validation
@@ -62,6 +68,7 @@ The function SHOULD NOT:
 # Consequences
 
 ## Positive
+
 - **Comprehensive coverage**: Handles all GCP IAM role formats correctly
 - **Readable names**: Resource names remain human-friendly across all role types
 - **Fail-fast behavior**: Invalid roles cause errors during `pulumi preview`, not deployment
@@ -69,6 +76,7 @@ The function SHOULD NOT:
 - **Future-proof**: Works with new custom roles without code changes
 
 ## Negative
+
 - **Adds complexity**: Introduces a new helper function vs inline string manipulation
 - **No immediate tests**: Testing deferred to ADR-004 implementation (Jest infrastructure)
 - **Export requirement**: Function must be exported if tests are added later (per ADR-004)
@@ -77,22 +85,27 @@ The function SHOULD NOT:
 # Alternatives
 
 ## Option A: Keep simple regex replacement (current implementation)
+
 ```typescript
 const roleSuffix = role.replace(/^roles\//, "").replace(/\./g, "-");
 ```
+
 - **Pros**: Simplest implementation, no function overhead
 - **Cons**: Only works for predefined roles; fails on custom project/org roles
 - **Rejected**: Does not address review feedback
 
 ## Option B: Extract with split().pop() only
+
 ```typescript
 const roleSuffix = (role.split("/").pop() || "").replace(/\./g, "-");
 ```
+
 - **Pros**: Handles all role formats, very concise
 - **Cons**: No validation, no error handling, no lowercase normalization, no documentation
 - **Rejected**: Lacks defensive programming and discoverability
 
 ## Option C: Comprehensive validation with regex
+
 ```typescript
 function sanitizeRoleForResourceName(role: string): string {
   const match = role.match(/^(roles|projects\/[^/]+\/roles|organizations\/\d+\/roles)\/([a-z][a-zA-Z0-9._]{2,63})$/);
@@ -100,11 +113,13 @@ function sanitizeRoleForResourceName(role: string): string {
   return match[2].replace(/[._]/g, "-").toLowerCase();
 }
 ```
+
 - **Pros**: Validates GCP role format compliance, catches malformed roles early
 - **Cons**: Duplicates validation already done by GCP API, complex regex maintenance, overly defensive
 - **Rejected**: Over-engineering; GCP API validation is sufficient
 
 ## Option D: Extract and sanitize with comprehensive error handling (CHOSEN)
+
 ```typescript
 function sanitizeRoleForResourceName(role: string): string {
   const roleId = role.split("/").pop()?.trim() || "";
@@ -112,6 +127,7 @@ function sanitizeRoleForResourceName(role: string): string {
   return roleId.replace(/[._]/g, "-").toLowerCase();
 }
 ```
+
 - **Pros**: Handles all formats, defensive without over-engineering, clear errors, documented
 - **Cons**: Minimal (adds one function)
 - **Chosen**: Best balance of correctness, simplicity, and maintainability
@@ -143,6 +159,7 @@ function sanitizeRoleForResourceName(role: string): string {
 **Target PR**: #74
 
 **Key changes:**
+
 1. Add `sanitizeRoleForResourceName` function to `packages/sector7/iam/github-actions-identity-provider.ts`
 2. Update line ~157 to use `sanitizeRoleForResourceName(role)` instead of inline regex
 3. Add JSDoc documentation with examples for all three role formats
@@ -151,11 +168,13 @@ function sanitizeRoleForResourceName(role: string): string {
 **Function placement**: After the existing `generateProviderId` function (~line 84) to group all naming helper functions together
 
 **Testing strategy**:
+
 - Manual verification during PR #74 review
 - Automated tests to be added when ADR-004 (Jest Testing Infrastructure) is implemented
 - Function should be marked for test coverage in ADR-004 implementation work
 
 **Example resource names after implementation:**
+
 - Predefined role: `github-wif-provider-sa-my-project-storage-admin`
 - Custom project role: `github-wif-provider-sa-my-project-deploybot`
 - Custom org role: `github-wif-provider-sa-my-project-custom-role`

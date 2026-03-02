@@ -1,12 +1,15 @@
 # Quarto + Cloudflare Pages (multi-site) — Setup & Reusable Workflow
 
 ## Overview
+
 This guide explains how to:
+
 - Provision Cloudflare Pages projects and bind custom subdomains (Pulumi, optional but recommended).
 - Configure Cloudflare API tokens and Account ID.
 - Use a reusable GitHub Actions workflow to build and deploy multiple Quarto sites from one repository.
 
 ## Prerequisites
+
 - A Cloudflare account and the target domain’s zone on Cloudflare nameservers.
 - Cloudflare Account ID (Dashboard → Account Home → right sidebar).
 - API Token with scopes:
@@ -15,9 +18,11 @@ This guide explains how to:
 - GitHub repository with Quarto sites and a Nix flake/devshell that provides `quarto`.
 
 ## Cloudflare (optional IaC) with Pulumi
+
 You can manage Pages projects and custom domains as code.
 
 ### Quickstart (TypeScript)
+
 ```ts
 import * as cloudflare from "@pulumi/cloudflare";
 import * as pulumi from "@pulumi/pulumi";
@@ -48,6 +53,7 @@ export const boundDomain    = pagesDomain.domain;
 ```
 
 Deploy:
+
 ```bash
 pulumi stack init dev
 pulumi config set accountId <CLOUDFLARE_ACCOUNT_ID>
@@ -58,16 +64,21 @@ pulumi up
 ```
 
 Notes:
+
 - If your zone is on Cloudflare, `PagesDomain` typically manages DNS for the subdomain automatically.
 - Apex domains need CNAME flattening; this guide focuses on subdomains.
 
 ## GitHub configuration
+
 Create the following in the caller repository:
+
 - Secret `CLOUDFLARE_PAGES_API_TOKEN` with the token above.
 - Variable `CLOUDFLARE_ACCOUNT_ID` with your account ID.
 
 ## Reusable workflow (consumer usage)
+
 Call the reusable workflow with a JSON `sites` array. Each entry:
+
 - `name`: logical name
 - `path`: site root directory (where `_quarto.yml` lives)
 - `dist`: build output directory (e.g., `research/_site`)
@@ -75,6 +86,7 @@ Call the reusable workflow with a JSON `sites` array. Each entry:
 - `env_prod` / `env_preview`: GitHub environment names for deploys
 
 Single-site example:
+
 ```yaml
 name: Deploy research site
 on:
@@ -108,6 +120,7 @@ jobs:
 ```
 
 Multi-site example:
+
 ```yaml
 jobs:
   deploy:
@@ -142,21 +155,25 @@ jobs:
 ```
 
 ### Why JSON for `sites`?
+
 GitHub `workflow_call` inputs only support primitive types. Arrays/objects are not allowed as typed inputs, so we pass a JSON string and parse it with `fromJSON` inside the called workflow.
 
 ## Build details
+
 - The reusable workflow uses Nix and runs: `nix develop -c quarto render ./${path}`.
 - It validates `${dist}` contains `index.html` before deploying.
 - Deploys via Cloudflare Pages Direct Uploads to the given project.
 - Preview vs production environments are set based on branch (`main` → production).
 
 ## Troubleshooting
+
 - 403 / permissions: verify token scopes and account ID.
 - Project not found: create the Pages project first (UI or Pulumi), or ensure the name matches.
 - Domain not active: ensure the zone is on Cloudflare and the subdomain is bound to the Pages project.
 - Build failures: run `nix develop -c quarto render ./<path>` locally to reproduce.
 
 ## FAQ
+
 **Can the deploy action configure custom domains?** No. Configure domains on the Pages project (UI/API/Pulumi). The deploy step only uploads build artifacts.
 
 **Can Pulumi create all required resources?** Yes. Use `PagesProject` and `PagesDomain`. DNS is handled automatically for subdomains when the zone is on Cloudflare.
