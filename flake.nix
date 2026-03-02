@@ -37,6 +37,18 @@
       ];
 
       jackpkgs.pulumi.enable = false;
+      jackpkgs.nodejs = {
+        enable = true;
+        pnpmDepsHash = "sha256-Bfp+pZTRWo/mat9uabIh8QBN6212ToD87N8cbnhizys=";
+      };
+
+      jackpkgs.checks.typescript.tsc.packages = [
+        "packages/sector7"
+      ];
+
+      jackpkgs.checks.vitest.packages = [
+        "packages/sector7"
+      ];
 
       perSystem = {
         config,
