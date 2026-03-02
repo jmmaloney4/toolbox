@@ -29,16 +29,18 @@
 	"scripts": {
 		"clean": "rimraf dist",
 		"build": "tsc -p tsconfig.json",
+		"test": "vitest run",
 		"prepack": "pnpm run build"
 	},
 	"peerDependencies": {
-		"@pulumi/pulumi": "^3.0.0",
 		"@pulumi/cloudflare": "^5.0.0 || ^6.0.0",
-		"@pulumi/gcp": "^9.0.0"
+		"@pulumi/gcp": "^9.0.0",
+		"@pulumi/pulumi": "^3.0.0"
 	},
 	"devDependencies": {
-		"@pulumi/pulumi": "^3.205.0",
 		"@pulumi/cloudflare": "^6.0.0",
-		"@pulumi/gcp": "^9.3.0"
+		"@pulumi/gcp": "^9.3.0",
+		"@pulumi/pulumi": "^3.205.0",
+		"vitest": "^4.0.18"
 	}
 }

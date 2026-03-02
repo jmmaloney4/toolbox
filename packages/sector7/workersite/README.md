@@ -158,8 +158,8 @@ Phase 2 automatically creates DNS records for all domains:
 | `r2Bucket.bucketName` | `string` | Yes | R2 bucket name |
 | `r2Bucket.create` | `boolean` | No | Create bucket if not exists (default: false) |
 | `r2Bucket.prefix` | `string` | No | Optional object key prefix |
-| `githubIdentityProviderId` | `string` | Yes | GitHub IdP ID from Cloudflare Access |
-| `githubOrganizations` | `string[]` | Yes | GitHub org names for restricted access |
+| `githubIdentityProviderId` | `string` | No | GitHub IdP ID from Cloudflare Access (required when any path uses `access: "github-org"`) |
+| `githubOrganizations` | `string[]` | No | GitHub org names for restricted access (required when any path uses `access: "github-org"`) |
 | `paths` | `PathConfig[]` | Yes | Path access configurations (see below) |
 | `cacheTtlSeconds` | `number` | No | Cache TTL in seconds (default: 31536000 = 1 year) |
 

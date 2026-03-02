@@ -85,14 +85,16 @@ export interface WorkerSiteArgs {
 	/**
 	 * GitHub Identity Provider ID in Cloudflare Access.
 	 * This must already exist in your Cloudflare account.
+	 * Required when any path uses access: "github-org".
 	 */
-	githubIdentityProviderId: pulumi.Input<string>;
+	githubIdentityProviderId?: pulumi.Input<string>;
 
 	/**
 	 * GitHub organization name(s) for restricted path access.
 	 * Members of these organizations will be allowed to access paths with access: "github-org".
+	 * Required when any path uses access: "github-org".
 	 */
-	githubOrganizations: pulumi.Input<string>[];
+	githubOrganizations?: pulumi.Input<string>[];
 
 	/**
 	 * Path access configurations.
@@ -327,8 +329,8 @@ export class WorkerSite extends pulumi.ComponentResource {
 						? [{ everyone: true }]
 						: pulumi
 								.all([
-									pulumi.all(args.githubOrganizations),
-									args.githubIdentityProviderId,
+									pulumi.all(args.githubOrganizations!),
+									args.githubIdentityProviderId!,
 								])
 								.apply(
 									([orgs, idpId]) =>
