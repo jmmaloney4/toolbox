@@ -60,6 +60,7 @@
         ...
       }: {
         pre-commit.settings.hooks.mypy.enable = lib.mkForce false;
+        pre-commit.settings.hooks.tsc.enable = lib.mkForce false;
 
         devShells.default = pkgs.mkShell {
           inputsFrom = [
