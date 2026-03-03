@@ -326,7 +326,7 @@ export class WorkerSite extends pulumi.ComponentResource {
 				// Create policy include rules based on access type
 				const policyIncludes =
 					pathConfig.access === "public"
-						? [{ everyone: true }]
+						? ([{ everyone: {} }] as cloudflare.types.input.ZeroTrustAccessApplicationPolicyInclude[])
 						: pulumi
 								.all([
 									pulumi.all(args.githubOrganizations!),
