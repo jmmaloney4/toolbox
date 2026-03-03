@@ -8,7 +8,7 @@
 			"matchDatasources": ["crate"],
 			"matchUpdateTypes": ["minor", "patch"],
 			"automerge": true,
-			"rangeStrategy": "bump"
+			"rangeStrategy": "pin"
 		},
 		{
 			"groupName": "Python Dependencies",
@@ -16,7 +16,7 @@
 			"matchDatasources": ["pypi"],
 			"matchUpdateTypes": ["minor", "patch"],
 			"automerge": true,
-			"rangeStrategy": "bump"
+			"rangeStrategy": "pin"
 		},
 		{
 			"groupName": "Node.js Core",
@@ -44,7 +44,7 @@
 			"matchPackageNames": ["arrow*", "parquet*"],
 			"matchUpdateTypes": ["minor", "patch"],
 			"automerge": true,
-			"rangeStrategy": "bump"
+			"rangeStrategy": "pin"
 		},
 		{
 			"groupName": "Docker Images",
