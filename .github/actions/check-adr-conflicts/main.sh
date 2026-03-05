@@ -33,7 +33,10 @@ while IFS= read -r adr_file; do
   [ -z "$adr_file" ] && continue
 
   adr_filename=$(basename "$adr_file")
-  adr_number=$(printf '%s' "$adr_filename" | grep -Eo '^[0-9]{3}' || true)
+  adr_number=""
+  if [[ "$adr_filename" =~ ^([0-9]{3})($|[^0-9]) ]]; then
+    adr_number="${BASH_REMATCH[1]}"
+  fi
 
   if [ -z "$adr_number" ]; then
     echo "Warning: Could not extract ADR number from ${adr_filename}"
