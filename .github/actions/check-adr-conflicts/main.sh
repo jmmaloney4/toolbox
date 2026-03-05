@@ -49,17 +49,20 @@ done < "$ADR_FILES"
 if [ "$has_conflict" = "true" ]; then
   echo "has_conflict=true" >> "$GITHUB_OUTPUT"
 
-  cat <<EOF > /tmp/conflict_comment.md
-## ADR Number Conflict
+  comment_file=$(mktemp)
+  trap 'rm -f "$comment_file"' EXIT
 
-One or more ADR files in this PR use numbers that already exist on base branch \`${BASE_REF}\`:
+  {
+    printf '## ADR Number Conflict\n\n'
+    printf 'One or more ADR files in this PR use numbers that already exist on base branch `%s`:\n\n' "$BASE_REF"
+    printf '%b' "$conflict_messages"
+    printf '\nPlease rename your ADR file(s) to use an available number and push again.\n'
+  } > "$comment_file"
 
-$(printf '%b' "$conflict_messages")
+  gh pr comment "$PR_NUMBER" --body-file "$comment_file"
 
-Please rename your ADR file(s) to use an available number and push again.
-EOF
-
-  gh pr comment "$PR_NUMBER" --body-file /tmp/conflict_comment.md
+  rm -f "$comment_file"
+  trap - EXIT
   exit 1
 fi
 
