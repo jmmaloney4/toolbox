@@ -88,7 +88,7 @@ jobs:
           pr_number: ${{ inputs.pr_number }}
 
       - name: Create and push placeholder to main
-        if: steps.detect.outputs.has_new_adrs == 'true' && steps.check.outputs.has_conflict != 'true'
+        if: steps.detect.outputs.has_new_adrs == 'true' && steps.check.outputs.has_conflict == 'false'
         uses: jmmaloney4/toolbox/.github/actions/create-adr-placeholder@main
         with:
           adr_files: /tmp/new_adrs.txt
