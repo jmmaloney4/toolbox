@@ -69,7 +69,7 @@ if [ "$has_conflict" = "true" ]; then
 
   {
     printf '## ADR Number Conflict\n\n'
-    printf 'One or more ADR files in this PR use numbers that already exist on base branch `%s`:\n\n' "$BASE_REF"
+    printf 'The following ADR number conflicts were found (checked against base branch `%s`):\n\n' "$BASE_REF"
     printf '%b' "$conflict_messages"
     printf '\nPlease rename your ADR file(s) to use an available number and push again.\n'
   } > "$comment_file"
