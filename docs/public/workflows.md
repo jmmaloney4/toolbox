@@ -304,10 +304,10 @@ jobs:
 
 - **Path**: `.github/workflows/adr-management.yml` (callable-only)
 - **Purpose**: Reserve ADR numbers by creating placeholder ADR files on the base branch and comment on PRs when ADR numbers conflict
-- **Important**: This workflow runs under `workflow_call`, so the caller must pass PR context (`pr_number`, `pr_url`, and the PR head `ref`).
+- **Important**: This workflow runs under `workflow_call`, so the caller must pass PR context (`pr_number`, `pr_url`, and a PR head `ref`).
 - **Required inputs**:
   - **repository**: Repository to checkout (`owner/repo`), typically `${{ github.repository }}`
-  - **ref**: PR head SHA or ref to operate on (recommended: `${{ github.event.pull_request.head.sha }}`)
+  - **ref**: PR head ref to operate on (recommended: `refs/pull/${{ github.event.pull_request.number }}/head`)
   - **pr_number**: Pull request number (for commenting)
   - **pr_url**: Pull request URL (for placeholder content)
 - **Optional inputs**:
@@ -321,10 +321,8 @@ jobs:
 name: ADR Management
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-    paths:
-      - 'docs/internal/decisions/*.md'
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
   contents: write
@@ -337,7 +335,7 @@ jobs:
     with:
       runs-on: ubuntu-latest
       repository: ${{ github.repository }}
-      ref: ${{ github.event.pull_request.head.sha }}
+      ref: refs/pull/${{ github.event.pull_request.number }}/head
       base_ref: ${{ github.event.pull_request.base.ref }}
       adr_glob: 'docs/internal/decisions/*.md'
       pr_number: ${{ github.event.pull_request.number }}

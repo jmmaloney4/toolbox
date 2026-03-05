@@ -1,0 +1,30 @@
+name: Check ADR Conflicts
+description: Detect ADR number conflicts and comment on pull requests
+inputs:
+  adr_files:
+    description: Path to file containing list of new ADR files (one per line)
+    required: true
+  base_ref:
+    description: Base branch/ref to compare against
+    required: true
+  adr_glob:
+    description: ADR file glob to search on base branch
+    required: true
+  pr_number:
+    description: Pull request number used for posting conflict comments
+    required: true
+outputs:
+  has_conflict:
+    description: Whether ADR number conflicts were found
+    value: ${{ steps.check.outputs.has_conflict }}
+runs:
+  using: composite
+  steps:
+    - id: check
+      shell: bash
+      env:
+        ADR_FILES: ${{ inputs.adr_files }}
+        BASE_REF: ${{ inputs.base_ref }}
+        ADR_GLOB: ${{ inputs.adr_glob }}
+        PR_NUMBER: ${{ inputs.pr_number }}
+      run: bash "$GITHUB_ACTION_PATH/main.sh"
