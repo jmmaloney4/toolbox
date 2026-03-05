@@ -54,7 +54,7 @@ if [ "$has_conflict" = "true" ]; then
 
 One or more ADR files in this PR use numbers that already exist on base branch \`${BASE_REF}\`:
 
-$(echo -e "$conflict_messages")
+$(printf '%b' "$conflict_messages")
 
 Please rename your ADR file(s) to use an available number and push again.
 EOF
