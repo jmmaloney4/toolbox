@@ -11,6 +11,18 @@ if [ -z "${BASE_REF:-}" ] || [ -z "${ADR_GLOB:-}" ] || [ -z "${PR_NUMBER:-}" ]; 
   exit 1
 fi
 
+if ! [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+  echo "PR_NUMBER must be numeric" >&2
+  exit 1
+fi
+
+case "$BASE_REF$ADR_GLOB" in
+  *$'\n'*|*$'\r'*)
+    echo "BASE_REF and ADR_GLOB must not contain newlines" >&2
+    exit 1
+    ;;
+esac
+
 declare -A seen_numbers=()
 has_conflict=false
 conflict_messages=""
