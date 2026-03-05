@@ -304,10 +304,10 @@ jobs:
 
 - **Path**: `.github/workflows/adr-management.yml` (callable-only)
 - **Purpose**: Reserve ADR numbers by creating placeholder ADR files on the base branch and comment on PRs when ADR numbers conflict
-- **Important**: This workflow runs under `workflow_call`, so the caller must pass PR context (`pr_number`, `pr_url`, and the PR head `ref`).
+- **Important**: This workflow runs under `workflow_call`, so the caller must pass PR context (`pr_number`, `pr_url`, and a PR head `ref`).
 - **Required inputs**:
   - **repository**: Repository to checkout (`owner/repo`), typically `${{ github.repository }}`
-  - **ref**: PR head SHA or ref to operate on (recommended: `${{ github.event.pull_request.head.sha }}`)
+  - **ref**: PR head ref to operate on (recommended: `refs/pull/${{ github.event.pull_request.number }}/head`)
   - **pr_number**: Pull request number (for commenting)
   - **pr_url**: Pull request URL (for placeholder content)
 - **Optional inputs**:
@@ -321,10 +321,8 @@ jobs:
 name: ADR Management
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-    paths:
-      - 'docs/internal/decisions/*.md'
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
   contents: write
@@ -337,12 +335,55 @@ jobs:
     with:
       runs-on: ubuntu-latest
       repository: ${{ github.repository }}
-      ref: ${{ github.event.pull_request.head.sha }}
+      ref: refs/pull/${{ github.event.pull_request.number }}/head
       base_ref: ${{ github.event.pull_request.base.ref }}
       adr_glob: 'docs/internal/decisions/*.md'
       pr_number: ${{ github.event.pull_request.number }}
       pr_url: ${{ github.event.pull_request.html_url }}
 ```
+
+#### Security: `pull_request_target` and fork PRs
+
+This workflow uses `pull_request_target` so it runs even when a PR branch has
+merge conflicts with the base branch. Unlike `pull_request`, `pull_request_target`
+always runs in the context of the base branch — with write permissions and access
+to repository secrets — **even for PRs opened from forks**.
+
+This is the ["pwn request"](https://securitylab.github.com/resources/github-actions-preventing-pwn-requests/)
+attack surface: a malicious fork PR could try to abuse the write token that
+`pull_request_target` provides.
+
+**Why this workflow is relatively safe:**
+
+The ADR workflow only reads file *names* from the PR head — it never executes
+any code from the PR branch. The only privileged operation is pushing a
+placeholder commit to the base branch. There is no `npm install`, `make`, or
+shell execution of PR-provided content.
+
+**Residual risk:**
+
+A malicious PR could craft ADR filenames designed to exploit shell handling in
+the conflict-check or placeholder scripts (path traversal, injection via unusual
+characters). The scripts include path safety checks to mitigate this.
+
+**Available mitigations (recommended for public repos):**
+
+1. **Require approval for fork PRs** — Go to **Settings → Actions → General →
+   Fork pull request workflows** and select _"Require approval for all outside
+   collaborators"_. This forces a maintainer to manually approve each fork PR
+   before any workflow runs, directly preventing untrusted code from triggering
+   a `pull_request_target` workflow.
+
+2. **Branch protection on the base branch** — Ensure the base branch has push
+   restrictions enabled so that only the Actions bot (or specific actors) can
+   push to it. This limits blast radius if the write token is misused.
+
+3. **Private repos** — Fork PRs from non-members are not possible by default in
+   private repositories, which eliminates this attack vector entirely.
+
+For internal/private repos where all contributors are trusted, the risk profile
+is the same as a standard `pull_request` workflow.
+
 ## Usage Notes
 
 - All workflows are designed to be called from other repositories using the `uses:` syntax
