@@ -15,6 +15,10 @@ on:
         description: 'Git ref (SHA/branch) to checkout and operate on'
         required: true
         type: string
+      head_ref:
+        description: 'PR head branch name (human-readable, e.g. my-feature-branch)'
+        required: true
+        type: string
       base_ref:
         description: 'Base branch/ref to compare against (e.g., main)'
         required: false
@@ -103,6 +107,7 @@ jobs:
           GH_REPO: ${{ inputs.repository }}
         with:
           base_ref: ${{ inputs.base_ref }}
+          head_ref: ${{ inputs.head_ref }}
           adr_glob: ${{ inputs.adr_glob }}
           pr_number: ${{ inputs.pr_number }}
 

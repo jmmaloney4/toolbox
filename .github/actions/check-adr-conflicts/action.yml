@@ -5,7 +5,10 @@ description: >
   if any conflicts are found.
 inputs:
   base_ref:
-    description: Base branch/ref to compare against (informational; used in log output)
+    description: Base branch name to compare against (e.g. main)
+    required: true
+  head_ref:
+    description: PR head branch name (e.g. my-feature-branch)
     required: true
   adr_glob:
     description: ADR file glob to scan (relative to repo root, e.g. docs/internal/designs/*.md)
@@ -24,6 +27,7 @@ runs:
       shell: bash
       env:
         BASE_REF: ${{ inputs.base_ref }}
+        HEAD_REF: ${{ inputs.head_ref }}
         ADR_GLOB: ${{ inputs.adr_glob }}
         PR_NUMBER: ${{ inputs.pr_number }}
       run: bash "$GITHUB_ACTION_PATH/main.sh"

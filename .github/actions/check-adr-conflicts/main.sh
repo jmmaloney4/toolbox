@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [ -z "${BASE_REF:-}" ] || [ -z "${ADR_GLOB:-}" ] || [ -z "${PR_NUMBER:-}" ]; then
-  echo "BASE_REF, ADR_GLOB, and PR_NUMBER are required" >&2
+if [ -z "${BASE_REF:-}" ] || [ -z "${HEAD_REF:-}" ] || [ -z "${ADR_GLOB:-}" ] || [ -z "${PR_NUMBER:-}" ]; then
+  echo "BASE_REF, HEAD_REF, ADR_GLOB, and PR_NUMBER are required" >&2
   exit 1
 fi
 
@@ -11,9 +11,9 @@ if ! [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
   exit 1
 fi
 
-case "$BASE_REF$ADR_GLOB" in
+case "$BASE_REF$HEAD_REF$ADR_GLOB" in
   *$'\n'*|*$'\r'*)
-    echo "BASE_REF and ADR_GLOB must not contain newlines" >&2
+    echo "BASE_REF, HEAD_REF, and ADR_GLOB must not contain newlines" >&2
     exit 1
     ;;
 esac
@@ -71,7 +71,7 @@ for adr_number in $(echo "${!number_to_files[@]}" | tr ' ' '\n' | sort); do
     conflict_body="${conflict_body}### Number \`${adr_number}\` (${count}-way conflict)\n\n"
     for f in "${files_array[@]}"; do
       if [ -n "${pr_files[$f]:-}" ]; then
-        label="PR branch"
+        label="\`${HEAD_REF}\`"
       else
         label="\`${BASE_REF}\`"
       fi
