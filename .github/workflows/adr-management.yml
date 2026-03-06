@@ -106,15 +106,36 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Unique marker so we can find and update this comment on subsequent runs.
+          MARKER="<!-- adr-status-bot -->"
+
           if [ "${HAS_CONFLICT}" = "true" ]; then
-            # Conflict comment is already posted by the check-adr-conflicts action; nothing to add.
-            exit 0
-          fi
-
-          if [ "${HAS_NEW_ADRS}" = "true" ]; then
-            body="**ADR conflict check passed.** No duplicate ADR numbers detected (full-tree audit of \`${ADR_GLOB}\`)."
+            # Conflict body is already posted by the check-adr-conflicts action.
+            # Update our sticky comment to reflect the failure so it stays current.
+            body="${MARKER}
+          **ADR conflict check failed.** Duplicate ADR numbers were detected (full-tree audit of \`${ADR_GLOB}\`). See the conflict comment above for details."
+          elif [ "${HAS_NEW_ADRS}" = "true" ]; then
+            body="${MARKER}
+          **ADR conflict check passed.** No duplicate ADR numbers detected (full-tree audit of \`${ADR_GLOB}\`)."
           else
-            body="**ADR conflict check ran.** No new or modified ADR files detected in this PR; full-tree audit of \`${ADR_GLOB}\` passed with no conflicts."
+            body="${MARKER}
+          **ADR conflict check ran.** No new or modified ADR files detected in this PR; full-tree audit of \`${ADR_GLOB}\` passed with no conflicts."
           fi
 
-          gh pr comment "$PR_NUMBER" --body "$body"
+          # Look for an existing comment containing our marker.
+          COMMENT_ID=$(gh api \
+            "repos/${GH_REPO}/issues/${PR_NUMBER}/comments" \
+            --paginate \
+            --jq ".[] | select(.body | contains(\"${MARKER}\")) | .id" \
+            | head -n1)
+
+          if [ -n "$COMMENT_ID" ]; then
+            # Update the existing comment in place.
+            gh api \
+              --method PATCH \
+              "repos/${GH_REPO}/issues/comments/${COMMENT_ID}" \
+              --field body="$body"
+          else
+            # First run: create a new comment.
+            gh pr comment "$PR_NUMBER" --body "$body" --repo "$GH_REPO"
+          fi
