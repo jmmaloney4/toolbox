@@ -50,7 +50,7 @@ while IFS= read -r adr_file; do
   else
     number_to_files[$adr_number]="${adr_file}"
   fi
-done < <(find . -path "./${ADR_GLOB}" -name '*.md' 2>/dev/null | sed 's|^\./||' | sort)
+done < <(find . -path "./${ADR_GLOB#./}" -name '*.md' | sed 's|^\./||' | sort)
 
 # Report any number with more than one file
 for adr_number in "${!number_to_files[@]}"; do
