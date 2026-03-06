@@ -21,6 +21,7 @@
 	"dependencyDashboardTitle": "Renovate Dashboard 🤖",
 	"dependencyDashboardLabels": ["dependencies"],
 	"rangeStrategy": "pin",
+	"minimumReleaseAge": "4 days",
 	"pinDigests": true,
 	"labels": ["dependencies", "renovate"],
 	"commitMessagePrefix": "deps: ",
