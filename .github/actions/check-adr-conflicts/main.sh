@@ -55,14 +55,15 @@ done < <(find . -path "./${ADR_GLOB}" -name '*.md' 2>/dev/null | sed 's|^\./||' 
 # Report any number with more than one file
 for adr_number in "${!number_to_files[@]}"; do
   files_for_number="${number_to_files[$adr_number]}"
-  # Count by splitting on |
-  count=$(echo "$files_for_number" | tr '|' '\n' | grep -c .)
+  # Split pipe-delimited list into an array — no subprocesses needed
+  IFS='|' read -ra files_array <<< "$files_for_number"
+  count=${#files_array[@]}
   if [ "$count" -gt 1 ]; then
     echo "CONFLICT: ADR number ${adr_number} is used by ${count} files: ${files_for_number}"
     has_conflict=true
-    while IFS= read -r f; do
+    for f in "${files_array[@]}"; do
       conflict_messages="${conflict_messages}- \`${f}\` uses number \`${adr_number}\` (${count}-way conflict)\n"
-    done < <(echo "$files_for_number" | tr '|' '\n')
+    done
   fi
 done
 
