@@ -93,3 +93,28 @@ jobs:
           adr_files: /tmp/new_adrs.txt
           pr_url: ${{ inputs.pr_url }}
           base_branch: ${{ inputs.base_ref }}
+
+      - name: Post ADR check status comment
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ inputs.repository }}
+          HAS_NEW_ADRS: ${{ steps.detect.outputs.has_new_adrs }}
+          HAS_CONFLICT: ${{ steps.check.outputs.has_conflict }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          ADR_GLOB: ${{ inputs.adr_glob }}
+        run: |
+          set -euo pipefail
+
+          if [ "${HAS_CONFLICT}" = "true" ]; then
+            # Conflict comment is already posted by the check-adr-conflicts action; nothing to add.
+            exit 0
+          fi
+
+          if [ "${HAS_NEW_ADRS}" = "true" ]; then
+            body="**ADR conflict check passed.** No duplicate ADR numbers detected (full-tree audit of \`${ADR_GLOB}\`)."
+          else
+            body="**ADR conflict check ran.** No new or modified ADR files detected in this PR; full-tree audit of \`${ADR_GLOB}\` passed with no conflicts."
+          fi
+
+          gh pr comment "$PR_NUMBER" --body "$body"
