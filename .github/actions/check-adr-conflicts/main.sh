@@ -1,11 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [ -z "${ADR_FILES:-}" ] || [ ! -f "${ADR_FILES:-}" ]; then
-  echo "ADR file list is missing: ${ADR_FILES:-<unset>}" >&2
-  exit 1
-fi
-
 if [ -z "${BASE_REF:-}" ] || [ -z "${ADR_GLOB:-}" ] || [ -z "${PR_NUMBER:-}" ]; then
   echo "BASE_REF, ADR_GLOB, and PR_NUMBER are required" >&2
   exit 1
@@ -23,12 +18,19 @@ case "$BASE_REF$ADR_GLOB" in
     ;;
 esac
 
-declare -A seen_numbers=()
+# ── Full-tree uniqueness audit (FM-1 / FM-3 fix) ─────────────────────────────
+# Scan ALL files matching the glob that exist in the working tree (i.e. the
+# PR's current tree), not just files added by this PR. This catches:
+#   - pre-existing conflicts already on main (FM-1)
+#   - conflicts among files that were never "new" from git's perspective (FM-3)
+
+echo "Running full-tree ADR uniqueness audit (glob: ${ADR_GLOB})"
+
+declare -A number_to_files=()
 has_conflict=false
 conflict_messages=""
 
-base_adr_paths=$(git ls-tree -r --name-only "origin/${BASE_REF}" -- "${ADR_GLOB}" 2>/dev/null || true)
-
+# Collect all matching ADR files from the working tree
 while IFS= read -r adr_file; do
   [ -z "$adr_file" ] && continue
 
@@ -43,23 +45,27 @@ while IFS= read -r adr_file; do
     continue
   fi
 
-  if [ -n "${seen_numbers[$adr_number]:-}" ]; then
-    echo "DUPLICATE: ADR ${adr_number} appears multiple times in this PR"
-    has_conflict=true
-    conflict_messages="${conflict_messages}- \`${adr_file}\` uses number \`${adr_number}\` which is duplicated in this PR\n"
+  if [ -n "${number_to_files[$adr_number]:-}" ]; then
+    number_to_files[$adr_number]="${number_to_files[$adr_number]}|${adr_file}"
+  else
+    number_to_files[$adr_number]="${adr_file}"
   fi
-  seen_numbers[$adr_number]=1
+done < <(find . -path "./${ADR_GLOB#./}" -name '*.md' | sed 's|^\./||' | sort)
 
-  existing=$(
-    printf '%s\n' "${base_adr_paths}" | grep -E "(^|/)${adr_number}([^0-9]|$)" | head -1 || true
-  )
-
-  if [ -n "$existing" ]; then
-    echo "CONFLICT: ADR ${adr_number} already exists on ${BASE_REF}: ${existing}"
+# Report any number with more than one file
+for adr_number in "${!number_to_files[@]}"; do
+  files_for_number="${number_to_files[$adr_number]}"
+  # Split pipe-delimited list into an array — no subprocesses needed
+  IFS='|' read -ra files_array <<< "$files_for_number"
+  count=${#files_array[@]}
+  if [ "$count" -gt 1 ]; then
+    echo "CONFLICT: ADR number ${adr_number} is used by ${count} files: ${files_for_number}"
     has_conflict=true
-    conflict_messages="${conflict_messages}- \`${adr_file}\` uses number \`${adr_number}\` which conflicts with \`${existing}\`\n"
+    for f in "${files_array[@]}"; do
+      conflict_messages="${conflict_messages}- \`${f}\` uses number \`${adr_number}\` (${count}-way conflict)\n"
+    done
   fi
-done < "$ADR_FILES"
+done
 
 if [ "$has_conflict" = "true" ]; then
   echo "has_conflict=true" >> "$GITHUB_OUTPUT"
@@ -69,9 +75,10 @@ if [ "$has_conflict" = "true" ]; then
 
   {
     printf '## ADR Number Conflict\n\n'
-    printf 'The following ADR number conflicts were found (checked against base branch `%s`):\n\n' "$BASE_REF"
+    printf 'The following ADR number conflicts were detected by a full-tree audit\n'
+    printf '(all files matching `%s` in this PR'\''s tree):\n\n' "$ADR_GLOB"
     printf '%b' "$conflict_messages"
-    printf '\nPlease rename your ADR file(s) to use an available number and push again.\n'
+    printf '\nPlease rename the conflicting ADR file(s) to use a unique number and push again.\n'
   } > "$comment_file"
 
   gh pr comment "$PR_NUMBER" --body-file "$comment_file"
@@ -81,5 +88,5 @@ if [ "$has_conflict" = "true" ]; then
   exit 1
 fi
 
-echo "No ADR number conflicts found"
+echo "No ADR number conflicts found (full-tree audit passed)"
 echo "has_conflict=false" >> "$GITHUB_OUTPUT"
