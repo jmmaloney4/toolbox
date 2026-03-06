@@ -63,26 +63,25 @@ jobs:
           BASE_REF: ${{ inputs.base_ref }}
         run: |
           set -euo pipefail
-          NEW_ADRS=$(git diff --name-only --diff-filter=A "origin/${BASE_REF}..HEAD" -- "$ADR_GLOB" || true)
+          # FM-2 fix: use --diff-filter=AM so renamed/modified ADR files are
+          # also recognised as "touched", not just newly-added ones.
+          NEW_ADRS=$(git diff --name-only --diff-filter=AM "origin/${BASE_REF}..HEAD" -- "$ADR_GLOB" || true)
           if [ -z "$NEW_ADRS" ]; then
             echo "has_new_adrs=false" >> "$GITHUB_OUTPUT"
-            exit 0
+          else
+            echo "has_new_adrs=true" >> "$GITHUB_OUTPUT"
+            echo "$NEW_ADRS" > /tmp/new_adrs.txt
+            echo "New/modified ADR files:"
+            cat /tmp/new_adrs.txt
           fi
 
-          echo "has_new_adrs=true" >> "$GITHUB_OUTPUT"
-          echo "$NEW_ADRS" > /tmp/new_adrs.txt
-          echo "New ADR files:"
-          cat /tmp/new_adrs.txt
-
       - name: Check ADR number conflicts
-        if: steps.detect.outputs.has_new_adrs == 'true'
         id: check
         uses: jmmaloney4/toolbox/.github/actions/check-adr-conflicts@main
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ inputs.repository }}
         with:
-          adr_files: /tmp/new_adrs.txt
           base_ref: ${{ inputs.base_ref }}
           adr_glob: ${{ inputs.adr_glob }}
           pr_number: ${{ inputs.pr_number }}
