@@ -2,7 +2,7 @@
   inputs = {
     ### Nixpkgs ###
     # nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
-    nixpkgs.url = "github:nixos/nixpkgs/70801e06d9730c4f1704fbd3bbf5b8e11c03a2a7"; # https://github.com/NixOS/nixpkgs/issues/483584
+    nixpkgs.url = "github:nixos/nixpkgs/088d3eb06f973c710f69f165fa312c1bae48641a"; # https://github.com/NixOS/nixpkgs/issues/483584
 
     jackpkgs = {
       url = "github:jmmaloney4/jackpkgs";
