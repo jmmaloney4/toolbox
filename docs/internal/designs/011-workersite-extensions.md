@@ -141,6 +141,7 @@ When `workerScript` is set, `redirects` is ignored. `R2_BUCKET` and `CACHE_TTL_S
 The current API requires `githubIdentityProviderId`, `githubOrganizations`, and `paths` even for fully public sites. This is unnecessary coupling.
 
 Restructure so that:
+
 - `paths` defaults to `[{ pattern: "/*", access: "public" }]` when omitted.
 - `githubIdentityProviderId` and `githubOrganizations` become optional at the type level.
 - Access Applications are created only when at least one path has `access: "github-org"`.
@@ -166,6 +167,7 @@ Replace `cloudflare.WorkerDomain` with `cloudflare.WorkersCustomDomain` as the d
 # Consequences
 
 ## Positive
+
 - `WorkerSite` becomes usable for fully public static sites without Zero Trust overhead.
 - Asset upload is now declarative (`pulumi up` uploads changed files), eliminating the need for a separate wrangler/CI upload step.
 - Custom worker scripts enable sites like `cavinsresearch.io` to use `WorkerSite` again, reducing duplicated infrastructure code.
@@ -173,6 +175,7 @@ Replace `cloudflare.WorkerDomain` with `cloudflare.WorkersCustomDomain` as the d
 - `WorkersCustomDomain` aligns with the current Cloudflare provider API surface.
 
 ## Negative
+
 - `WorkersCustomDomain` vs `WorkerDomain`: existing callers using `WorkerDomain` will require a state migration (resource aliases or `pulumi state rename`). This is a mild operational burden.
 - Adding `@aws-sdk/client-s3` as a peer dep increases the install footprint for callers who don't use asset upload.
 - The `as any` cast for `AccountToken.resources` is a known type-system paper cut; tracked until the upstream provider is fixed.
