@@ -75,6 +75,7 @@ Or pin the aggregate preset:
 The presets are designed to be composable. Common combinations:
 
 ### Full-Featured Project
+
 ```json
 {
   "extends": [
@@ -85,6 +86,7 @@ The presets are designed to be composable. Common combinations:
   ]
 }
 ```
+
 Alternatively, use the single aggregate preset:
 
 ```json
@@ -96,6 +98,7 @@ Alternatively, use the single aggregate preset:
 ```
 
 ### Nix + Pulumi Project
+
 ```json
 {
   "extends": [
@@ -105,6 +108,7 @@ Alternatively, use the single aggregate preset:
   ]
 }
 ```
+
 Alternatively, use the single aggregate preset:
 
 ```json
@@ -119,15 +123,15 @@ Alternatively, use the single aggregate preset:
 
 Renovate looks for configuration files in these locations (in order):
 
-1. `renovate.json`
-2. `renovate.json5` 
-3. `.github/renovate.json`
-4. `.github/renovate.json5`
-5. `.gitlab/renovate.json`
-6. `.gitlab/renovate.json5`
-7. `.renovaterc`
-8. `.renovaterc.json`
-9. `.renovaterc.json5`
+01. `renovate.json`
+02. `renovate.json5`
+03. `.github/renovate.json`
+04. `.github/renovate.json5`
+05. `.gitlab/renovate.json`
+06. `.gitlab/renovate.json5`
+07. `.renovaterc`
+08. `.renovaterc.json`
+09. `.renovaterc.json5`
 10. `package.json` (within a `"renovate"` section - deprecated)
 
 Renovate stops searching after finding the first matching configuration file.

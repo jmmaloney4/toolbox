@@ -27,7 +27,7 @@ numbers (`092`, `094`, `097`, `098` — some three-way conflicts) already presen
 
 This ADR classifies the four failure modes observed and proposes fixes for each.
 
----
+______________________________________________________________________
 
 # Failure Modes
 
@@ -46,7 +46,7 @@ already exist on `main` before the PR was opened are invisible to this filter.
 flag the pre-existing conflict. The invariant "all ADR numbers on `main` are unique" is only
 enforced at the moment of addition; it is never re-validated.
 
----
+______________________________________________________________________
 
 ## FM-2: Vacuous success on format-only or rename commits
 
@@ -58,7 +58,7 @@ steps are skipped, and the job exits with success. No output or comment is produ
 **Impact.** The PR receives a green check mark that implies ADR health was validated, when in
 reality the check was a no-op. This creates false confidence, particularly during code review.
 
----
+______________________________________________________________________
 
 ## FM-3: No whole-directory uniqueness audit
 
@@ -71,7 +71,7 @@ files already on `main`.
 skipped), FM-3 is the algorithmic gap (even if the workflow ran, it would not have caught
 pre-existing conflicts among files it did not treat as "new").
 
----
+______________________________________________________________________
 
 ## FM-4: Silent skip when `has_new_adrs=false`
 
@@ -82,7 +82,7 @@ status comment on the PR, no annotation, and no log output beyond the internal v
 check was misconfigured and silently failed." Reviewers have no visibility into which path was
 taken.
 
----
+______________________________________________________________________
 
 # Decision
 
@@ -153,29 +153,31 @@ This makes the check's result unambiguous to reviewers.
 comment for the no-op case, to avoid comment noise. Acceptable if teams prefer fewer PR comments;
 however, job summaries are less visible during code review than PR comments.
 
----
+______________________________________________________________________
 
 # Consequences
 
 ## Positive
+
 - Pre-existing conflicts on `main` will be caught and block future PRs until resolved.
 - PRs that reformat or rename ADRs without adding new ones will still trigger a meaningful audit.
 - Reviewers always have explicit confirmation that the ADR check ran and what it found.
 
 ## Negative
+
 - The full-tree scan adds a small CI step to every ADR-touching PR (negligible cost in practice).
 - Surfacing pre-existing conflicts may require remediation work on `main` before other PRs can
   pass (short-term disruption, long-term correctness).
 - More PR comments may be perceived as noise if many PRs touch ADR files without adding new ones.
 
----
+______________________________________________________________________
 
 # Security / Privacy / Compliance
 
 No credentials, PII, or sensitive data involved. The workflow already uses `gh pr comment` with
 the repository's default `GITHUB_TOKEN`.
 
----
+______________________________________________________________________
 
 # Operational Notes
 
@@ -185,7 +187,7 @@ the repository's default `GITHUB_TOKEN`.
 - The `create-adr-placeholder` step should remain gated on `has_new_adrs=true` (it is a write
   operation and should only run for genuine ADR additions).
 
----
+______________________________________________________________________
 
 # Implementation Notes
 
@@ -195,7 +197,7 @@ the repository's default `GITHUB_TOKEN`.
 - FM-2 fix: update `--diff-filter=A` to `--diff-filter=AM` in the "Detect new ADR files" step,
   and decouple "should we post a placeholder" from "should we run the audit".
 
----
+______________________________________________________________________
 
 # References
 

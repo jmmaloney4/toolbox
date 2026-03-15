@@ -16,11 +16,13 @@ links: []
 The toolbox project currently lacks automated testing infrastructure for TypeScript/JavaScript components, specifically for the Pulumi utilities in `packages/toolbox/pulumi/`. This creates risks when refactoring or extending functionality like the `generateServiceAccountId` function, which has specific validation rules and output format requirements.
 
 **In scope:**
+
 - Jest testing framework integration with existing Nix/pnpm infrastructure
 - Testing for pure utility functions (starting with `generateServiceAccountId`)
 - CI integration via existing `nix flake check` mechanism
 
 **Out of scope:**
+
 - End-to-end testing of Pulumi resources
 - Integration testing with cloud providers
 - Performance testing
@@ -42,6 +44,7 @@ We MUST add Jest as our JavaScript/TypeScript testing framework, integrated with
 # Consequences
 
 ## Positive
+
 - **Quality assurance**: Automated testing prevents regressions in utility functions
 - **Documentation**: Tests serve as executable specifications for complex logic
 - **Developer experience**: Tests run consistently across local/CI environments via Nix
@@ -49,6 +52,7 @@ We MUST add Jest as our JavaScript/TypeScript testing framework, integrated with
 - **Fail-fast feedback**: Tests run early in the CI pipeline via `nix flake check`
 
 ## Negative
+
 - **Build complexity**: Adds Jest configuration and TypeScript compilation for tests
 - **Dependency overhead**: Additional npm packages in devDependencies
 - **Maintenance burden**: Tests require updates when implementation changes
@@ -57,14 +61,17 @@ We MUST add Jest as our JavaScript/TypeScript testing framework, integrated with
 # Alternatives
 
 - **Vitest**: Modern Vite-based test runner with better ESM support
+
   - Pros: Faster, better TypeScript integration, more modern
   - Cons: Less ecosystem maturity, potential compatibility issues with Pulumi SDK
 
 - **Node.js built-in test runner**: Uses native Node.js testing (Node 18+)
+
   - Pros: No additional dependencies, very lightweight
   - Cons: Limited features, less tooling, basic assertion library
 
 - **Deno test**: Use Deno's built-in testing
+
   - Pros: TypeScript-first, no configuration needed
   - Cons: Requires Deno runtime, incompatible with existing Node.js setup
 
@@ -88,15 +95,18 @@ We MUST add Jest as our JavaScript/TypeScript testing framework, integrated with
 # Implementation Notes
 
 **Phase 1**: Core infrastructure setup
+
 - Add Jest to `flake.nix` devShell and checks
 - Configure Jest in `packages/toolbox/package.json`
 - Create test for `generateServiceAccountId`
 
 **Phase 2**: Expand coverage (future)
+
 - Add tests for other utility functions
 - Consider integration testing patterns for Pulumi components
 
 **Key files:**
+
 - `flake.nix`: Add nodejs and jest to devShell, create checks.test
 - `packages/toolbox/package.json`: Add jest, @types/jest, ts-jest dependencies
 - `packages/toolbox/jest.config.js`: Jest configuration with TypeScript support

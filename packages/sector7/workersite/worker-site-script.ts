@@ -1,23 +1,64 @@
 /**
  * Worker script template for serving static files from R2 with Cache API.
  * Phase 2: R2 serving with edge caching and configurable TTL.
+ * Phase 3 (ADR-011): Optional redirect rules injected into generated script.
  */
+
+/**
+ * A single HTTP redirect rule.
+ */
+export interface RedirectRule {
+	/** The hostname that triggers the redirect (e.g., "www.example.com"). */
+	fromHost: string;
+	/** The hostname to redirect to (e.g., "example.com"). */
+	toHost: string;
+	/** HTTP status code for the redirect. @default 301 */
+	statusCode?: number;
+}
 
 /**
  * Generate the Worker script code for serving static files from R2 with Cache API.
  *
- * @param bucketBinding - The R2 bucket binding name (e.g., "R2_BUCKET")
- * @param prefix - Optional prefix to prepend to all R2 object keys
- * @returns The Worker script code as a string
+ * Parameters
+ * ----------
+ * bucketBinding : string
+ *     The R2 bucket binding name (e.g., "R2_BUCKET")
+ * prefix : string, optional
+ *     Optional prefix to prepend to all R2 object keys
+ * redirects : RedirectRule[], optional
+ *     Optional list of host-level redirect rules, evaluated before R2 serving
+ *
+ * Returns
+ * -------
+ * string
+ *     The Worker script code as a string
  */
 export function generateWorkerScript(
 	bucketBinding: string,
 	prefix?: string,
+	redirects?: RedirectRule[],
 ): string {
 	// Sanitize prefix to prevent code injection
 	const sanitizedPrefix = prefix
 		? JSON.stringify(prefix).slice(1, -1)
 		: undefined;
+
+	// Generate redirect block
+	const redirectBlock =
+		redirects && redirects.length > 0
+			? redirects
+					.map((r) => {
+						const status = r.statusCode ?? 301;
+						const fromHost = JSON.stringify(r.fromHost);
+						const toHost = JSON.stringify(r.toHost);
+						return `		if (url.hostname === ${fromHost}) {
+			const redirectUrl = new URL(request.url);
+			redirectUrl.hostname = ${toHost};
+			return Response.redirect(redirectUrl.toString(), ${status});
+		}`;
+					})
+					.join("\n")
+			: null;
 
 	return `
 /**
@@ -35,7 +76,7 @@ export default {
 	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
 		try {
 			const url = new URL(request.url);
-
+${redirectBlock ? `\n${redirectBlock}\n` : ""}
 			// 1. Path normalization - remove leading slash
 			let objectKey = url.pathname.slice(1);
 
