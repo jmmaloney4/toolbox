@@ -30,7 +30,7 @@ links:
   - `redirects?` config block on `WorkerSite` (injected into worker script or handled in custom worker).
   - `workerScript?` config block to supply a pre-built worker script content string instead of the generated one.
   - Making access control optional (paths default to public-only when omitted, no Access Applications created).
-  - Switching domain binding to `WorkersCustomDomain` as the default (instead of `WorkerDomain`).
+  - Switching domain binding to `WorkersCustomDomain` (instead of `WorkerDomain`), removing explicit DNS record management (issue #113).
 - Out of scope:
   - SPA fallback, custom 404 pages, range requests (Phase 3 from ADR-005).
   - Migrating existing `WorkerSite` callers to the new API (migration path is provided but not automated).
@@ -149,11 +149,11 @@ Restructure so that:
 
 This is a **breaking change** to the TypeScript interface (both fields become optional), but is backward-compatible at runtime.
 
-## 6. WorkersCustomDomain as Default
+## 6. WorkersCustomDomain as Default — No Explicit DNS Records
 
-Replace `cloudflare.WorkerDomain` with `cloudflare.WorkersCustomDomain` as the default domain binding resource. `WorkersCustomDomain` is the current Cloudflare provider resource for custom domain routing, but the current Pulumi Cloudflare provider still requires `zoneId` on the binding resource.
+Replace `cloudflare.WorkerDomain` with `cloudflare.WorkersCustomDomain` as the domain binding resource. `WorkersCustomDomain` automatically manages DNS records for each bound hostname; no explicit `cloudflare.Record` resources are created. This resolves issue #113 (redundant AAAA records causing 409 conflicts).
 
-`zoneId` on `WorkerSiteArgs` remains required. `manageDns: false` disables automatic DNS record creation, but callers must still provide `zoneId` so the component can create `WorkersCustomDomain` resources.
+The `manageDns` flag and `dnsRecords` output are removed entirely. `zoneId` on `WorkerSiteArgs` remains required because the Pulumi Cloudflare provider requires it for `WorkersCustomDomain`.
 
 ## Implementation Sequence
 
@@ -172,7 +172,7 @@ Replace `cloudflare.WorkerDomain` with `cloudflare.WorkersCustomDomain` as the d
 - Asset upload is now declarative (`pulumi up` uploads changed files), eliminating the need for a separate wrangler/CI upload step.
 - Custom worker scripts enable sites like `cavinsresearch.io` to use `WorkerSite` again, reducing duplicated infrastructure code.
 - Redirect rules are first-class, covering the common `www → apex` pattern.
-- `WorkersCustomDomain` aligns with the current Cloudflare provider API surface while preserving a valid `zoneId`-backed binding flow.
+- `WorkersCustomDomain` aligns with the current Cloudflare provider API surface and automatically manages DNS, eliminating the redundant AAAA record creation that caused issue #113.
 
 ## Negative
 
@@ -209,6 +209,7 @@ Keep `sector7` unchanged; each consuming repo implements `R2Object`, redirects, 
 - Callers using asset upload will see one Pulumi resource per static file. For large sites (>100 files), this increases `pulumi up` plan time. Mitigate with `pulumi up --parallel`.
 - The `AccountToken` is a tracked Pulumi resource; rotation requires `pulumi refresh` after the old token is revoked.
 - Switching from `WorkerDomain` to `WorkersCustomDomain` requires either resource aliases or `pulumi state mv` to preserve state continuity. Callers should test in a non-production stack first.
+- The `manageDns` field and `dnsRecords` output have been removed; `WorkersCustomDomain` manages DNS automatically.
 
 # Status Transitions
 

@@ -100,11 +100,10 @@ export interface WorkerScriptConfig {
  *
  * @remarks
  * Phase 2 / ADR-011 features:
- * - Multiple domains via WorkersCustomDomain
+ * - Multiple domains via WorkersCustomDomain (DNS managed automatically)
  * - Optional path-level access control (Zero Trust; omit for fully public sites)
  * - R2 backend with Cache API
  * - Configurable cache TTL
- * - Optional automatic DNS record creation
  * - Optional declarative R2 asset uploads (AssetConfig)
  * - Optional host-level redirect rules injected into the generated Worker script
  * - Optional custom Worker script with extra bindings
@@ -117,7 +116,7 @@ export interface WorkerSiteArgs {
 
 	/**
 	 * Cloudflare zone ID for the domain.
-	 * Required for both `WorkersCustomDomain` bindings and optional DNS records.
+	 * Required for `WorkersCustomDomain` bindings.
 	 */
 	zoneId: pulumi.Input<string>;
 
@@ -128,17 +127,11 @@ export interface WorkerSiteArgs {
 
 	/**
 	 * Domains to bind the Worker to (e.g., ["site.example.com", "www.site.example.com"]).
-	 * DNS records will be automatically created for each domain unless manageDns is false.
+	 *
+	 * Each domain gets a `WorkersCustomDomain` resource that automatically manages
+	 * DNS.  No explicit `cloudflare.Record` resources are created.
 	 */
 	domains: pulumi.Input<string>[];
-
-	/**
-	 * Automatically create DNS records for domains.
-	 * Creates AAAA records pointing to 100:: (Workers placeholder).
-	 * Requires `zoneId` to be set.
-	 * @default true
-	 */
-	manageDns?: boolean;
 
 	/**
 	 * R2 bucket configuration.
@@ -290,11 +283,6 @@ export class WorkerSite extends pulumi.ComponentResource {
 	public readonly workerDomains: cloudflare.WorkersCustomDomain[];
 
 	/**
-	 * DNS records for the domains (populated when manageDns = true).
-	 */
-	public readonly dnsRecords: cloudflare.Record[];
-
-	/**
 	 * Zero Trust Access Applications for each (domain, path) combination.
 	 * Empty when no paths with access control are configured.
 	 */
@@ -327,10 +315,9 @@ export class WorkerSite extends pulumi.ComponentResource {
 			throw new Error("WorkerSite requires at least one domain");
 		}
 
-		const shouldManageDns = args.manageDns !== false;
 		if (!args.zoneId) {
 			throw new Error(
-				"zoneId is required because WorkersCustomDomain and optional DNS records both depend on it",
+				"zoneId is required because WorkersCustomDomain depends on it",
 			);
 		}
 
@@ -424,34 +411,13 @@ export class WorkerSite extends pulumi.ComponentResource {
 			resourceOpts,
 		);
 
-		// 4. Create WorkersCustomDomain and optional DNS records for each domain
+		// 4. Create WorkersCustomDomain for each domain
+		//    WorkersCustomDomain automatically manages DNS records; no explicit
+		//    cloudflare.Record resources are needed (see issue #113).
 		this.workerDomains = [];
-		this.dnsRecords = [];
 
 		for (let i = 0; i < args.domains.length; i++) {
 			const domain = args.domains[i];
-
-			let dnsRecord: cloudflare.Record | undefined;
-
-			if (shouldManageDns) {
-				dnsRecord = new cloudflare.Record(
-					`${name}-dns-${i}`,
-					{
-						zoneId: args.zoneId,
-						name: domain,
-						type: "AAAA",
-						content: "100::", // Workers placeholder IPv6
-						proxied: true,
-						ttl: 1, // Automatic TTL
-					},
-					resourceOpts,
-				);
-				this.dnsRecords.push(dnsRecord);
-			}
-
-			const domainOpts = dnsRecord
-				? { ...resourceOpts, dependsOn: [dnsRecord] }
-				: resourceOpts;
 
 			const workerDomain = new cloudflare.WorkersCustomDomain(
 				`${name}-domain-${i}`,
@@ -462,7 +428,7 @@ export class WorkerSite extends pulumi.ComponentResource {
 					zoneId: args.zoneId,
 					environment: "production",
 				},
-				domainOpts,
+				resourceOpts,
 			);
 			this.workerDomains.push(workerDomain);
 		}
@@ -601,7 +567,6 @@ export class WorkerSite extends pulumi.ComponentResource {
 			bucket: this.bucket,
 			worker: this.worker,
 			workerDomains: this.workerDomains,
-			dnsRecords: this.dnsRecords,
 			accessApplications: this.accessApplications,
 			uploadedAssets: this.uploadedAssets,
 			boundDomains: this.boundDomains,
