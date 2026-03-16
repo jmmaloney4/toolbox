@@ -99,7 +99,7 @@ interface AssetConfig {
 
 The R2 API token is managed internally by the component; callers do not supply credentials.
 
-**Note on `resources` cast**: The Cloudflare provider TS types declare the `resources` field on `AccountTokenConditionsResources` as `Input<string>`, but the underlying API requires a JSON object. The constructor MUST cast via `as any` and document this discrepancy with a comment referencing the Cloudflare provider issue.
+**Note on `resources` shape**: `AccountToken.policies[].resources` MUST be passed as an object keyed by the scoped R2 bucket resource name. Do not JSON-stringify this value; keep it as the object returned from `pulumi.all(...).apply(...)`.
 
 ## 3. Redirect Support (`redirects?` on WorkerSiteArgs)
 
@@ -178,7 +178,7 @@ Replace `cloudflare.WorkerDomain` with `cloudflare.WorkersCustomDomain` as the d
 
 - `WorkersCustomDomain` vs `WorkerDomain`: existing callers using `WorkerDomain` will require a state migration (resource aliases or `pulumi state rename`). This is a mild operational burden.
 - Adding `@aws-sdk/client-s3` as a peer dep increases the install footprint for callers who don't use asset upload.
-- The `as any` cast for `AccountToken.resources` is a known type-system paper cut; tracked until the upstream provider is fixed.
+- `AccountToken.resources` still requires careful shaping because the bucket scope key is computed dynamically, but the value must remain an object rather than a JSON string.
 
 # Alternatives
 
