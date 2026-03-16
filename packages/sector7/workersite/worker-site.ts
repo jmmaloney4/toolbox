@@ -100,7 +100,7 @@ export interface WorkerScriptConfig {
  *
  * @remarks
  * Phase 2 / ADR-011 features:
- * - Multiple domains via WorkersCustomDomain (no zoneId required when manageDns is false)
+	 * - Multiple domains via WorkersCustomDomain
  * - Optional path-level access control (Zero Trust; omit for fully public sites)
  * - R2 backend with Cache API
  * - Configurable cache TTL
@@ -117,10 +117,9 @@ export interface WorkerSiteArgs {
 
 	/**
 	 * Cloudflare zone ID for the domain.
-	 * Required when `manageDns` is true (the default).
-	 * Optional when `manageDns` is explicitly set to false.
+	 * Required for both `WorkersCustomDomain` bindings and optional DNS records.
 	 */
-	zoneId?: pulumi.Input<string>;
+	zoneId: pulumi.Input<string>;
 
 	/**
 	 * Name for the Worker and related resources.
@@ -240,10 +239,11 @@ const R2_BUCKET_ITEM_WRITE_PERMISSION_GROUP_ID =
  *
  * @example
  * Fully public site with asset upload and www redirect:
- * ```typescript
- * const site = new WorkerSite("my-site", {
- *   accountId: "abc123",
- *   name: "my-site",
+	 * ```typescript
+	 * const site = new WorkerSite("my-site", {
+	 *   accountId: "abc123",
+	 *   zoneId: "xyz789",
+	 *   name: "my-site",
  *   domains: ["example.com", "www.example.com"],
  *   r2Bucket: { bucketName: "my-site-assets", create: true },
  *   redirects: [{ fromHost: "www.example.com", toHost: "example.com" }],
@@ -252,8 +252,7 @@ const R2_BUCKET_ITEM_WRITE_PERMISSION_GROUP_ID =
  *       { key: "index.html", filePath: "/dist/index.html", contentType: "text/html" },
  *     ],
  *   },
- *   manageDns: false,
- * });
+	 * });
  * ```
  *
  * @example
@@ -329,9 +328,9 @@ export class WorkerSite extends pulumi.ComponentResource {
 		}
 
 		const shouldManageDns = args.manageDns !== false;
-		if (shouldManageDns && !args.zoneId) {
+		if (!args.zoneId) {
 			throw new Error(
-				"zoneId is required when manageDns is true (the default); set manageDns: false to omit it",
+				"zoneId is required because WorkersCustomDomain and optional DNS records both depend on it",
 			);
 		}
 
@@ -434,7 +433,7 @@ export class WorkerSite extends pulumi.ComponentResource {
 
 			let dnsRecord: cloudflare.Record | undefined;
 
-			if (shouldManageDns && args.zoneId) {
+			if (shouldManageDns) {
 				dnsRecord = new cloudflare.Record(
 					`${name}-dns-${i}`,
 					{
@@ -460,7 +459,7 @@ export class WorkerSite extends pulumi.ComponentResource {
 					accountId: args.accountId,
 					hostname: domain,
 					service: this.worker.scriptName,
-					zoneId: args.zoneId ?? "",
+					zoneId: args.zoneId,
 					environment: "production",
 				},
 				domainOpts,

@@ -29,7 +29,7 @@ links:
   - `assets?` config block on `WorkerSite` (R2 token management + per-file upload).
   - `redirects?` config block on `WorkerSite` (injected into worker script or handled in custom worker).
   - `workerScript?` config block to supply a pre-built worker script content string instead of the generated one.
-  - Making `accessControl?` optional (paths default to public-only when omitted, no Access Applications created).
+  - Making access control optional (paths default to public-only when omitted, no Access Applications created).
   - Switching domain binding to `WorkersCustomDomain` as the default (instead of `WorkerDomain`).
 - Out of scope:
   - SPA fallback, custom 404 pages, range requests (Phase 3 from ADR-005).
@@ -151,9 +151,9 @@ This is a **breaking change** to the TypeScript interface (both fields become op
 
 ## 6. WorkersCustomDomain as Default
 
-Replace `cloudflare.WorkerDomain` with `cloudflare.WorkersCustomDomain` as the default domain binding resource. `WorkersCustomDomain` is the current Cloudflare provider resource for custom domain routing and does not require a `zoneId` at the domain-binding level.
+Replace `cloudflare.WorkerDomain` with `cloudflare.WorkersCustomDomain` as the default domain binding resource. `WorkersCustomDomain` is the current Cloudflare provider resource for custom domain routing, but the current Pulumi Cloudflare provider still requires `zoneId` on the binding resource.
 
-`zoneId` on `WorkerSiteArgs` becomes optional (only required if `manageDns: true`).
+`zoneId` on `WorkerSiteArgs` remains required. `manageDns: false` disables automatic DNS record creation, but callers must still provide `zoneId` so the component can create `WorkersCustomDomain` resources.
 
 ## Implementation Sequence
 
@@ -162,7 +162,7 @@ Replace `cloudflare.WorkerDomain` with `cloudflare.WorkersCustomDomain` as the d
 3. Add `redirects?` + extend `generateWorkerScript()` to accept redirect rules.
 4. Add `assets?` + R2 token management + per-file `R2Object` creation.
 5. Add `workerScript?` + `extraBindings`.
-6. Switch domain binding to `WorkersCustomDomain`; make `zoneId` optional.
+6. Switch domain binding to `WorkersCustomDomain`; keep `zoneId` required because the provider requires it.
 
 # Consequences
 
@@ -172,7 +172,7 @@ Replace `cloudflare.WorkerDomain` with `cloudflare.WorkersCustomDomain` as the d
 - Asset upload is now declarative (`pulumi up` uploads changed files), eliminating the need for a separate wrangler/CI upload step.
 - Custom worker scripts enable sites like `cavinsresearch.io` to use `WorkerSite` again, reducing duplicated infrastructure code.
 - Redirect rules are first-class, covering the common `www → apex` pattern.
-- `WorkersCustomDomain` aligns with the current Cloudflare provider API surface.
+- `WorkersCustomDomain` aligns with the current Cloudflare provider API surface while preserving a valid `zoneId`-backed binding flow.
 
 ## Negative
 
