@@ -100,7 +100,7 @@ export interface WorkerScriptConfig {
  *
  * @remarks
  * Phase 2 / ADR-011 features:
-	 * - Multiple domains via WorkersCustomDomain
+ * - Multiple domains via WorkersCustomDomain
  * - Optional path-level access control (Zero Trust; omit for fully public sites)
  * - R2 backend with Cache API
  * - Configurable cache TTL
@@ -239,11 +239,11 @@ const R2_BUCKET_ITEM_WRITE_PERMISSION_GROUP_ID =
  *
  * @example
  * Fully public site with asset upload and www redirect:
-	 * ```typescript
-	 * const site = new WorkerSite("my-site", {
-	 *   accountId: "abc123",
-	 *   zoneId: "xyz789",
-	 *   name: "my-site",
+ * ```typescript
+ * const site = new WorkerSite("my-site", {
+ *   accountId: "abc123",
+ *   zoneId: "xyz789",
+ *   name: "my-site",
  *   domains: ["example.com", "www.example.com"],
  *   r2Bucket: { bucketName: "my-site-assets", create: true },
  *   redirects: [{ fromHost: "www.example.com", toHost: "example.com" }],
@@ -252,7 +252,7 @@ const R2_BUCKET_ITEM_WRITE_PERMISSION_GROUP_ID =
  *       { key: "index.html", filePath: "/dist/index.html", contentType: "text/html" },
  *     ],
  *   },
-	 * });
+ * });
  * ```
  *
  * @example
@@ -549,10 +549,10 @@ export class WorkerSite extends pulumi.ComponentResource {
 							],
 							resources: pulumi.all([args.accountId, bucketName]).apply(
 								([acctId, bktName]: [string, string]) =>
-									JSON.stringify({
+									({
 										[`com.cloudflare.edge.r2.bucket.${acctId}_default_${bktName}`]:
 											"*",
-									}) as unknown as Record<string, string>,
+									}) as Record<string, string>,
 							),
 						},
 					],
