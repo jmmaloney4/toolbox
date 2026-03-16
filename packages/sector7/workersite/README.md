@@ -1,262 +1,240 @@
 # WorkerSite
 
-A Pulumi ComponentResource for hosting static sites on Cloudflare Workers with Zero Trust access control via Cloudflare Access.
+`WorkerSite` is a Pulumi `ComponentResource` for hosting static sites on Cloudflare Workers with R2 storage, optional Cloudflare Access protection, declarative asset uploads, and custom-domain bindings.
 
 ## Features
 
-**Phase 2 (Current):**
-- R2-backed Worker serving static files with Cache API
-- Multiple domains via WorkerDomain
-- Automatic DNS record creation
-- Flexible path-level access control (any number of paths)
-- GitHub organization-based authentication
-- Edge caching with configurable TTL
-- Automatic content-type detection
-- ETag and observability headers (X-Cache-Status)
-
-**Future Phases:**
-- Phase 3: SPA fallback, custom 404 pages, range request support
+- R2-backed Worker serving static files with Cache API support
+- Multiple domains via `WorkersCustomDomain`
+- DNS managed automatically by Cloudflare custom-domain bindings
+- Optional path-level Cloudflare Access policies
+- Optional declarative R2 uploads during `pulumi up`
+- Optional host redirects in the generated Worker script
+- Optional custom Worker script with extra plain-text bindings
 
 ## Prerequisites
 
-1. **Cloudflare Account**: You need a Cloudflare account with:
-   - A zone (domain) configured and using Cloudflare nameservers
-   - Zero Trust enabled
-   - GitHub Identity Provider configured in Cloudflare Access
-
-2. **GitHub Identity Provider**: Create this in Cloudflare Access first:
-   - Go to Zero Trust → Settings → Authentication
-   - Add GitHub as a login method
-   - Note the Identity Provider ID (you'll need this)
+1. Cloudflare account with a zone already managed by Cloudflare nameservers
+2. Zone ID and account ID for the target site
+3. If you use `github-org` access, a GitHub Identity Provider configured in Cloudflare Access
+4. If you use `assets`, `@aws-sdk/client-s3` available to the Pulumi program
 
 ## Usage
 
-```typescript
-import * as workersite from "@jmmaloney4/sector7/workersite";
+### Public site with declarative uploads and redirect
 
-const site = new workersite.WorkerSite("docs-site", {
+```typescript
+import { WorkerSite } from "@jmmaloney4/sector7/workersite";
+
+const site = new WorkerSite("docs-site", {
   accountId: "your-cloudflare-account-id",
   zoneId: "your-cloudflare-zone-id",
   name: "docs-site",
-
-  // Multiple domains supported
   domains: ["docs.example.com", "www.docs.example.com"],
-
   r2Bucket: {
     bucketName: "docs-site-assets",
-    create: true,  // Create the bucket if it doesn't exist
+    create: true,
   },
-
-  githubIdentityProviderId: "your-github-idp-id",
-  githubOrganizations: ["your-org"],
-
-  // Flexible paths - any number supported
-  paths: [
-    { pattern: "/blog/*", access: "public" },
-    { pattern: "/docs/*", access: "public" },
-    { pattern: "/research/*", access: "github-org" },
-    { pattern: "/admin/*", access: "github-org" },
+  redirects: [
+    {
+      fromHost: "www.docs.example.com",
+      toHost: "docs.example.com",
+      statusCode: 301,
+    },
   ],
-
-  // Optional: Configure cache TTL (default: 1 year)
-  cacheTtlSeconds: 86400, // 1 day
+  assets: {
+    files: [
+      {
+        key: "index.html",
+        filePath: "/absolute/path/to/dist/index.html",
+        contentType: "text/html; charset=utf-8",
+      },
+      {
+        key: "styles.css",
+        filePath: "/absolute/path/to/dist/styles.css",
+        contentType: "text/css; charset=utf-8",
+      },
+    ],
+  },
 });
 
-// Export useful outputs
 export const workerName = site.workerName;
 export const boundDomains = site.boundDomains;
 ```
 
-## Architecture
+### Mixed public/private site with Cloudflare Access
 
-The WorkerSite component automatically creates:
+```typescript
+import { WorkerSite } from "@jmmaloney4/sector7/workersite";
 
-1. **R2 Bucket** (optional): Stores your static assets
-2. **Worker Script**: Serves files from R2 with Cache API and proper headers
-3. **Worker Domains**: Binds the Worker to each custom domain (requires `environment` property in Pulumi Cloudflare v6+)
-4. **DNS Records**: Automatic AAAA records for each domain (100::)
-5. **Access Applications**: One per (domain, path) combination with embedded policies
-   - Each application contains its own policy configuration
-   - Policies define access rules: public (everyone) or restricted (GitHub org members)
-
-## Access Control Flow
-
-1. User requests a URL (e.g., `https://docs.example.com/research/data.json`)
-2. Cloudflare Access checks which Access Application matches the path
-3. If restricted path, Access prompts for GitHub authentication
-4. After successful auth, Access verifies GitHub org membership
-5. If authorized, request reaches the Worker
-6. Worker checks edge cache (Cache API)
-   - Cache HIT: Return immediately (microseconds)
-   - Cache MISS: Fetch from R2, cache asynchronously, return (milliseconds)
-
-**Important**: The Worker itself does NOT implement authentication. All auth is handled by Cloudflare Access at the edge, before requests reach the Worker.
-
-## Cache Behavior
-
-Phase 2 adds edge caching via Cloudflare's Cache API:
-
-- **First request** (cache MISS): Fetches from R2, returns with `X-Cache-Status: MISS`
-- **Subsequent requests** (cache HIT): Served from edge, returns with `X-Cache-Status: HIT`
-- **Cache TTL**: Configurable via `cacheTtlSeconds` (default: 1 year)
-- **Cache invalidation**: Automatic via ETag; purge manually if needed
-
-Cache API **requires custom domains** (WorkerDomain) - won't work with `*.workers.dev`.
-
-## Uploading Assets
-
-After deploying the WorkerSite, upload your static files to R2:
-
-```bash
-# Using wrangler CLI
-wrangler r2 object put docs-site-assets/index.html --file dist/index.html
-wrangler r2 object put docs-site-assets/blog/post.html --file dist/blog/post.html
-
-# Or use the R2 dashboard
-# Or integrate with your CI/CD pipeline
+const site = new WorkerSite("research-site", {
+  accountId: "your-cloudflare-account-id",
+  zoneId: "your-cloudflare-zone-id",
+  name: "research-site",
+  domains: ["research.example.com"],
+  r2Bucket: {
+    bucketName: "research-site-assets",
+    create: true,
+  },
+  githubIdentityProviderId: "your-github-idp-id",
+  githubOrganizations: ["your-org"],
+  paths: [
+    { pattern: "/public/*", access: "public" },
+    { pattern: "/private/*", access: "github-org" },
+  ],
+});
 ```
 
-**Directory Index**: The Worker automatically appends `index.html` to directory paths:
-- `https://docs.example.com/` → fetches `index.html`
-- `https://docs.example.com/blog/` → fetches `blog/index.html`
+### Custom Worker script
 
-## Path Patterns
+```typescript
+import { WorkerSite } from "@jmmaloney4/sector7/workersite";
 
-Access Applications support wildcards in paths:
-- `/blog/*` - matches `/blog/post.html`, `/blog/2024/article.html`, etc.
-- `/research/*` - matches `/research/data.json`, `/research/docs/paper.pdf`, etc.
-- `/*` - matches all paths (global access control)
+const site = new WorkerSite("custom-site", {
+  accountId: "your-cloudflare-account-id",
+  zoneId: "your-cloudflare-zone-id",
+  name: "custom-site",
+  domains: ["example.com", "www.example.com"],
+  r2Bucket: {
+    bucketName: "custom-site-assets",
+  },
+  workerScript: {
+    content: builtWorkerSource,
+    extraBindings: [
+      { name: "APEX_DOMAIN", text: "example.com" },
+      { name: "WWW_DOMAIN", text: "www.example.com" },
+    ],
+  },
+});
+```
 
-You can configure as many paths as needed. Each (domain, path) combination gets its own Access Application with an embedded policy.
+When `workerScript` is provided, the generated script is skipped and `redirects` are ignored. `R2_BUCKET` and `CACHE_TTL_SECONDS` bindings are still injected automatically.
 
-**Note on policy architecture** (Pulumi Cloudflare v6+): Policies are now embedded within Access Applications rather than created as separate resources. Each application has its own policy with `precedence: 1` (the only policy for that application). This change doesn't affect functionality - access control works the same way, but the resource model is simplified.
+## What the component creates
 
-## DNS Management
+`WorkerSite` creates:
 
-Phase 2 automatically creates DNS records for all domains:
+1. An optional `cloudflare.R2Bucket` when `r2Bucket.create` is `true`
+2. A `cloudflare.WorkersScript`
+3. One `cloudflare.WorkersCustomDomain` per hostname in `domains`
+4. Zero or more `cloudflare.ZeroTrustAccessApplication` resources, one per `(domain, path)` combination when `paths` is provided
+5. An `cloudflare.AccountToken` plus one `R2Object` per uploaded file when `assets` is provided
 
-- **Type**: AAAA record
-- **Value**: `100::` (Cloudflare Workers placeholder IPv6)
-- **Proxied**: Yes (enables Cloudflare proxy)
+## Access control model
 
-**Requirements**:
-- Domain must already be a zone in your Cloudflare account
-- Zone must use Cloudflare nameservers
-- DNS propagation may take a few minutes
+- Omit `paths` for a fully public site
+- Use `paths` with `access: "public"` or `access: "github-org"` to create Cloudflare Access applications
+- `githubIdentityProviderId` and `githubOrganizations` are required only when at least one path uses `github-org`
 
-## Configuration Reference
+Cloudflare Access enforces authorization before requests reach the Worker. The Worker itself does not implement authentication.
 
-### WorkerSiteArgs
+## Asset uploads
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `accountId` | `string` | Yes | Cloudflare account ID |
-| `zoneId` | `string` | Yes | Cloudflare zone ID |
-| `name` | `string` | Yes | Name for Worker and resources |
-| `domains` | `string[]` | Yes | Domains to bind (e.g., `["docs.example.com", "www.docs.example.com"]`) |
-| `manageDns` | `boolean` | No | Automatically create DNS records for domains (default: true) |
-| `r2Bucket.bucketName` | `string` | Yes | R2 bucket name |
-| `r2Bucket.create` | `boolean` | No | Create bucket if not exists (default: false) |
-| `r2Bucket.prefix` | `string` | No | Optional object key prefix |
-| `githubIdentityProviderId` | `string` | Yes | GitHub IdP ID from Cloudflare Access |
-| `githubOrganizations` | `string[]` | Yes | GitHub org names for restricted access |
-| `paths` | `PathConfig[]` | Yes | Path access configurations (see below) |
-| `cacheTtlSeconds` | `number` | No | Cache TTL in seconds (default: 31536000 = 1 year) |
+If you pass `assets`, `WorkerSite` uploads files declaratively as part of `pulumi up`.
 
-### PathConfig
+- Each file becomes a separate `R2Object` dynamic resource
+- Change detection uses MD5/ETag comparison
+- The component creates a scoped `AccountToken` for R2 object writes automatically
+- The token scope is limited to the configured bucket
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `pattern` | `string` | Yes | Path pattern (e.g., `/blog/*`) |
-| `access` | `"public" \| "github-org"` | Yes | Access level: public (everyone) or github-org (org members) |
+If you do not pass `assets`, you can still upload files by another workflow and let `WorkerSite` only manage the Worker and domains.
+
+## Redirects
+
+`redirects` injects host-based redirect logic into the generated Worker script before any cache lookup or R2 fetch. A common use case is `www -> apex`.
+
+```typescript
+redirects: [
+  {
+    fromHost: "www.example.com",
+    toHost: "example.com",
+    statusCode: 301,
+  },
+]
+```
+
+## DNS behavior
+
+`WorkerSite` now uses `WorkersCustomDomain` and does not create explicit `cloudflare.Record` resources.
+
+- `zoneId` is required
+- Cloudflare manages the DNS record associated with each custom-domain binding
+- This avoids the redundant-record `409 Conflict` problem tracked in issue `#113`
+
+## Configuration reference
+
+### `WorkerSiteArgs`
+
+| Field                      | Type                 | Required    | Description                                          |
+| -------------------------- | -------------------- | ----------- | ---------------------------------------------------- |
+| `accountId`                | `string`             | Yes         | Cloudflare account ID                                |
+| `zoneId`                   | `string`             | Yes         | Cloudflare zone ID required by `WorkersCustomDomain` |
+| `name`                     | `string`             | Yes         | Name for the Worker and related resources            |
+| `domains`                  | `string[]`           | Yes         | Hostnames to bind to the Worker                      |
+| `r2Bucket.bucketName`      | `string`             | Yes         | R2 bucket name                                       |
+| `r2Bucket.create`          | `boolean`            | No          | Create the bucket if it does not already exist       |
+| `r2Bucket.prefix`          | `string`             | No          | Prefix prepended to generated-script object lookups  |
+| `githubIdentityProviderId` | `string`             | Conditional | Required when a path uses `github-org`               |
+| `githubOrganizations`      | `string[]`           | Conditional | Required when a path uses `github-org`               |
+| `paths`                    | `PathConfig[]`       | No          | Access-control rules; omit for fully public sites    |
+| `cacheTtlSeconds`          | `number`             | No          | Cache TTL for generated Worker responses             |
+| `assets`                   | `AssetConfig`        | No          | Declarative upload configuration                     |
+| `redirects`                | `RedirectRule[]`     | No          | Host redirects for the generated Worker              |
+| `workerScript`             | `WorkerScriptConfig` | No          | Custom Worker source and extra bindings              |
+
+### `PathConfig`
+
+| Field     | Type                       | Required | Description                    |
+| --------- | -------------------------- | -------- | ------------------------------ |
+| `pattern` | `string`                   | Yes      | Path pattern such as `/blog/*` |
+| `access`  | `"public" \| "github-org"` | Yes      | Access mode for the path       |
+
+### `AssetConfig`
+
+| Field   | Type          | Required | Description                            |
+| ------- | ------------- | -------- | -------------------------------------- |
+| `files` | `AssetFile[]` | Yes      | Files uploaded to R2 during deployment |
+
+### `WorkerScriptConfig`
+
+| Field           | Type               | Required | Description                      |
+| --------------- | ------------------ | -------- | -------------------------------- |
+| `content`       | `Input<string>`    | Yes      | Pre-built Worker source          |
+| `extraBindings` | `{ name, text }[]` | No       | Additional `plain_text` bindings |
 
 ## Troubleshooting
 
-**Assets return 404:**
-- Verify files are uploaded to R2 bucket
-- Check object key paths match URL paths
-- Remember directory index: `/blog/` needs `blog/index.html` in R2
-- Check `X-Cache-Status` header to see if cache HIT or MISS
+### Assets return 404
 
-**Access not prompting for login:**
-- Verify GitHub IdP is configured in Cloudflare Access
-- Check Access Application domain matches your domain
-- Ensure path patterns are correct
-- Try incognito/private mode to test fresh session
+- Verify the uploaded key matches the URL path the Worker will request
+- Remember directory index handling: `/docs/` maps to `docs/index.html`
+- If using `r2Bucket.prefix`, verify the generated Worker should be looking under that prefix
 
-**Cache not working:**
-- Verify you're using a custom domain (not `*.workers.dev`)
-- Check `X-Cache-Status` header in response
-- First request will always be MISS
-- Cache API requires WorkerDomain (automatic in Phase 2)
+### Access does not prompt for login
 
-**DNS not resolving:**
-- Verify domain is a zone in Cloudflare
-- Check nameservers point to Cloudflare
-- Wait a few minutes for DNS propagation
-- Verify AAAA record exists with value `100::`
+- Verify the GitHub Identity Provider exists in Cloudflare Access
+- Ensure at least one configured `paths` entry uses `github-org`
+- Confirm the requested URL matches the configured hostname and path pattern
 
-**Worker errors:**
-- Check Worker logs in Cloudflare dashboard
-- Verify R2 bucket binding is correct
-- Ensure bucket exists and has correct name
-- Check `CACHE_TTL_SECONDS` environment variable
+### Cache behavior looks wrong
 
-## Performance Tips
+- Cache behavior only applies on custom domains, not `*.workers.dev`
+- Check the `X-Cache-Status` response header from the generated Worker
+- The first request after deploy is normally a MISS
 
-1. **Cache TTL**: Set appropriate TTL for your use case
-   - Static assets (images, fonts): 1 year (default)
-   - Frequently updated content: 1 hour to 1 day
-   - Dynamic-ish content: 5-15 minutes
+### Domain binding fails
 
-2. **Content Hashing**: Use hashed filenames for cache busting
-   - `app.abc123.js` instead of `app.js`
-   - Allows long cache TTLs with instant updates
+- Verify `zoneId` matches the zone that owns the hostname
+- Ensure the zone is actually managed by Cloudflare
+- Do not create a duplicate explicit DNS record for the same custom domain
 
-3. **R2 Costs**: Edge cache dramatically reduces R2 requests
-   - First request: R2 fetch ($0.36/million Class A ops)
-   - Subsequent requests: Edge cache (free)
+## Related documentation
 
-4. **Monitor Cache Hit Rate**:
-   - Check `X-Cache-Status` headers
-   - High HIT rate = good performance + low costs
-   - Low HIT rate = may need longer TTL
-
-## Migration from Phase 1
-
-Phase 2 has **breaking changes** from Phase 1:
-
-```typescript
-// Phase 1 (old)
-{
-  domain: "example.com",           // Single domain (string)
-  publicPath: "/blog/*",            // Hardcoded 2 paths
-  restrictedPath: "/research/*",
-}
-
-// Phase 2 (new)
-{
-  domains: ["example.com"],         // Multiple domains (array)
-  paths: [                          // Flexible paths (array)
-    { pattern: "/blog/*", access: "public" },
-    { pattern: "/research/*", access: "github-org" },
-  ],
-}
-```
-
-**Migration steps:**
-1. Update `domain` → `domains` (wrap in array)
-2. Combine `publicPath` + `restrictedPath` → `paths` array
-3. Optional: Add `cacheTtlSeconds` for custom cache TTL
-4. Optional: Add more domains or paths
-
-## Related Documentation
-
-- [ADR-005: Cloudflare WorkerSite Design](../../../docs/internal/designs/005-cloudflare-workersite.md)
-- [Cloudflare Workers Documentation](https://developers.cloudflare.com/workers/)
-- [Cloudflare R2 Documentation](https://developers.cloudflare.com/r2/)
-- [Cloudflare Access Documentation](https://developers.cloudflare.com/cloudflare-one/policies/access/)
-- [Cloudflare Cache API](https://developers.cloudflare.com/workers/runtime-apis/cache/)
+- `docs/internal/designs/005-cloudflare-workersite.md`
+- `docs/internal/designs/011-workersite-extensions.md`
+- Cloudflare Workers: https://developers.cloudflare.com/workers/
+- Cloudflare R2: https://developers.cloudflare.com/r2/
+- Cloudflare custom domains: https://developers.cloudflare.com/workers/platform/triggers/custom-domains/
 
 ## License
 

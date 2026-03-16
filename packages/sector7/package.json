@@ -1,6 +1,6 @@
 {
 	"name": "@jmmaloney4/sector7",
-	"version": "0.5.1",
+	"version": "0.6.0",
 	"description": "Reusable Pulumi components for infrastructure management",
 	"license": "MPL-2.0",
 	"publishConfig": {
@@ -29,16 +29,25 @@
 	"scripts": {
 		"clean": "rimraf dist",
 		"build": "tsc -p tsconfig.json",
+		"test": "vitest run",
+		"test:watch": "vitest",
 		"prepack": "pnpm run build"
 	},
 	"peerDependencies": {
 		"@pulumi/pulumi": "^3.0.0",
 		"@pulumi/cloudflare": "^5.0.0 || ^6.0.0",
-		"@pulumi/gcp": "^9.0.0"
+		"@pulumi/gcp": "^9.0.0",
+		"@aws-sdk/client-s3": "^3.0.0"
+	},
+	"peerDependenciesMeta": {
+		"@aws-sdk/client-s3": {
+			"optional": true
+		}
 	},
 	"devDependencies": {
 		"@pulumi/pulumi": "^3.205.0",
 		"@pulumi/cloudflare": "^6.0.0",
-		"@pulumi/gcp": "^9.3.0"
+		"@pulumi/gcp": "^9.3.0",
+		"vitest": "^3.2.4"
 	}
 }
