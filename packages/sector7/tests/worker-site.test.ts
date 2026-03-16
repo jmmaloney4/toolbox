@@ -13,15 +13,19 @@ const resources: MockResource[] = [];
 beforeAll(() => {
 	pulumi.runtime.setMocks({
 		newResource: (args) => {
+			const state = args.type.includes("AccountToken")
+				? { ...args.inputs, value: "mock-account-token-value" }
+				: args.inputs;
+
 			resources.push({
 				type: args.type,
 				name: args.name,
-				inputs: args.inputs as Record<string, unknown>,
+				inputs: state as Record<string, unknown>,
 			});
 
 			return {
 				id: `${args.name}-id`,
-				state: args.inputs,
+				state,
 			};
 		},
 		call: (args) => args.inputs,
@@ -35,7 +39,7 @@ beforeEach(() => {
 function resolveOutput<T>(value: pulumi.Input<T>): Promise<T> {
 	return new Promise((resolve) => {
 		pulumi.output(value).apply((resolved) => {
-			resolve(resolved);
+			resolve(resolved as T);
 			return resolved;
 		});
 	});
@@ -134,5 +138,50 @@ describe("WorkerSite", () => {
 		).toThrow(
 			"githubIdentityProviderId is required when using github-org access",
 		);
+	});
+
+	it("requires zoneId for WorkersCustomDomain bindings", () => {
+		expect(
+			() =>
+				new WorkerSite("missing-zone-site", {
+					accountId: "account-123",
+					name: "missing-zone-site",
+					domains: ["example.com"],
+					r2Bucket: { bucketName: "missing-zone-assets" },
+				} as unknown as ConstructorParameters<typeof WorkerSite>[1]),
+		).toThrow("zoneId is required because WorkersCustomDomain depends on it");
+	});
+
+	it("passes AccountToken resource scopes as an object for asset uploads", async () => {
+		const site = new WorkerSite("asset-site", {
+			accountId: "account-123",
+			zoneId: "zone-123",
+			name: "asset-site",
+			domains: ["assets.example.com"],
+			r2Bucket: { bucketName: "asset-site-assets" },
+			assets: {
+				files: [
+					{
+						key: "index.html",
+						filePath: "/tmp/index.html",
+						contentType: "text/html; charset=utf-8",
+					},
+				],
+			},
+		});
+
+		await resolveOutput(site.worker.id);
+		await resolveOutput(site.uploadedAssets[0].id);
+
+		const token = byName("-r2-token")[0];
+		const policies = token.inputs.policies as Array<Record<string, unknown>>;
+		const resourcesInput = policies[0].resources as pulumi.Input<
+			Record<string, string>
+		>;
+
+		expect(await resolveOutput(resourcesInput)).toEqual({
+			"com.cloudflare.edge.r2.bucket.account-123_default_asset-site-assets":
+				"*",
+		});
 	});
 });
