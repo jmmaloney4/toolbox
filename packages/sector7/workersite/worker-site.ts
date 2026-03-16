@@ -508,6 +508,7 @@ export class WorkerSite extends pulumi.ComponentResource {
 					name: pulumi.interpolate`${args.name}-r2-upload`,
 					policies: [
 						{
+							effect: "allow",
 							permissionGroups: [
 								{
 									id: R2_BUCKET_ITEM_WRITE_PERMISSION_GROUP_ID,
@@ -533,14 +534,9 @@ export class WorkerSite extends pulumi.ComponentResource {
 				return crypto.createHash("sha256").update(v).digest("hex");
 			});
 
-			for (const file of args.assets.files) {
-				// Sanitize file key for use as Pulumi resource name
-				const safeKey = pulumi
-					.output(file.key)
-					.apply((k: string) => k.replace(/[^a-zA-Z0-9]/g, "-"));
-
+			for (const [index, file] of args.assets.files.entries()) {
 				const r2obj = new R2Object(
-					pulumi.interpolate`${name}-asset-${safeKey}`,
+					`${name}-asset-${index}`,
 					{
 						accountId: args.accountId,
 						bucketName: bucketName,

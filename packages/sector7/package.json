@@ -29,6 +29,10 @@
 		"iam",
 		"workersite"
 	],
+	"scripts": {
+		"test": "vitest run",
+		"test:watch": "vitest"
+	},
 	"peerDependencies": {
 		"@pulumi/pulumi": "^3.0.0",
 		"@pulumi/cloudflare": "^5.0.0 || ^6.0.0",
@@ -43,6 +47,7 @@
 	"devDependencies": {
 		"@pulumi/pulumi": "^3.213.0",
 		"@pulumi/cloudflare": "^6.11.0",
-		"@pulumi/gcp": "^9.6.0"
+		"@pulumi/gcp": "^9.6.0",
+		"vitest": "^3.2.4"
 	}
 }

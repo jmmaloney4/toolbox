@@ -4,13 +4,18 @@
 	"version": "0.3.3",
 	"description": "Toolbox monorepo",
 	"license": "MPL-2.0",
+	"workspaces": [
+		"packages/*"
+	],
 	"scripts": {
-		"build": "pnpm -r --if-present build",
-		"clean": "pnpm -r --if-present clean"
+		"build": "pnpm -r --if-present run build",
+		"test": "pnpm -r --if-present run test",
+		"clean": "pnpm -r --if-present run clean"
 	},
 	"devDependencies": {
 		"typescript": "^5.9.2",
 		"rimraf": "^6.1.2",
-		"@types/node": "^22.19.3"
+		"@types/node": "^22.19.3",
+		"vitest": "^3.2.4"
 	}
 }
