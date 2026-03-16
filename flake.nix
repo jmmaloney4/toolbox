@@ -33,9 +33,19 @@
     }: {
       systems = import systems;
       imports = [
-        jackpkgs.flakeModule
+        jackpkgs.flakeModules.default
       ];
 
+      jackpkgs.projectRoot = ./.;
+      jackpkgs.nodejs = {
+        enable = true;
+        version = 22;
+        pnpmVersion = "10";
+        pnpmDepsHash = "sha256-CUNWeH1b6gNV0Ivl3ImA3YLyu7I44Yln6omOwOdOHfg=";
+        projectRoot = ./.;
+      };
+      jackpkgs.checks.typescript.tsc.enable = true;
+      jackpkgs.checks.vitest.enable = true;
       jackpkgs.pulumi.enable = false;
 
       perSystem = {
@@ -47,7 +57,9 @@
         lib,
         ...
       }: {
-        pre-commit.settings.hooks.mypy.enable = lib.mkForce false;
+        # Match yard's intent: keep the dedicated jackpkgs tsc check enabled,
+        # but skip the pre-commit tsc hook in sandboxed Nix runs.
+        pre-commit.settings.hooks.tsc.enable = lib.mkForce false;
 
         devShells.default = pkgs.mkShell {
           inputsFrom = [

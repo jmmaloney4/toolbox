@@ -29,6 +29,8 @@
 	"scripts": {
 		"clean": "rimraf dist",
 		"build": "tsc -p tsconfig.json",
+		"test": "vitest run",
+		"test:watch": "vitest",
 		"prepack": "pnpm run build"
 	},
 	"peerDependencies": {
@@ -45,6 +47,7 @@
 	"devDependencies": {
 		"@pulumi/pulumi": "^3.205.0",
 		"@pulumi/cloudflare": "^6.0.0",
-		"@pulumi/gcp": "^9.3.0"
+		"@pulumi/gcp": "^9.3.0",
+		"vitest": "^3.2.4"
 	}
 }

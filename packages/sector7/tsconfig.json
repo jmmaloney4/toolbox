@@ -10,6 +10,6 @@
 		"skipLibCheck": true,
 		"esModuleInterop": true
 	},
-	"include": ["**/*.ts"],
-	"exclude": ["dist/**", "node_modules/**"]
+	"include": ["index.ts", "iam/**/*.ts", "workersite/**/*.ts"],
+	"exclude": ["dist/**", "node_modules/**", "tests/**/*.ts"]
 }
