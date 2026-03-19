@@ -65,7 +65,9 @@
 
         checks.renovate-config = pkgs.runCommand "renovate-config" {} ''
           cd ${self.outPath}
-          ${lib.getExe' pkgs.renovate "renovate-config-validator"} --strict --no-global ${lib.escapeShellArgs renovateConfigPaths}
+          for config in ${lib.concatMapStringsSep " " lib.escapeShellArg renovateConfigPaths}; do
+            RENOVATE_CONFIG_FILE="$config" ${lib.getExe' pkgs.renovate "renovate-config-validator"} --strict
+          done
           touch "$out"
         '';
         devShells.default = pkgs.mkShell {
