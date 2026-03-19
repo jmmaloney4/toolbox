@@ -1,9 +1,10 @@
 {
 	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
 	"description": "Security-focused configuration for vulnerability alerts",
+	"addLabels": ["renovate"],
 	"vulnerabilityAlerts": {
 		"enabled": true,
 		"automerge": true,
-		"labels": ["security", "vulnerability"]
+		"addLabels": ["security", "vulnerability", "renovate"]
 	}
 }

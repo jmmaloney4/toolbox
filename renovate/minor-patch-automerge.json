@@ -1,6 +1,7 @@
 {
 	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
 	"description": "Minor and patch updates grouped by ecosystem with automerge enabled",
+	"addLabels": ["renovate"],
 	"packageRules": [
 		{
 			"groupName": "Rust Dependencies",
@@ -93,7 +94,7 @@
 			"automerge": true,
 			"schedule": ["before 4:00 am on Saturday and Sunday"],
 			"rangeStrategy": "pin",
-			"labels": ["nix-pypi"]
+			"addLabels": ["nix-pypi"]
 		},
 		{
 			"groupName": "Nix GitHub Dependencies",
@@ -103,7 +104,7 @@
 			"automerge": true,
 			"schedule": ["before 4:00 am on Saturday and Sunday"],
 			"rangeStrategy": "pin",
-			"labels": ["nix-github"]
+			"addLabels": ["nix-github"]
 		}
 	]
 }

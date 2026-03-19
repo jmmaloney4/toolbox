@@ -31,7 +31,7 @@
 	"vulnerabilityAlerts": {
 		"enabled": true,
 		"automerge": true,
-		"labels": ["security", "vulnerability"]
+		"addLabels": ["security", "vulnerability", "renovate"]
 	},
 	"nix": {
 		"enabled": true
