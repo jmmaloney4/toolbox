@@ -1,8 +1,7 @@
 name: Check ADR Conflicts
 description: >
-  Full-tree ADR uniqueness audit: scans all files matching adr_glob in the
-  working tree for duplicate 3-digit number prefixes and comments on the PR
-  if any conflicts are found.
+  Full-tree ADR uniqueness audit: scans all files matching adr_glob in the working tree for duplicate 3-digit number prefixes and comments on the PR if any conflicts are found.
+
 inputs:
   base_ref:
     description: Base branch name to compare against (e.g. main)

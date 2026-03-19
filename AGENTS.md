@@ -99,6 +99,7 @@ Do NOT use a local relative path (e.g., `./.github/actions/compute-example`) in 
 ```
 
 Guidelines:
+
 - Name scripts by intent; keep them idempotent and locally runnable.
 - Accept configuration via composite action `inputs` and `env`; avoid hard-coding repo-specific paths.
 - Emit clear errors; prefer `set -euo pipefail` and explicit checks.
