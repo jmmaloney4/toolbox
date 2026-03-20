@@ -93,17 +93,20 @@ This repository includes a Nix flake that provides a consistent development envi
 ### Prerequisites
 
 1. Install Nix package manager:
+
    ```bash
    curl -L https://nixos.org/nix/install | sh
    ```
 
 2. Enable flakes (if not already enabled):
+
    ```bash
    mkdir -p ~/.config/nix
    echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
    ```
 
 3. Install direnv (optional, but recommended):
+
    ```bash
    nix-env -i direnv
    ```
@@ -113,6 +116,7 @@ This repository includes a Nix flake that provides a consistent development envi
 #### Using direnv (recommended)
 
 1. Allow direnv in the repository:
+
    ```bash
    cd nix/default
    direnv allow

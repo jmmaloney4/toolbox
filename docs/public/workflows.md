@@ -181,6 +181,7 @@ jobs:
 ```
 
 **Required inputs:**
+
 - `nodejs_package_manager`: Package manager for Node.js dependencies. Valid values:
   - `"pnpm"`: Use pnpm (recommended for most projects)
   - `"npm"`: Use npm

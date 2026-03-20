@@ -37,11 +37,9 @@ on:
         description: 'Pull request URL (used in placeholder content)'
         required: true
         type: string
-
 permissions:
   contents: write
   pull-requests: write
-
 jobs:
   manage-adrs:
     name: "push placeholder to ${{ inputs.base_ref }}"
@@ -54,12 +52,10 @@ jobs:
           repository: ${{ inputs.repository }}
           ref: ${{ inputs.ref }}
           fetch-depth: 0
-
       - name: Fetch base branch
         run: |
           set -euo pipefail
           git fetch --no-tags origin "${{ inputs.base_ref }}"
-
       - name: Detect touched ADR files (for conflict check)
         id: detect
         env:
@@ -78,7 +74,6 @@ jobs:
             echo "Touched (added/modified) ADR files:"
             echo "$TOUCHED_ADRS"
           fi
-
       - name: Detect newly-added ADR files (for placeholder creation)
         id: detect_new
         env:
@@ -98,7 +93,6 @@ jobs:
             echo "Newly-added ADR files:"
             cat /tmp/new_adrs.txt
           fi
-
       - name: Check ADR number conflicts
         id: check
         uses: jmmaloney4/toolbox/.github/actions/check-adr-conflicts@main
@@ -110,7 +104,6 @@ jobs:
           head_ref: ${{ inputs.head_ref }}
           adr_glob: ${{ inputs.adr_glob }}
           pr_number: ${{ inputs.pr_number }}
-
       - name: Create and push placeholder to main
         if: steps.detect_new.outputs.has_new_adrs == 'true' && steps.check.outputs.has_conflict == 'false'
         uses: jmmaloney4/toolbox/.github/actions/create-adr-placeholder@main
@@ -118,7 +111,6 @@ jobs:
           adr_files: /tmp/new_adrs.txt
           pr_url: ${{ inputs.pr_url }}
           base_branch: ${{ inputs.base_ref }}
-
       - name: Post ADR check status comment
         if: always()
         env:

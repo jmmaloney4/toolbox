@@ -1,12 +1,13 @@
 # ADR-003: pnpm Package Publishing to GHCR
 
-**Status:** Accepted  
-**Date:** 2024-12-19  
+**Status:** Accepted\
+**Date:** 2024-12-19\
 **Context:** Provide a reusable workflow to publish pnpm packages in `packages/*` to GitHub's npm registry (GHCR), with a dry‑run analysis mode that reports what would be published and why.
 
 ## Decision
 
 Create a reusable GitHub Actions workflow (`.github/workflows/pnpm-publish.yml`) that:
+
 - Is invoked via `workflow_call` (no direct triggers); callers decide when to run (e.g., on tag push).
 - Accepts inputs: `runs-on`, `repository`, `ref`, and `dry_run` (default `false`).
 - Uses a composite action (`.github/actions/analyze-pnpm-packages`) to:
@@ -28,6 +29,7 @@ Create a reusable GitHub Actions workflow (`.github/workflows/pnpm-publish.yml`)
 ## Implementation Details
 
 ### Reusable Interface
+
 - `on.workflow_call.inputs`:
   - `runs-on` (string, required): runner label.
   - `repository` (string, required): owner/repo to checkout.
@@ -37,6 +39,7 @@ Create a reusable GitHub Actions workflow (`.github/workflows/pnpm-publish.yml`)
 - Always operate on the caller's repo/ref using `actions/checkout` with provided inputs.
 
 ### Analysis Composite Action
+
 - Path: `.github/actions/analyze-pnpm-packages/`
 - Invocation (from reusable workflow):
   - Use repository path with pinned ref, not local path (for cross-repo reuse).
@@ -56,13 +59,14 @@ Create a reusable GitHub Actions workflow (`.github/workflows/pnpm-publish.yml`)
   - Basic semver compare via numeric major/minor/patch; prerelease is surfaced in notes but not used for classification in MVP.
 
 ### Workflow Structure
+
 - Jobs:
-  1) `analyze` (permissions: `contents: read`, `packages: read`)
+  1. `analyze` (permissions: `contents: read`, `packages: read`)
      - checkout caller repo/ref
      - setup Node
      - run composite action
      - outputs `matrix`
-  2) `publish-packages` (permissions: `contents: read`, `packages: write`)
+  2. `publish-packages` (permissions: `contents: read`, `packages: write`)
      - matrix include from `analyze.outputs.matrix`
      - setup Nix, pnpm, Node (registry configured)
      - build once; per-package summary always; conditionally publish when `dry_run` is false and package `action` is `publish`
@@ -70,16 +74,19 @@ Create a reusable GitHub Actions workflow (`.github/workflows/pnpm-publish.yml`)
 - Summary: Always appended; includes package, local/published versions, change type, and planned action; indicates "DRY RUN" when applicable.
 
 ### Authentication
+
 - Use `GITHUB_TOKEN`:
   - `packages: read` for analysis,
   - `packages: write` for publishing.
 - Registry URL: `https://npm.pkg.github.com`
 
 ### Package Requirements
+
 - Valid `package.json` with `name` and `version`.
 - Located under `packages/*`. Private packages are supported via GHCR auth.
 
 ### Publishing Strategy
+
 - Per-package decision from analysis output (`action`).
 - No retries or rollbacks (MVP).
 - Environment via `nix develop .#pulumi`.
@@ -87,17 +94,20 @@ Create a reusable GitHub Actions workflow (`.github/workflows/pnpm-publish.yml`)
 ## Consequences
 
 ### Positive
+
 - Reusable and caller-controlled triggering.
 - Transparent analysis with consistent summaries.
 - Clear dry-run behavior; lower risk before release.
 - Encapsulated shell in composite action improves readability and reuse.
 
 ### Negative
+
 - Adds dependency on GHCR npm metadata availability and auth.
 - Basic semver classification (prerelease nuances deferred).
 - Slightly more moving parts (action + workflow).
 
 ## Alternatives Considered
+
 - Keep logic inline in workflow (harder to maintain as it grows).
 - Use GitHub Packages REST API for versions (more complex mapping to repo).
 - Implement a Node-based action with the `semver` library (heavier footprint).

@@ -1,72 +1,64 @@
 {
 	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
 	"description": "Minor and patch updates grouped by ecosystem with automerge enabled",
+	"addLabels": ["renovate"],
 	"packageRules": [
 		{
 			"groupName": "Rust Dependencies",
 			"matchManagers": ["cargo"],
 			"matchDatasources": ["crate"],
 			"matchUpdateTypes": ["minor", "patch"],
-			"automerge": true,
-			"rangeStrategy": "pin"
+			"automerge": true
 		},
 		{
 			"groupName": "Python Dependencies",
 			"matchManagers": ["pip_requirements", "pip_setup", "pipenv", "poetry"],
 			"matchDatasources": ["pypi"],
 			"matchUpdateTypes": ["minor", "patch"],
-			"automerge": true,
-			"rangeStrategy": "pin"
+			"automerge": true
 		},
 		{
 			"groupName": "Node.js Core",
 			"matchPackageNames": ["@types/node", "node", "ts-node"],
 			"matchUpdateTypes": ["minor", "patch"],
-			"automerge": true,
-			"rangeStrategy": "pin"
+			"automerge": true
 		},
 		{
 			"groupName": "TypeScript Dependencies",
 			"matchPackageNames": ["typescript", "@types/*"],
 			"matchUpdateTypes": ["minor", "patch"],
-			"automerge": true,
-			"rangeStrategy": "pin"
+			"automerge": true
 		},
 		{
 			"groupName": "Testing Dependencies",
 			"matchPackageNames": ["jest", "@types/jest"],
 			"matchUpdateTypes": ["minor", "patch"],
-			"automerge": true,
-			"rangeStrategy": "pin"
+			"automerge": true
 		},
 		{
 			"groupName": "Arrow Ecosystem",
 			"matchPackageNames": ["arrow*", "parquet*"],
 			"matchUpdateTypes": ["minor", "patch"],
-			"automerge": true,
-			"rangeStrategy": "pin"
+			"automerge": true
 		},
 		{
 			"groupName": "Docker Images",
 			"matchDatasources": ["docker"],
 			"matchUpdateTypes": ["minor", "patch"],
-			"automerge": false,
-			"rangeStrategy": "pin"
+			"automerge": false
 		},
 		{
 			"groupName": "GitHub Actions",
 			"matchManagers": ["github-actions"],
 			"matchDatasources": ["github-actions"],
 			"matchUpdateTypes": ["minor", "patch"],
-			"automerge": true,
-			"rangeStrategy": "pin"
+			"automerge": true
 		},
 		{
 			"groupName": "Pulumi Dependencies",
 			"matchPackageNames": ["/@pulumi/*/", "/pulumi*/"],
 			"matchUpdateTypes": ["minor", "patch"],
 			"automerge": true,
-			"rangeStrategy": "pin",
 			"schedule": ["before 4:00 am"]
 		},
 		{
@@ -82,8 +74,7 @@
 			"matchManagers": ["nix"],
 			"matchUpdateTypes": ["minor", "patch"],
 			"automerge": true,
-			"schedule": ["before 4:00 am on Saturday and Sunday"],
-			"rangeStrategy": "pin"
+			"schedule": ["before 4:00 am on Saturday and Sunday"]
 		},
 		{
 			"groupName": "Nix PyPI Dependencies",
@@ -92,8 +83,7 @@
 			"matchUpdateTypes": ["minor", "patch"],
 			"automerge": true,
 			"schedule": ["before 4:00 am on Saturday and Sunday"],
-			"rangeStrategy": "pin",
-			"labels": ["nix-pypi"]
+			"addLabels": ["nix-pypi"]
 		},
 		{
 			"groupName": "Nix GitHub Dependencies",
@@ -102,8 +92,7 @@
 			"matchUpdateTypes": ["minor", "patch"],
 			"automerge": true,
 			"schedule": ["before 4:00 am on Saturday and Sunday"],
-			"rangeStrategy": "pin",
-			"labels": ["nix-github"]
+			"addLabels": ["nix-github"]
 		}
 	]
 }
