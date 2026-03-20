@@ -19,11 +19,11 @@
 	"platformAutomerge": false,
 	"dependencyDashboard": true,
 	"dependencyDashboardTitle": "Renovate Dashboard 🤖",
-	"dependencyDashboardLabels": ["dependencies"],
+	"dependencyDashboardLabels": ["chore/deps"],
 	"rangeStrategy": "pin",
 	"minimumReleaseAge": "4 days",
 	"pinDigests": true,
-	"labels": ["dependencies", "renovate"],
+	"labels": ["chore/deps", "renovate"],
 	"commitMessagePrefix": "deps: ",
 	"commitMessageAction": "update",
 	"prHeader": "This PR contains dependency updates managed by Renovate.",
@@ -31,7 +31,7 @@
 	"vulnerabilityAlerts": {
 		"enabled": true,
 		"automerge": true,
-		"addLabels": ["security", "vulnerability", "renovate"]
+		"addLabels": ["security", "vulnerability", "deps/security", "renovate"]
 	},
 	"nix": {
 		"enabled": true

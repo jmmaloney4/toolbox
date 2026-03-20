@@ -45,20 +45,23 @@
 			"groupName": "Docker Images",
 			"matchDatasources": ["docker"],
 			"matchUpdateTypes": ["minor", "patch"],
-			"automerge": false
+			"automerge": false,
+			"addLabels": ["deps/docker"]
 		},
 		{
 			"groupName": "GitHub Actions",
 			"matchManagers": ["github-actions"],
 			"matchDatasources": ["github-actions"],
 			"matchUpdateTypes": ["minor", "patch"],
-			"automerge": true
+			"automerge": true,
+			"addLabels": ["deps/github-actions"]
 		},
 		{
 			"groupName": "Pulumi Dependencies",
 			"matchPackageNames": ["/@pulumi/*/", "/pulumi*/"],
 			"matchUpdateTypes": ["minor", "patch"],
 			"automerge": true,
+			"addLabels": ["deps/pulumi"],
 			"schedule": ["before 4:00 am"]
 		},
 		{
@@ -67,6 +70,7 @@
 			"matchFileNames": ["**/pnpm-lock.yaml"],
 			"matchPackageNames": ["/@pulumi/*/", "/pulumi*/"],
 			"matchUpdateTypes": ["minor", "patch"],
+			"addLabels": ["deps/pulumi"],
 			"postUpdateOptions": ["pnpmDedupe"]
 		},
 		{
@@ -83,7 +87,7 @@
 			"matchUpdateTypes": ["minor", "patch"],
 			"automerge": true,
 			"schedule": ["before 4:00 am on Saturday and Sunday"],
-			"addLabels": ["nix-pypi"]
+			"addLabels": ["deps/nix/pypi"]
 		},
 		{
 			"groupName": "Nix GitHub Dependencies",
@@ -92,7 +96,7 @@
 			"matchUpdateTypes": ["minor", "patch"],
 			"automerge": true,
 			"schedule": ["before 4:00 am on Saturday and Sunday"],
-			"addLabels": ["nix-github"]
+			"addLabels": ["deps/nix/github"]
 		}
 	]
 }
