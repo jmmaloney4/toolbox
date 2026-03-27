@@ -1,0 +1,47 @@
+name: 📌 add to project
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        description: 'Runner label for the job'
+        required: false
+        default: ubuntu-latest
+        type: string
+      project-url:
+        description: 'GitHub Project URL (e.g. https://github.com/orgs/ORG/projects/N or https://github.com/users/USER/projects/N)'
+        required: true
+        type: string
+      labeled:
+        description: 'Optional comma-separated labels; omit or leave empty to add all matching events. When set, items are filtered per label-operator.'
+        required: false
+        default: ''
+        type: string
+      label-operator:
+        description: 'How to apply labeled filter: AND, OR, or NOT (default OR)'
+        required: false
+        default: OR
+        type: string
+    secrets:
+      ADD_TO_PROJECT_TOKEN:
+        description: 'PAT or GitHub App installation token with project write (and repo/issue read as required by GitHub)'
+        required: true
+permissions:
+  contents: read
+jobs:
+  add-to-project:
+    runs-on: ${{ inputs.runs-on }}
+    steps:
+      - name: Add issue or PR to project (no label filter)
+        if: inputs.labeled == ''
+        uses: actions/add-to-project@244f685bbc3b7adfa8466e08b698b5577571133e # v1.0.2
+        with:
+          project-url: ${{ inputs.project-url }}
+          github-token: ${{ secrets.ADD_TO_PROJECT_TOKEN }}
+      - name: Add issue or PR to project (label filter)
+        if: inputs.labeled != ''
+        uses: actions/add-to-project@244f685bbc3b7adfa8466e08b698b5577571133e # v1.0.2
+        with:
+          project-url: ${{ inputs.project-url }}
+          github-token: ${{ secrets.ADD_TO_PROJECT_TOKEN }}
+          labeled: ${{ inputs.labeled }}
+          label-operator: ${{ inputs.label-operator }}

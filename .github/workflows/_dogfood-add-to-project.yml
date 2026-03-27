@@ -1,0 +1,18 @@
+name: 📌 add to project (dogfood)
+on:
+  issues:
+    types: [opened, reopened, transferred, labeled]
+  pull_request:
+    types: [opened, reopened, labeled]
+permissions:
+  contents: read
+jobs:
+  add-to-project:
+    # Secrets cannot be used in `if`; set ADD_TO_PROJECT_PAT when you set the URL.
+    if: vars.ADD_TO_PROJECT_URL != ''
+    uses: jmmaloney4/toolbox/.github/workflows/add-to-project.yml@main
+    with:
+      runs-on: ubuntu-latest
+      project-url: ${{ vars.ADD_TO_PROJECT_URL }}
+    secrets:
+      ADD_TO_PROJECT_TOKEN: ${{ secrets.ADD_TO_PROJECT_PAT }}
