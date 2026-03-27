@@ -7,7 +7,7 @@ on:
         required: false
         default: ubuntu-latest
         type: string
-      project-url:
+      project_url:
         description: 'GitHub Project URL (e.g. https://github.com/orgs/ORG/projects/N or https://github.com/users/USER/projects/N)'
         required: true
         type: string
@@ -22,8 +22,8 @@ on:
         default: OR
         type: string
     secrets:
-      ADD_TO_PROJECT_TOKEN:
-        description: 'PAT or GitHub App installation token with project write (and repo/issue read as required by GitHub)'
+      GITHUB_TOKEN:
+        description: 'Token with project write (pass github.token from caller, or a PAT — see actions/add-to-project docs)'
         required: true
 permissions:
   contents: read
@@ -35,13 +35,13 @@ jobs:
         if: inputs.labeled == ''
         uses: actions/add-to-project@244f685bbc3b7adfa8466e08b698b5577571133e # v1.0.2
         with:
-          project-url: ${{ inputs.project-url }}
-          github-token: ${{ secrets.ADD_TO_PROJECT_TOKEN }}
+          project-url: ${{ inputs.project_url }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Add issue or PR to project (label filter)
         if: inputs.labeled != ''
         uses: actions/add-to-project@244f685bbc3b7adfa8466e08b698b5577571133e # v1.0.2
         with:
-          project-url: ${{ inputs.project-url }}
-          github-token: ${{ secrets.ADD_TO_PROJECT_TOKEN }}
+          project-url: ${{ inputs.project_url }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           labeled: ${{ inputs.labeled }}
           label-operator: ${{ inputs.label-operator }}
