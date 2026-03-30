@@ -21,10 +21,6 @@ on:
         required: false
         default: OR
         type: string
-    secrets:
-      GITHUB_TOKEN:
-        description: 'Token with project write (pass github.token from caller, or a PAT — see actions/add-to-project docs)'
-        required: true
 permissions:
   contents: read
 jobs:
