@@ -1,6 +1,6 @@
 {
 	"name": "@jmmaloney4/sector7",
-	"version": "0.5.1",
+	"version": "0.5.2",
 	"description": "Reusable Pulumi components for infrastructure management",
 	"license": "MPL-2.0",
 	"publishConfig": {
@@ -12,19 +12,25 @@
 	"exports": {
 		".": {
 			"types": "./dist/index.d.ts",
-			"default": "./dist/index.js"
+			"default": "./dist/index.js",
+			"source": "./index.ts"
 		},
 		"./iam": {
 			"types": "./dist/iam/index.d.ts",
-			"default": "./dist/iam/index.js"
+			"default": "./dist/iam/index.js",
+			"source": "./iam/index.ts"
 		},
 		"./workersite": {
 			"types": "./dist/workersite/index.d.ts",
-			"default": "./dist/workersite/index.js"
+			"default": "./dist/workersite/index.js",
+			"source": "./workersite/index.ts"
 		}
 	},
 	"files": [
-		"dist"
+		"dist",
+		"index.ts",
+		"iam",
+		"workersite"
 	],
 	"scripts": {
 		"clean": "rimraf dist",
