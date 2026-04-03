@@ -26,8 +26,8 @@
 	"files": [
 		"dist",
 		"index.ts",
-		"iam",
-		"workersite"
+		"iam/*.ts",
+		"workersite/*.ts"
 	],
 	"scripts": {
 		"clean": "rimraf dist",
