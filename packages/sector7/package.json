@@ -1,39 +1,34 @@
 {
 	"name": "@jmmaloney4/sector7",
-	"version": "0.5.2",
+	"version": "0.6.0",
 	"description": "Reusable Pulumi components for infrastructure management",
 	"license": "MPL-2.0",
 	"publishConfig": {
 		"access": "public"
 	},
-	"type": "commonjs",
-	"main": "dist/index.js",
-	"types": "index.ts",
+	"type": "module",
+	"engines": {
+		"node": ">=24.0.0"
+	},
 	"exports": {
 		".": {
 			"types": "./index.ts",
-			"default": "./dist/index.js"
+			"default": "./index.ts"
 		},
 		"./iam": {
 			"types": "./iam/index.ts",
-			"default": "./dist/iam/index.js"
+			"default": "./iam/index.ts"
 		},
 		"./workersite": {
 			"types": "./workersite/index.ts",
-			"default": "./dist/workersite/index.js"
+			"default": "./workersite/index.ts"
 		}
 	},
 	"files": [
-		"dist",
 		"index.ts",
 		"iam/*.ts",
 		"workersite/*.ts"
 	],
-	"scripts": {
-		"clean": "rimraf dist",
-		"build": "tsc -p tsconfig.json",
-		"prepack": "pnpm run build"
-	},
 	"peerDependencies": {
 		"@pulumi/pulumi": "^3.0.0",
 		"@pulumi/cloudflare": "^5.0.0 || ^6.0.0",
