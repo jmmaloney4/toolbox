@@ -1,6 +1,6 @@
 import * as gcp from "@pulumi/gcp";
 import * as pulumi from "@pulumi/pulumi";
-import type { WorkloadIdentityPoolResource } from "./workload-identity-pool";
+import type { WorkloadIdentityPoolResource } from "./workload-identity-pool.ts";
 
 /**
  * Generates a service account ID with length constraints.

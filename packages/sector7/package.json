@@ -26,8 +26,8 @@
 	},
 	"files": [
 		"index.ts",
-		"iam/*.ts",
-		"workersite/*.ts"
+		"iam",
+		"workersite"
 	],
 	"peerDependencies": {
 		"@pulumi/pulumi": "^3.0.0",
