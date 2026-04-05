@@ -1,23 +1,64 @@
 /**
  * Worker script template for serving static files from R2 with Cache API.
  * Phase 2: R2 serving with edge caching and configurable TTL.
+ * Phase 3 (ADR-011): Optional redirect rules injected into generated script.
  */
+
+/**
+ * A single HTTP redirect rule.
+ */
+export interface RedirectRule {
+	/** The hostname that triggers the redirect (e.g., "www.example.com"). */
+	fromHost: string;
+	/** The hostname to redirect to (e.g., "example.com"). */
+	toHost: string;
+	/** HTTP status code for the redirect (301, 302, 307, or 308). @default 301 */
+	statusCode?: 301 | 302 | 307 | 308;
+}
 
 /**
  * Generate the Worker script code for serving static files from R2 with Cache API.
  *
- * @param bucketBinding - The R2 bucket binding name (e.g., "R2_BUCKET")
- * @param prefix - Optional prefix to prepend to all R2 object keys
- * @returns The Worker script code as a string
+ * Parameters
+ * ----------
+ * bucketBinding : string
+ *     The R2 bucket binding name (e.g., "R2_BUCKET")
+ * prefix : string, optional
+ *     Optional prefix to prepend to all R2 object keys
+ * redirects : RedirectRule[], optional
+ *     Optional list of host-level redirect rules, evaluated before R2 serving
+ *
+ * Returns
+ * -------
+ * string
+ *     The Worker script code as a string
  */
 export function generateWorkerScript(
 	bucketBinding: string,
 	prefix?: string,
+	redirects?: RedirectRule[],
 ): string {
-	// Sanitize prefix to prevent code injection
-	const sanitizedPrefix = prefix
-		? JSON.stringify(prefix).slice(1, -1)
-		: undefined;
+	// Use JSON.stringify to safely embed prefix with its trailing slash — it
+	// produces a double-quoted string that is safe for JS template interpolation.
+	// Appending "/" here keeps the generated code readable: `"docs/" + objectKey`.
+	const safePrefix = prefix ? JSON.stringify(prefix + "/") : undefined;
+
+	// Generate redirect block
+	const redirectBlock =
+		redirects && redirects.length > 0
+			? redirects
+					.map((r) => {
+						const status = r.statusCode ?? 301;
+						const fromHost = JSON.stringify(r.fromHost);
+						const toHost = JSON.stringify(r.toHost);
+						return `\t\tif (url.hostname === ${fromHost}) {
+			const redirectUrl = new URL(request.url);
+			redirectUrl.hostname = ${toHost};
+			return Response.redirect(redirectUrl.toString(), ${status});
+		}`;
+					})
+					.join("\n")
+			: null;
 
 	return `
 /**
@@ -35,7 +76,7 @@ export default {
 	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
 		try {
 			const url = new URL(request.url);
-
+${redirectBlock ? `\n${redirectBlock}\n` : ""}
 			// 1. Path normalization - remove leading slash
 			let objectKey = url.pathname.slice(1);
 
@@ -45,7 +86,7 @@ export default {
 			}
 
 			// 2.5. Prepend prefix if configured
-			${sanitizedPrefix ? `objectKey = '${sanitizedPrefix}/' + objectKey;` : "// No prefix configured"}
+			${safePrefix ? `objectKey = ${safePrefix} + objectKey;` : "// No prefix configured"}
 
 			// 3. Cache API check (requires custom domain)
 			const cache = caches.default;
