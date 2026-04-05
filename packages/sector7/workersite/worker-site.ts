@@ -159,7 +159,7 @@ export interface WorkerSiteArgs {
 		 * R2 bucket location hint.
 		 * Used when constructing the API token resource identifier.
 		 * Ignored when the bucket is created by this component (bucket.location is used instead).
-		 * @default "auto"
+		 * @default "default"
 		 */
 		location?: pulumi.Input<string>;
 	};
@@ -293,7 +293,8 @@ export class WorkerSite extends pulumi.ComponentResource {
 
 	/**
 	 * Zero Trust Access Applications for each (domain, path) combination.
-	 * Empty when no paths with access control are configured.
+	 * Populated when path configuration is provided, even if all paths are public.
+	 * Empty when no paths are configured.
 	 */
 	public readonly accessApplications: cloudflare.ZeroTrustAccessApplication[];
 
@@ -527,7 +528,7 @@ export class WorkerSite extends pulumi.ComponentResource {
 							.all([
 								args.accountId,
 								bucketName,
-								this.bucket?.location ?? args.r2Bucket.location ?? "auto",
+								this.bucket?.location ?? args.r2Bucket.location ?? "default",
 							])
 							.apply(
 								([acctId, bktName, loc]: [string, string, string]) =>
