@@ -1,2 +1,2 @@
-export * as iam from "./iam";
-export * as workersite from "./workersite";
+export * as iam from "./iam/index.ts";
+export * as workersite from "./workersite/index.ts";

@@ -92,7 +92,7 @@ jobs:
       - name: Install dependencies
         run: nix develop .#ci-pnpm --command pnpm install --frozen-lockfile
       - name: Build packages
-        run: nix develop .#ci-pnpm --command pnpm build
+        run: nix develop .#ci-pnpm --command pnpm -r --if-present build
       - name: Summary (per-package)
         run: |
           echo "## 📦 Publish Plan for ${{ matrix.name }}" >> $GITHUB_STEP_SUMMARY

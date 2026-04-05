@@ -1,6 +1,6 @@
 import * as cloudflare from "@pulumi/cloudflare";
 import * as pulumi from "@pulumi/pulumi";
-import { generateWorkerScript } from "./worker-site-script";
+import { generateWorkerScript } from "./worker-site-script.ts";
 
 /**
  * Path access configuration.
