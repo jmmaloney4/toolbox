@@ -1,6 +1,26 @@
 import * as pulumi from "@pulumi/pulumi";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { WorkerSite } from "../workersite/worker-site";
+
+// Replace R2Object (dynamic.Resource) with a plain CustomResource so that
+// Pulumi's closure serializer is never invoked in the Vitest environment.
+// Vitest rewrites import() to __vite_ssr_dynamic_import__ (a captured-this
+// closure) which Pulumi cannot serialize, causing unhandled rejections even
+// though all test assertions pass.  Using a CustomResource bypasses the
+// dynamic-provider serialization path entirely while still going through the
+// Pulumi mock (newResource callback).
+vi.mock("../workersite/r2object.ts", () => ({
+	R2Object: class MockR2Object extends pulumi.CustomResource {
+		public readonly etag!: pulumi.Output<string>;
+		constructor(
+			name: string,
+			args: Record<string, unknown>,
+			opts?: pulumi.CustomResourceOptions,
+		) {
+			super("sector7:r2:R2Object", name, { etag: undefined, ...args }, opts);
+		}
+	},
+}));
 
 type MockResource = {
 	type: string;

@@ -38,9 +38,10 @@ export function generateWorkerScript(
 	prefix?: string,
 	redirects?: RedirectRule[],
 ): string {
-	// Use JSON.stringify to safely embed prefix — it produces a
-	// double-quoted string that is safe for JS template interpolation.
-	const safePrefix = prefix ? JSON.stringify(prefix) : undefined;
+	// Use JSON.stringify to safely embed prefix with its trailing slash — it
+	// produces a double-quoted string that is safe for JS template interpolation.
+	// Appending "/" here keeps the generated code readable: `"docs/" + objectKey`.
+	const safePrefix = prefix ? JSON.stringify(prefix + "/") : undefined;
 
 	// Generate redirect block
 	const redirectBlock =
@@ -85,7 +86,7 @@ ${redirectBlock ? `\n${redirectBlock}\n` : ""}
 			}
 
 			// 2.5. Prepend prefix if configured
-			${safePrefix ? `objectKey = ${safePrefix} + '/' + objectKey;` : "// No prefix configured"}
+			${safePrefix ? `objectKey = ${safePrefix} + objectKey;` : "// No prefix configured"}
 
 			// 3. Cache API check (requires custom domain)
 			const cache = caches.default;

@@ -156,10 +156,11 @@ export interface WorkerSiteArgs {
 		prefix?: pulumi.Input<string>;
 
 		/**
-		 * R2 bucket location hint.
-		 * Used when constructing the API token resource identifier.
-		 * Ignored when the bucket is created by this component (bucket.location is used instead).
-		 * @default "auto"
+		 * R2 bucket location jurisdiction identifier used when constructing the
+		 * API token resource string (e.g. `"wnam"`, `"enam"`, `"weur"`).
+		 * Ignored when the bucket is created by this component (`bucket.location`
+		 * is used instead).
+		 * @default "default" (Cloudflare's default jurisdiction)
 		 */
 		location?: pulumi.Input<string>;
 	};
@@ -527,7 +528,7 @@ export class WorkerSite extends pulumi.ComponentResource {
 							.all([
 								args.accountId,
 								bucketName,
-								this.bucket?.location ?? args.r2Bucket.location ?? "auto",
+								this.bucket?.location ?? args.r2Bucket.location ?? "default",
 							])
 							.apply(
 								([acctId, bktName, loc]: [string, string, string]) =>
