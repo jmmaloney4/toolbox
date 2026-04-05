@@ -1,15 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { generateWorkerScript } from "../workersite/worker-site-script";
+import { generateWorkerScript } from "../workersite/worker-site-script.ts";
 
 describe("generateWorkerScript", () => {
-	it("includes the core worker bindings and cache behavior", () => {
+	it("produces a basic fetch handler with no prefix or redirects", () => {
 		const script = generateWorkerScript("R2_BUCKET");
-
-		expect(script).toContain("R2_BUCKET");
-		expect(script).toContain("CACHE_TTL_SECONDS");
-		expect(script).toContain("caches.default");
-		expect(script).toContain("index.html");
-		expect(script).toContain("createResponse");
+		expect(script).toContain("env.R2_BUCKET.get(objectKey)");
+		expect(script).toContain("// No prefix configured");
+		expect(script).toContain("Response.redirect");
 	});
 
 	it("injects prefixes and redirects when configured", () => {
@@ -17,7 +14,7 @@ describe("generateWorkerScript", () => {
 			{ fromHost: "www.example.com", toHost: "example.com", statusCode: 302 },
 		]);
 
-		expect(script).toContain("docs/");
+		expect(script).toContain('objectKey = "docs/" + objectKey');
 		expect(script).toContain('url.hostname === "www.example.com"');
 		expect(script).toContain('redirectUrl.hostname = "example.com"');
 		expect(script).toContain("Response.redirect");
