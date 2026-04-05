@@ -56,7 +56,7 @@ interface R2ObjectState extends R2ObjectArgs {
 
 /** Upload a file to R2 and return the normalized ETag. */
 const uploadObjectToR2 = async (args: R2ObjectArgs): Promise<string> => {
-	const fs = (await import("node:fs")).default as typeof import("node:fs");
+	const fs = (await import("node:fs")) as typeof import("node:fs");
 	const crypto = (await import("node:crypto")) as typeof import("node:crypto");
 	const { S3Client, PutObjectCommand } =
 		(await import("@aws-sdk/client-s3")) as typeof import("@aws-sdk/client-s3");
@@ -118,7 +118,7 @@ const r2ObjectProvider: dynamic.ResourceProvider = {
 		_olds: R2ObjectState,
 		news: R2ObjectArgs,
 	): Promise<dynamic.CheckResult> {
-		const fs = (await import("node:fs")).default as typeof import("node:fs");
+		const fs = (await import("node:fs")) as typeof import("node:fs");
 		const failures: dynamic.CheckFailure[] = [];
 		try {
 			fs.readFileSync(news.filePath);
@@ -136,7 +136,7 @@ const r2ObjectProvider: dynamic.ResourceProvider = {
 		olds: R2ObjectState,
 		news: R2ObjectArgs,
 	): Promise<dynamic.DiffResult> {
-		const fs = (await import("node:fs")).default as typeof import("node:fs");
+		const fs = (await import("node:fs")) as typeof import("node:fs");
 		const crypto = (await import("node:crypto")) as typeof import("node:crypto");
 
 		const replaces: string[] = [];

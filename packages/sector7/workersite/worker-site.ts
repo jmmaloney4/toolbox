@@ -294,7 +294,8 @@ export class WorkerSite extends pulumi.ComponentResource {
 
 	/**
 	 * Zero Trust Access Applications for each (domain, path) combination.
-	 * Empty when no paths with access control are configured.
+	 * Populated when path configuration is provided, even if all paths are public.
+	 * Empty when no paths are configured.
 	 */
 	public readonly accessApplications: cloudflare.ZeroTrustAccessApplication[];
 

@@ -201,7 +201,7 @@ Keep `sector7` unchanged; each consuming repo implements `R2Object`, redirects, 
 # Security / Privacy / Compliance
 
 - The `AccountToken` for R2 upload MUST be scoped to a single bucket with `R2_BUCKET_ITEM_WRITE` permission only. No zone, account-level, or read permissions are granted.
-- S3-compatible credentials are derived deterministically from the token (`secretAccessKey = SHA-256(token.value)`); they are never stored in plaintext in Pulumi state — only the ETag from uploaded objects is stored.
+- S3-compatible credentials are derived deterministically from the token (`secretAccessKey = SHA-256(token.value)`); they are not stored in plaintext in Pulumi state. However, because the `R2Object` dynamic resource returns its inputs in `outs`, Pulumi state will also contain the resource inputs (for example `filePath`, `bucketName`, and any credential fields), with sensitive values expected to be protected as encrypted Pulumi secrets rather than omitted entirely. The uploaded object's ETag is also stored.
 - Redirect logic does not expose any credentials or internal paths.
 
 # Operational Notes
