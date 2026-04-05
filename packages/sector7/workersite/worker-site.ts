@@ -1,4 +1,5 @@
 import * as cloudflare from "@pulumi/cloudflare";
+import * as crypto from "node:crypto";
 import * as pulumi from "@pulumi/pulumi";
 import { R2Object } from "./r2object.ts";
 import { generateWorkerScript, type RedirectRule } from "./worker-site-script.ts";
@@ -153,6 +154,14 @@ export interface WorkerSiteArgs {
 		 * @default ""
 		 */
 		prefix?: pulumi.Input<string>;
+
+		/**
+		 * R2 bucket location hint.
+		 * Used when constructing the API token resource identifier.
+		 * Ignored when the bucket is created by this component (bucket.location is used instead).
+		 * @default "auto"
+		 */
+		location?: pulumi.Input<string>;
 	};
 
 	/**
@@ -443,9 +452,9 @@ export class WorkerSite extends pulumi.ComponentResource {
 				for (let pathIdx = 0; pathIdx < args.paths.length; pathIdx++) {
 					const pathConfig = args.paths[pathIdx];
 
-					const policyIncludes =
-						pathConfig.access === "public"
-							? [{ everyone: true }]
+				const policyIncludes =
+					pathConfig.access === "public"
+						? [{ everyone: {} }]
 							: pulumi
 									.all([
 										pulumi.all(args.githubOrganizations ?? []),
@@ -514,10 +523,16 @@ export class WorkerSite extends pulumi.ComponentResource {
 									id: R2_BUCKET_ITEM_WRITE_PERMISSION_GROUP_ID,
 								},
 							],
-							resources: pulumi.all([args.accountId, bucketName]).apply(
-								([acctId, bktName]: [string, string]) =>
+							resources: pulumi
+							.all([
+								args.accountId,
+								bucketName,
+								this.bucket?.location ?? args.r2Bucket.location ?? "auto",
+							])
+							.apply(
+								([acctId, bktName, loc]: [string, string, string]) =>
 									({
-										[`com.cloudflare.edge.r2.bucket.${acctId}_default_${bktName}`]:
+										[`com.cloudflare.edge.r2.bucket.${acctId}_${loc.toLowerCase()}_${bktName}`]:
 											"*",
 									}) as Record<string, string>,
 							),
@@ -528,11 +543,9 @@ export class WorkerSite extends pulumi.ComponentResource {
 			);
 
 			const accessKeyId = r2Token.id;
-			const secretAccessKey = r2Token.value.apply((v: string) => {
-				// eslint-disable-next-line @typescript-eslint/no-require-imports
-				const crypto = require("node:crypto") as typeof import("node:crypto");
-				return crypto.createHash("sha256").update(v).digest("hex");
-			});
+		const secretAccessKey = r2Token.value.apply((v: string) =>
+				crypto.createHash("sha256").update(v).digest("hex"),
+			);
 
 			for (const [index, file] of args.assets.files.entries()) {
 				const r2obj = new R2Object(

@@ -39,7 +39,7 @@
       jackpkgs.projectRoot = ./.;
       jackpkgs.nodejs = {
         enable = true;
-        version = 22;
+        version = 24;
         pnpmVersion = "10";
         pnpmDepsHash = "sha256-CUNWeH1b6gNV0Ivl3ImA3YLyu7I44Yln6omOwOdOHfg=";
         projectRoot = ./.;
@@ -69,15 +69,15 @@
           "renovate/security.json"
         ];
 
-        renovateConfigPaths = map (path: "\${self.outPath}/\${path}") renovateConfigFiles;
+        renovateConfigPaths = map (path: "${self.outPath}/${path}") renovateConfigFiles;
       in {
         pre-commit.settings.hooks.mypy.enable = lib.mkForce false;
         pre-commit.settings.hooks.tsc.enable = lib.mkForce false;
 
         checks.renovate-config = pkgs.runCommand "renovate-config" {} ''
-          cd \${self.outPath}
-          for config in \${lib.concatMapStringsSep " " lib.escapeShellArg renovateConfigPaths}; do
-            RENOVATE_CONFIG_FILE="$config" \${lib.getExe' pkgs.renovate "renovate-config-validator"} --strict
+          cd ${self.outPath}
+          for config in ${lib.concatMapStringsSep " " lib.escapeShellArg renovateConfigPaths}; do
+            RENOVATE_CONFIG_FILE="$config" ${lib.getExe' pkgs.renovate "renovate-config-validator"} --strict
           done
           touch "$out"
         '';

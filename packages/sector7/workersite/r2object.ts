@@ -56,13 +56,10 @@ interface R2ObjectState extends R2ObjectArgs {
 
 /** Upload a file to R2 and return the normalized ETag. */
 const uploadObjectToR2 = async (args: R2ObjectArgs): Promise<string> => {
-	// eslint-disable-next-line @typescript-eslint/no-require-imports
-	const fs = require("node:fs") as typeof import("node:fs");
-	// eslint-disable-next-line @typescript-eslint/no-require-imports
-	const crypto = require("node:crypto") as typeof import("node:crypto");
-	// eslint-disable-next-line @typescript-eslint/no-require-imports
+	const fs = (await import("node:fs")).default as typeof import("node:fs");
+	const crypto = (await import("node:crypto")) as typeof import("node:crypto");
 	const { S3Client, PutObjectCommand } =
-		require("@aws-sdk/client-s3") as typeof import("@aws-sdk/client-s3");
+		(await import("@aws-sdk/client-s3")) as typeof import("@aws-sdk/client-s3");
 
 	const {
 		accountId,
@@ -98,12 +95,13 @@ const uploadObjectToR2 = async (args: R2ObjectArgs): Promise<string> => {
  *
  * Notes
  * -----
- * All requires() are intentionally inlined inside provider callbacks rather
- * than imported at module top level.  Pulumi serializes the provider object
- * via V8 source capture; top-level ES module imports of Node built-ins (fs,
- * crypto) or large CJS packages capture native-code functions that cannot be
- * serialized, causing a "Function code: function () { [native code] }" error.
- * Inlined require() calls are emitted verbatim and evaluated at runtime after
+ * All imports are intentionally inlined as dynamic import() calls inside
+ * provider callbacks rather than imported at module top level.  Pulumi
+ * serializes the provider object via V8 source capture; top-level ES module
+ * imports of Node built-ins (fs, crypto) or large CJS packages capture
+ * native-code functions that cannot be serialized, causing a
+ * "Function code: function () { [native code] }" error.
+ * Dynamic import() calls are emitted verbatim and evaluated at runtime after
  * deserialization.  See the Pulumi dynamic provider serialization docs:
  * https://www.pulumi.com/docs/concepts/resources/dynamic-providers/#how-dynamic-providers-are-serialized
  *
@@ -120,8 +118,7 @@ const r2ObjectProvider: dynamic.ResourceProvider = {
 		_olds: R2ObjectState,
 		news: R2ObjectArgs,
 	): Promise<dynamic.CheckResult> {
-		// eslint-disable-next-line @typescript-eslint/no-require-imports
-		const fs = require("node:fs") as typeof import("node:fs");
+		const fs = (await import("node:fs")).default as typeof import("node:fs");
 		const failures: dynamic.CheckFailure[] = [];
 		try {
 			fs.readFileSync(news.filePath);
@@ -139,10 +136,8 @@ const r2ObjectProvider: dynamic.ResourceProvider = {
 		olds: R2ObjectState,
 		news: R2ObjectArgs,
 	): Promise<dynamic.DiffResult> {
-		// eslint-disable-next-line @typescript-eslint/no-require-imports
-		const fs = require("node:fs") as typeof import("node:fs");
-		// eslint-disable-next-line @typescript-eslint/no-require-imports
-		const crypto = require("node:crypto") as typeof import("node:crypto");
+		const fs = (await import("node:fs")).default as typeof import("node:fs");
+		const crypto = (await import("node:crypto")) as typeof import("node:crypto");
 
 		const replaces: string[] = [];
 		if (olds.key !== news.key) replaces.push("key");
@@ -180,9 +175,8 @@ const r2ObjectProvider: dynamic.ResourceProvider = {
 	},
 
 	async delete(_id: string, props: R2ObjectState): Promise<void> {
-		// eslint-disable-next-line @typescript-eslint/no-require-imports
 		const { S3Client, DeleteObjectCommand } =
-			require("@aws-sdk/client-s3") as typeof import("@aws-sdk/client-s3");
+			(await import("@aws-sdk/client-s3")) as typeof import("@aws-sdk/client-s3");
 
 		const { accountId, bucketName, key, accessKeyId, secretAccessKey } = props;
 		const client = new S3Client({

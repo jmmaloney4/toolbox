@@ -12,8 +12,8 @@ export interface RedirectRule {
 	fromHost: string;
 	/** The hostname to redirect to (e.g., "example.com"). */
 	toHost: string;
-	/** HTTP status code for the redirect. @default 301 */
-	statusCode?: number;
+	/** HTTP status code for the redirect (301, 302, 307, or 308). @default 301 */
+	statusCode?: 301 | 302 | 307 | 308;
 }
 
 /**
@@ -38,10 +38,9 @@ export function generateWorkerScript(
 	prefix?: string,
 	redirects?: RedirectRule[],
 ): string {
-	// Sanitize prefix to prevent code injection
-	const sanitizedPrefix = prefix
-		? JSON.stringify(prefix).slice(1, -1)
-		: undefined;
+	// Use JSON.stringify to safely embed prefix — it produces a
+	// double-quoted string that is safe for JS template interpolation.
+	const safePrefix = prefix ? JSON.stringify(prefix) : undefined;
 
 	// Generate redirect block
 	const redirectBlock =
@@ -51,7 +50,7 @@ export function generateWorkerScript(
 						const status = r.statusCode ?? 301;
 						const fromHost = JSON.stringify(r.fromHost);
 						const toHost = JSON.stringify(r.toHost);
-						return `		if (url.hostname === ${fromHost}) {
+						return `\t\tif (url.hostname === ${fromHost}) {
 			const redirectUrl = new URL(request.url);
 			redirectUrl.hostname = ${toHost};
 			return Response.redirect(redirectUrl.toString(), ${status});
@@ -86,7 +85,7 @@ ${redirectBlock ? `\n${redirectBlock}\n` : ""}
 			}
 
 			// 2.5. Prepend prefix if configured
-			${sanitizedPrefix ? `objectKey = '${sanitizedPrefix}/' + objectKey;` : "// No prefix configured"}
+			${safePrefix ? `objectKey = ${safePrefix} + '/' + objectKey;` : "// No prefix configured"}
 
 			// 3. Cache API check (requires custom domain)
 			const cache = caches.default;
