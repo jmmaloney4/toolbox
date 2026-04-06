@@ -15,7 +15,7 @@ links: []
 
 ## Problem Statement
 
-Our Renovate configuration is currently split across multiple files in the `renovate/` directory with conflicting and inconsistent automerge rules. The current structure makes it difficult to enforce a clear policy: minor/patch updates should be grouped by ecosystem and automerged, while major updates should be individual PRs requiring manual review.
+Our Renovate configuration is currently split across multiple files in the `renovate/` directory with conflicting and inconsistent automerge rules. The current structure makes it difficult to enforce a clear policy: minor/patch updates should be grouped by ecosystem and automerged, GitHub Actions digest updates should also be automerged, while major updates should be individual PRs requiring manual review.
 
 ## Current File Structure
 
@@ -79,8 +79,8 @@ renovate/
 
 ## Configuration Principles
 
-1. **Update type separation**: Major updates MUST be handled completely separately from minor/patch updates
-2. **Ecosystem grouping**: Each ecosystem (Rust, Python, Node.js, etc.) SHOULD have its own group for minor/patch updates
+1. **Update type separation**: Major updates MUST be handled completely separately from minor/patch and GitHub Actions digest updates
+2. **Ecosystem grouping**: Each ecosystem (Rust, Python, Node.js, etc.) SHOULD have its own group for minor/patch updates, with GitHub Actions digest updates included in the GitHub Actions group
 3. **Single source of truth**: Each policy decision MUST live in exactly one place
 4. **Rule priority**: Major update rules MUST have higher priority (`prPriority`) to ensure they're never automerged
 
@@ -100,7 +100,7 @@ Contains a single package rule that applies to ALL major version updates across 
 
 Contains multiple package rules, one per ecosystem, with the following characteristics:
 
-- MUST explicitly match only minor and patch updates (via `matchUpdateTypes: ["minor", "patch"]`)
+- MUST explicitly match only minor and patch updates, except the GitHub Actions rule which MAY also match digest updates
 - MUST group updates by ecosystem using descriptive group names
 - MUST enable automerge (`automerge: true`)
 - MUST use ecosystem-appropriate matchers (managers, datasources, or package names)

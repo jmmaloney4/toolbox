@@ -1,6 +1,6 @@
 {
 	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
-	"description": "Minor and patch updates grouped by ecosystem with automerge enabled",
+	"description": "Minor, patch, and GitHub Actions digest updates grouped by ecosystem with automerge enabled",
 	"addLabels": ["renovate"],
 	"packageRules": [
 		{
@@ -52,7 +52,7 @@
 			"groupName": "GitHub Actions",
 			"matchManagers": ["github-actions"],
 			"matchDatasources": ["github-actions"],
-			"matchUpdateTypes": ["minor", "patch"],
+			"matchUpdateTypes": ["minor", "patch", "digest"],
 			"automerge": true,
 			"addLabels": ["deps/github-actions"]
 		},
