@@ -39,8 +39,6 @@
       jackpkgs.projectRoot = ./.;
       jackpkgs.nodejs = {
         enable = true;
-        version = 24;
-        pnpmVersion = "10";
         pnpmDepsHash = "sha256-CUNWeH1b6gNV0Ivl3ImA3YLyu7I44Yln6omOwOdOHfg=";
         projectRoot = ./.;
       };
