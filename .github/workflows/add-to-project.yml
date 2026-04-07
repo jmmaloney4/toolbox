@@ -9,7 +9,8 @@ on:
         type: string
       project_url:
         description: 'GitHub Project URL (e.g. https://github.com/orgs/ORG/projects/N or https://github.com/users/USER/projects/N)'
-        required: true
+        required: false
+        default: 'https://github.com/orgs/ergodicsystems/projects/1'
         type: string
       labeled:
         description: 'Optional comma-separated labels; omit or leave empty to add all matching events. When set, items are filtered per label-operator.'
