@@ -58,8 +58,9 @@ interface R2ObjectState extends R2ObjectArgs {
 const uploadObjectToR2 = async (args: R2ObjectArgs): Promise<string> => {
 	const fs = (await import("node:fs")) as typeof import("node:fs");
 	const crypto = (await import("node:crypto")) as typeof import("node:crypto");
-	const { S3Client, PutObjectCommand } =
-		(await import("@aws-sdk/client-s3")) as typeof import("@aws-sdk/client-s3");
+	const { S3Client, PutObjectCommand } = (await import(
+		"@aws-sdk/client-s3"
+	)) as typeof import("@aws-sdk/client-s3");
 
 	const {
 		accountId,
@@ -137,7 +138,9 @@ const r2ObjectProvider: dynamic.ResourceProvider = {
 		news: R2ObjectArgs,
 	): Promise<dynamic.DiffResult> {
 		const fs = (await import("node:fs")) as typeof import("node:fs");
-		const crypto = (await import("node:crypto")) as typeof import("node:crypto");
+		const crypto = (await import(
+			"node:crypto"
+		)) as typeof import("node:crypto");
 
 		const replaces: string[] = [];
 		if (olds.key !== news.key) replaces.push("key");
@@ -175,8 +178,9 @@ const r2ObjectProvider: dynamic.ResourceProvider = {
 	},
 
 	async delete(_id: string, props: R2ObjectState): Promise<void> {
-		const { S3Client, DeleteObjectCommand } =
-			(await import("@aws-sdk/client-s3")) as typeof import("@aws-sdk/client-s3");
+		const { S3Client, DeleteObjectCommand } = (await import(
+			"@aws-sdk/client-s3"
+		)) as typeof import("@aws-sdk/client-s3");
 
 		const { accountId, bucketName, key, accessKeyId, secretAccessKey } = props;
 		const client = new S3Client({

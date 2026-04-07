@@ -9,16 +9,16 @@ importers:
   .:
     devDependencies:
       '@types/node':
-        specifier: ^24.0.0
+        specifier: 24.12.2
         version: 24.12.2
       rimraf:
-        specifier: ^6.1.2
+        specifier: 6.1.2
         version: 6.1.2
       typescript:
-        specifier: ^5.9.2
+        specifier: 5.9.3
         version: 5.9.3
       vitest:
-        specifier: ^3.2.4
+        specifier: 3.2.4
         version: 3.2.4(@types/node@24.12.2)
 
   packages/sector7:
@@ -28,16 +28,16 @@ importers:
         version: 3.1009.0
     devDependencies:
       '@pulumi/cloudflare':
-        specifier: ^6.11.0
+        specifier: 6.11.0
         version: 6.11.0(typescript@5.9.3)
       '@pulumi/gcp':
-        specifier: ^9.6.0
+        specifier: 9.6.0
         version: 9.6.0(typescript@5.9.3)
       '@pulumi/pulumi':
-        specifier: ^3.213.0
+        specifier: 3.213.0
         version: 3.213.0(typescript@5.9.3)
       vitest:
-        specifier: ^3.2.4
+        specifier: 3.2.4
         version: 3.2.4(@types/node@24.12.2)
 
 packages:

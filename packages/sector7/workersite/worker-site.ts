@@ -1,8 +1,11 @@
-import * as cloudflare from "@pulumi/cloudflare";
 import * as crypto from "node:crypto";
+import * as cloudflare from "@pulumi/cloudflare";
 import * as pulumi from "@pulumi/pulumi";
 import { R2Object } from "./r2object.ts";
-import { generateWorkerScript, type RedirectRule } from "./worker-site-script.ts";
+import {
+	generateWorkerScript,
+	type RedirectRule,
+} from "./worker-site-script.ts";
 
 /**
  * Path access configuration.
@@ -454,9 +457,9 @@ export class WorkerSite extends pulumi.ComponentResource {
 				for (let pathIdx = 0; pathIdx < args.paths.length; pathIdx++) {
 					const pathConfig = args.paths[pathIdx];
 
-				const policyIncludes =
-					pathConfig.access === "public"
-						? [{ everyone: {} }]
+					const policyIncludes =
+						pathConfig.access === "public"
+							? [{ everyone: {} }]
 							: pulumi
 									.all([
 										pulumi.all(args.githubOrganizations ?? []),
@@ -526,18 +529,18 @@ export class WorkerSite extends pulumi.ComponentResource {
 								},
 							],
 							resources: pulumi
-							.all([
-								args.accountId,
-								bucketName,
-								this.bucket?.location ?? args.r2Bucket.location ?? "default",
-							])
-							.apply(
-								([acctId, bktName, loc]: [string, string, string]) =>
-									({
-										[`com.cloudflare.edge.r2.bucket.${acctId}_${loc.toLowerCase()}_${bktName}`]:
-											"*",
-									}) as Record<string, string>,
-							),
+								.all([
+									args.accountId,
+									bucketName,
+									this.bucket?.location ?? args.r2Bucket.location ?? "default",
+								])
+								.apply(
+									([acctId, bktName, loc]: [string, string, string]) =>
+										({
+											[`com.cloudflare.edge.r2.bucket.${acctId}_${loc.toLowerCase()}_${bktName}`]:
+												"*",
+										}) as Record<string, string>,
+								),
 						},
 					],
 				},
@@ -545,7 +548,7 @@ export class WorkerSite extends pulumi.ComponentResource {
 			);
 
 			const accessKeyId = r2Token.id;
-		const secretAccessKey = r2Token.value.apply((v: string) =>
+			const secretAccessKey = r2Token.value.apply((v: string) =>
 				crypto.createHash("sha256").update(v).digest("hex"),
 			);
 
