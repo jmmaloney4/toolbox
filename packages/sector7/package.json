@@ -45,9 +45,9 @@
 		}
 	},
 	"devDependencies": {
-		"@pulumi/pulumi": "^3.213.0",
-		"@pulumi/cloudflare": "^6.11.0",
-		"@pulumi/gcp": "^9.6.0",
-		"vitest": "^3.2.4"
+		"@pulumi/pulumi": "3.213.0",
+		"@pulumi/cloudflare": "6.11.0",
+		"@pulumi/gcp": "9.6.0",
+		"vitest": "3.2.4"
 	}
 }
