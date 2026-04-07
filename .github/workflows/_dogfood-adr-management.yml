@@ -10,7 +10,6 @@ jobs:
     if: github.actor != 'github-actions[bot]'
     uses: jmmaloney4/toolbox/.github/workflows/adr-management.yml@591ab2d08d3f590934b9dcf75c8c7ff084b469b0 # main
     with:
-      runs-on: ubuntu-latest
       repository: ${{ github.repository }}
       ref: refs/pull/${{ github.event.pull_request.number }}/head
       base_ref: ${{ github.event.pull_request.base.ref }}

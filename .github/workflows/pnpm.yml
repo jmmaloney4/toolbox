@@ -5,7 +5,7 @@ on:
       runs-on:
         description: 'Runner label for all jobs'
         required: false
-        default: 'runs-on=${{ github.run_id }}/runner=1cpu-linux-x64/extras=s3-cache'
+        default: 'self-hosted'
         type: string
       repository:
         description: 'Repository to checkout and build (owner/repo)'
