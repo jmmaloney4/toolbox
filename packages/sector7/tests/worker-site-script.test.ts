@@ -6,7 +6,7 @@ describe("generateWorkerScript", () => {
 		const script = generateWorkerScript("R2_BUCKET");
 		expect(script).toContain("env.R2_BUCKET.get(objectKey)");
 		expect(script).toContain("// No prefix configured");
-		expect(script).toContain("Response.redirect");
+		expect(script).not.toContain("Response.redirect");
 	});
 
 	it("injects prefixes and redirects when configured", () => {
