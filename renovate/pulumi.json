@@ -1,9 +1,10 @@
 {
 	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
-	"description": "Pulumi-specific Renovate configuration with regex managers for custom dependency extraction",
-	"regexManagers": [
+	"description": "Pulumi-specific Renovate configuration with custom regex managers for dependency extraction",
+	"customManagers": [
 		{
-			"fileMatch": ["(^|.*\\/)?Pulumi(\\..+)?\\.yaml$"],
+			"customType": "regex",
+			"managerFilePatterns": ["/(^|.*\\/)?Pulumi(\\..+)?\\.yaml$/"],
 			"matchStrings": [
 				"(?<versionKey>[A-Za-z0-9_:-]*Version):\\s*(?<currentValue>\\d+\\.\\d+\\.\\d+)\\s*#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)\\s+registryUrl=(?<registryUrl>\\S+)"
 			],
