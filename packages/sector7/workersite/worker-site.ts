@@ -534,13 +534,10 @@ export class WorkerSite extends pulumi.ComponentResource {
 									bucketName,
 									this.bucket?.location ?? args.r2Bucket.location ?? "default",
 								])
-								.apply(
-									([acctId, bktName, loc]: [string, string, string]) =>
-										({
-											[`com.cloudflare.edge.r2.bucket.${acctId}_${loc.toLowerCase()}_${bktName}`]:
-												"*",
-										}) as Record<string, string>,
-								),
+								.apply(([acctId, bktName, loc]: [string, string, string]) => ({
+									[`com.cloudflare.edge.r2.bucket.${acctId}_${loc.toLowerCase()}_${bktName}`]:
+										"*",
+								})),
 						},
 					],
 				},
