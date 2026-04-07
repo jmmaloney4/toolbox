@@ -51,7 +51,7 @@
 		{
 			"groupName": "GitHub Actions",
 			"matchManagers": ["github-actions"],
-			"matchDatasources": ["github-actions"],
+			"matchDatasources": ["github-tags", "github-digest"],
 			"matchUpdateTypes": ["minor", "patch", "digest"],
 			"automerge": true,
 			"addLabels": ["deps/github-actions"]
