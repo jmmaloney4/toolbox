@@ -13,7 +13,7 @@
 		"clean": "pnpm -r --if-present run clean"
 	},
 	"devDependencies": {
-		"typescript": "5.9.3",
+		"typescript": "6.0.2",
 		"rimraf": "6.1.2",
 		"@types/node": "24.12.2",
 		"vitest": "4.1.2"
