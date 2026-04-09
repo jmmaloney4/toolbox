@@ -100,6 +100,58 @@ export interface WorkerScriptConfig {
 }
 
 /**
+ * Configuration for Cloudflare Worker observability.
+ */
+export interface WorkerObservabilityConfig {
+	/**
+	 * Whether request observability is enabled for the Worker.
+	 * @default true
+	 */
+	enabled?: pulumi.Input<boolean>;
+
+	/**
+	 * Sampling rate for incoming requests. 0.1 = 10%, 1 = 100%.
+	 * @default 0.1
+	 */
+	headSamplingRate?: pulumi.Input<number>;
+
+	/**
+	 * Log settings for the Worker.
+	 */
+	logs?: {
+		/**
+		 * Whether Worker logs are enabled.
+		 * @default true
+		 */
+		enabled?: pulumi.Input<boolean>;
+
+		/**
+		 * Sampling rate for logs. Defaults to `headSamplingRate`.
+		 * @default 0.1
+		 */
+		headSamplingRate?: pulumi.Input<number>;
+
+		/**
+		 * Whether invocation logs are enabled.
+		 * @default true
+		 */
+		invocationLogs?: pulumi.Input<boolean>;
+
+		/**
+		 * Log destinations supported by Cloudflare.
+		 * @default ["cloudflare"]
+		 */
+		destinations?: pulumi.Input<string>[];
+
+		/**
+		 * Whether logs should be persisted by Cloudflare.
+		 * @default true
+		 */
+		persist?: pulumi.Input<boolean>;
+	};
+}
+
+/**
  * Arguments for creating a WorkerSite component (ADR-011).
  *
  * @remarks
@@ -224,6 +276,14 @@ export interface WorkerSiteArgs {
 	 * `redirects` is ignored when this is set.
 	 */
 	workerScript?: WorkerScriptConfig;
+
+	/**
+	 * Cloudflare Worker observability settings.
+	 *
+	 * Defaults enable observability and invocation logs with 10% sampling to the
+	 * Cloudflare destination. Raise sampling to `1` during incident response.
+	 */
+	observability?: WorkerObservabilityConfig;
 }
 
 // Cloudflare permission group ID for R2 bucket item write access.
@@ -375,6 +435,9 @@ export class WorkerSite extends pulumi.ComponentResource {
 		const prefix = args.r2Bucket.prefix
 			? pulumi.output(args.r2Bucket.prefix)
 			: undefined;
+		const observabilitySamplingRate = args.observability?.headSamplingRate ?? 0.1;
+		const logSamplingRate =
+			args.observability?.logs?.headSamplingRate ?? observabilitySamplingRate;
 
 		let scriptContent: pulumi.Input<string>;
 		let extraBindings: Array<{
@@ -421,6 +484,19 @@ export class WorkerSite extends pulumi.ComponentResource {
 					},
 					...extraBindings,
 				],
+				observability: {
+					enabled: args.observability?.enabled ?? true,
+					headSamplingRate: observabilitySamplingRate,
+					logs: {
+						enabled: args.observability?.logs?.enabled ?? true,
+						headSamplingRate: logSamplingRate,
+						invocationLogs: args.observability?.logs?.invocationLogs ?? true,
+						destinations: args.observability?.logs?.destinations ?? [
+							"cloudflare",
+						],
+						persist: args.observability?.logs?.persist ?? true,
+					},
+				},
 			},
 			resourceOpts,
 		);

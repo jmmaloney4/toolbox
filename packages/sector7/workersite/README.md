@@ -11,6 +11,7 @@
 - Optional declarative R2 uploads during `pulumi up`
 - Optional host redirects in the generated Worker script
 - Optional custom Worker script with extra plain-text bindings
+- Default Cloudflare Worker observability with configurable request/log sampling
 
 ## Prerequisites
 
@@ -110,6 +111,63 @@ const site = new WorkerSite("custom-site", {
 
 When `workerScript` is provided, the generated script is skipped and `redirects` are ignored. `R2_BUCKET` and `CACHE_TTL_SECONDS` bindings are still injected automatically.
 
+## Observability
+
+`WorkerSite` enables Cloudflare Worker observability by default on the managed `cloudflare.WorkersScript`:
+
+- request observability enabled
+- request sampling defaulted to `0.1`
+- Worker logs enabled
+- invocation logs enabled
+- Cloudflare log destination enabled
+- log persistence enabled
+
+You can override those defaults with `observability`:
+
+```typescript
+import * as pulumi from "@pulumi/pulumi";
+import {
+  WorkerSite,
+  type WorkerObservabilityConfig,
+} from "@jmmaloney4/sector7/workersite";
+
+const config = new pulumi.Config();
+const workerObservability =
+  config.getObject<WorkerObservabilityConfig>("workerObservability") ?? undefined;
+
+const site = new WorkerSite("docs-site", {
+  accountId: "your-cloudflare-account-id",
+  zoneId: "your-cloudflare-zone-id",
+  name: "docs-site",
+  domains: ["docs.example.com"],
+  r2Bucket: {
+    bucketName: "docs-site-assets",
+  },
+  observability: workerObservability,
+});
+```
+
+Recommended stack config values:
+
+```yaml
+config:
+  your-project:workerObservability:
+    enabled: true
+    headSamplingRate: 0.1
+    logs:
+      enabled: true
+      headSamplingRate: 0.1
+      invocationLogs: true
+      destinations:
+        - cloudflare
+      persist: true
+```
+
+- Normal production baseline: keep sampling at `0.1`
+- Incident response / active debugging: temporarily raise both sampling rates to `1.0`
+
+After adding this config, `pulumi preview` should show an `observability` block on the `cloudflare:WorkersScript` resource.
+
 ## What the component creates
 
 `WorkerSite` creates:
@@ -181,6 +239,7 @@ redirects: [
 | `assets`                   | `AssetConfig`        | No          | Declarative upload configuration                     |
 | `redirects`                | `RedirectRule[]`     | No          | Host redirects for the generated Worker              |
 | `workerScript`             | `WorkerScriptConfig` | No          | Custom Worker source and extra bindings              |
+| `observability`            | `WorkerObservabilityConfig` | No   | Worker observability and log sampling settings       |
 
 ### `PathConfig`
 
@@ -202,6 +261,18 @@ redirects: [
 | `content`       | `Input<string>`    | Yes      | Pre-built Worker source          |
 | `extraBindings` | `{ name, text }[]` | No       | Additional `plain_text` bindings |
 
+### `WorkerObservabilityConfig`
+
+| Field                           | Type        | Required | Description                                          |
+| ------------------------------- | ----------- | -------- | ---------------------------------------------------- |
+| `enabled`                       | `boolean`   | No       | Enables Worker observability                         |
+| `headSamplingRate`              | `number`    | No       | Request sampling rate; defaults to `0.1`             |
+| `logs.enabled`                  | `boolean`   | No       | Enables Worker logs                                  |
+| `logs.headSamplingRate`         | `number`    | No       | Log sampling rate; defaults to `headSamplingRate`    |
+| `logs.invocationLogs`           | `boolean`   | No       | Enables invocation logs                              |
+| `logs.destinations`             | `string[]`  | No       | Log destinations; defaults to `["cloudflare"]`       |
+| `logs.persist`                  | `boolean`   | No       | Persists logs in Cloudflare                          |
+
 ## Troubleshooting
 
 ### Assets return 404
@@ -221,6 +292,13 @@ redirects: [
 - Cache behavior only applies on custom domains, not `*.workers.dev`
 - Check the `X-Cache-Status` response header from the generated Worker
 - The first request after deploy is normally a MISS
+
+### Cloudflare Error 1101: Worker threw exception
+
+1. Temporarily raise `observability.headSamplingRate` and `observability.logs.headSamplingRate` to `1.0`
+2. Run `pulumi preview` or `pulumi up` and confirm the `WorkersScript` `observability` settings changed as expected
+3. Reproduce the failing request and inspect Worker invocation logs in Cloudflare
+4. Fix the exception, redeploy, and then return sampling to the normal `0.1` production baseline
 
 ### Domain binding fails
 

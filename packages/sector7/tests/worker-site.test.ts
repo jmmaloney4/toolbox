@@ -94,6 +94,19 @@ describe("WorkerSite", () => {
 
 		expect(byName("-worker")).toHaveLength(1);
 		expect(byName("-domain-")).toHaveLength(2);
+
+		const worker = byName("-worker")[0];
+		expect(worker.inputs.observability).toEqual({
+			enabled: true,
+			headSamplingRate: 0.1,
+			logs: {
+				enabled: true,
+				headSamplingRate: 0.1,
+				invocationLogs: true,
+				destinations: ["cloudflare"],
+				persist: true,
+			},
+		});
 	});
 
 	it("creates an access application for each domain and path combination", async () => {
@@ -200,5 +213,37 @@ describe("WorkerSite", () => {
 		expect(await resolveOutput(resourcesInput)).toBe(
 			"com.cloudflare.edge.r2.bucket.account-123_default_asset-site-assets:*",
 		);
+	});
+
+	it("allows overriding worker observability settings", async () => {
+		const site = new WorkerSite("observability-site", {
+			accountId: "account-123",
+			zoneId: "zone-123",
+			name: "observability-site",
+			domains: ["obs.example.com"],
+			r2Bucket: { bucketName: "observability-assets" },
+			observability: {
+				headSamplingRate: 1,
+				logs: {
+					headSamplingRate: 1,
+					persist: false,
+				},
+			},
+		});
+
+		await resolveOutput(site.worker.id);
+
+		const worker = byName("-worker")[0];
+		expect(worker.inputs.observability).toEqual({
+			enabled: true,
+			headSamplingRate: 1,
+			logs: {
+				enabled: true,
+				headSamplingRate: 1,
+				invocationLogs: true,
+				destinations: ["cloudflare"],
+				persist: false,
+			},
+		});
 	});
 });
