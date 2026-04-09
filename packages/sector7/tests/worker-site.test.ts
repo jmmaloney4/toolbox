@@ -172,7 +172,7 @@ describe("WorkerSite", () => {
 		).toThrow("zoneId is required because WorkersCustomDomain depends on it");
 	});
 
-	it("passes AccountToken resource scopes as an object for asset uploads", async () => {
+	it("passes AccountToken resource scopes as a string for asset uploads", async () => {
 		const site = new WorkerSite("asset-site", {
 			accountId: "account-123",
 			zoneId: "zone-123",
@@ -195,13 +195,10 @@ describe("WorkerSite", () => {
 
 		const token = byName("-r2-token")[0];
 		const policies = token.inputs.policies as Array<Record<string, unknown>>;
-		const resourcesInput = policies[0].resources as pulumi.Input<
-			Record<string, string>
-		>;
+		const resourcesInput = policies[0].resources as pulumi.Input<string>;
 
-		expect(await resolveOutput(resourcesInput)).toEqual({
-			"com.cloudflare.edge.r2.bucket.account-123_default_asset-site-assets":
-				"*",
-		});
+		expect(await resolveOutput(resourcesInput)).toBe(
+			"com.cloudflare.edge.r2.bucket.account-123_default_asset-site-assets:*",
+		);
 	});
 });
