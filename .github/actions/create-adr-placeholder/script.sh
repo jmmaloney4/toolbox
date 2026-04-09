@@ -19,13 +19,16 @@ git config user.email "actions@github.com"
 # On each failure the function fetches the latest base branch, rebases the
 # placeholder branch, sleeps with exponential backoff, then retries.
 # Backoff delays (seconds): 30, 60, 120, 240 (doubles each attempt).
+# Usage: push_with_retry <src-branch> <dst-branch>
 push_with_retry() {
+  local src_branch="${1:?push_with_retry requires src branch}"
+  local dst_branch="${2:?push_with_retry requires dst branch}"
   local attempt=1
   local delay=30
 
   while true; do
     echo "Push attempt ${attempt}/${MAX_RETRIES}…"
-    if git push origin "${BASE_BRANCH}-placeholder:${BASE_BRANCH}"; then
+    if git push origin "${src_branch}:${dst_branch}"; then
       return 0
     fi
 
@@ -37,9 +40,17 @@ push_with_retry() {
     echo "Push failed (attempt ${attempt}). Waiting ${delay}s before retry…"
     sleep "$delay"
 
-    echo "Fetching latest ${BASE_BRANCH} and rebasing…"
-    git fetch origin "${BASE_BRANCH}"
-    git rebase "origin/${BASE_BRANCH}"
+    echo "Fetching latest ${dst_branch} and rebasing…"
+    if ! git fetch origin "${dst_branch}"; then
+      echo "Error: git fetch failed during retry ${attempt}. Aborting." >&2
+      return 1
+    fi
+    if ! git rebase "origin/${dst_branch}"; then
+      echo "Error: git rebase failed during retry ${attempt} (possible conflict on ${dst_branch})." >&2
+      echo "Check the workflow logs for details, or reproduce locally:" >&2
+      echo "  git fetch origin ${dst_branch} && git rebase origin/${dst_branch}" >&2
+      return 1
+    fi
 
     attempt=$(( attempt + 1 ))
     delay=$(( delay * 2 ))
@@ -114,6 +125,6 @@ else
   git commit -m "Reserve ADR number(s) for PR
 
 Related PR: ${PR_URL}"
-  push_with_retry
+  push_with_retry "${BASE_BRANCH}-placeholder" "${BASE_BRANCH}"
   echo "Pushed placeholder(s) to ${BASE_BRANCH}"
 fi
