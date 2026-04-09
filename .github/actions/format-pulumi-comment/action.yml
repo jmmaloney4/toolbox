@@ -1,0 +1,17 @@
+name: Format Pulumi Comment
+description: Aggregate Pulumi preview text files into a Markdown comment
+inputs:
+  path:
+    description: Directory containing preview text files
+    required: true
+outputs:
+  comment-file:
+    description: Path to the generated markdown file
+    value: comment.md
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        INPUT_PATH: ${{ inputs.path }}
+      run: bash $GITHUB_ACTION_PATH/main.sh
