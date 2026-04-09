@@ -133,10 +133,19 @@ const r2ObjectProvider: dynamic.ResourceProvider = {
 	): Promise<dynamic.CheckResult> {
 		const fs = (await import("node:fs")) as typeof import("node:fs");
 		const failures: dynamic.CheckFailure[] = [];
-		if (!readFileSyncIfExists(fs, news.filePath)) {
+		try {
+			if (!readFileSyncIfExists(fs, news.filePath)) {
+				failures.push({
+					property: "filePath",
+					reason: `file not found: ${news.filePath}`,
+				});
+			}
+		} catch (error) {
 			failures.push({
 				property: "filePath",
-				reason: `file not found: ${news.filePath}`,
+				reason: `failed to read file: ${news.filePath}: ${
+					error instanceof Error ? error.message : String(error)
+				}`,
 			});
 		}
 		return { inputs: news, failures };
