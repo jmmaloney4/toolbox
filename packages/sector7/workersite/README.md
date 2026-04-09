@@ -152,17 +152,13 @@ Recommended stack config values:
 ```yaml
 config:
   your-project:workerObservability:
-    enabled: true
+    # Production baseline: 10% request and log sampling
     headSamplingRate: 0.1
     logs:
-      enabled: true
       headSamplingRate: 0.1
-      invocationLogs: true
-      destinations:
-        - cloudflare
-      persist: true
 ```
 
+- Defaults you can omit: `enabled: true`, `logs.enabled: true`, `logs.invocationLogs: true`, `logs.destinations: ["cloudflare"]`, `logs.persist: true`
 - Normal production baseline: keep sampling at `0.1`
 - Incident response / active debugging: temporarily raise both sampling rates to `1.0`
 
