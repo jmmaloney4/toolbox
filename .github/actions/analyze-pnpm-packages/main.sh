@@ -65,7 +65,7 @@ if [[ ! -d "${ROOT}/packages" ]]; then
   echo "Warning: packages directory not found at ${ROOT}/packages" >&2
   PKG_PATHS=()
 else
-  mapfile -t PKG_PATHS < <(find "${ROOT}/packages" -mindepth 2 -maxdepth 2 -name package.json -type f -printf '%h\n' | sort -u)
+  mapfile -t PKG_PATHS < <(find "${ROOT}/packages" -mindepth 2 -maxdepth 2 -name package.json -type f | sed 's|/[^/]*$||' | sort -u)
   echo "Found ${#PKG_PATHS[@]} package(s): ${PKG_PATHS[*]}" >&2
 fi
 
