@@ -54,7 +54,7 @@ interface R2ObjectState extends R2ObjectArgs {
 	etag: string;
 }
 
-const readFileSyncIfExists = (
+const tryReadFileSync = (
 	fs: typeof import("node:fs"),
 	filePath: string,
 ): Buffer | undefined => {
@@ -134,7 +134,7 @@ const r2ObjectProvider: dynamic.ResourceProvider = {
 		const fs = (await import("node:fs")) as typeof import("node:fs");
 		const failures: dynamic.CheckFailure[] = [];
 		try {
-			if (!readFileSyncIfExists(fs, news.filePath)) {
+			if (!tryReadFileSync(fs, news.filePath)) {
 				failures.push({
 					property: "filePath",
 					reason: `file not found: ${news.filePath}`,
@@ -169,9 +169,10 @@ const r2ObjectProvider: dynamic.ResourceProvider = {
 		if (olds.secretAccessKey !== news.secretAccessKey)
 			replaces.push("secretAccessKey");
 
-		const currentFile = readFileSyncIfExists(fs, news.filePath);
+		const currentFile = tryReadFileSync(fs, news.filePath);
 		const currentEtag = currentFile
 			? crypto.createHash("md5").update(currentFile).digest("hex")
+			// Missing files should force a change without crashing refresh/diff.
 			: "";
 		const changed =
 			replaces.length > 0 ||
