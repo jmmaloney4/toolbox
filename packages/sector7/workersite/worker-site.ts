@@ -19,10 +19,11 @@ export interface PathConfig {
 
 	/**
 	 * Access level for this path.
-	 * - "public": Allow everyone
+	 * - "public": Allow everyone (visitors still complete the Cloudflare Zero Trust login flow)
+	 * - "bypass": Bypass authentication entirely — requests go directly to the Worker with no login prompt
 	 * - "github-org": Require GitHub organization membership
 	 */
-	access: "public" | "github-org";
+	access: "public" | "bypass" | "github-org";
 }
 
 /**
@@ -187,6 +188,8 @@ export interface WorkerSiteArgs {
 	 * @example
 	 * ```typescript
 	 * paths: [
+	 *   { pattern: "/", access: "bypass" },
+	 *   { pattern: "/styles.css", access: "bypass" },
 	 *   { pattern: "/blog/*", access: "public" },
 	 *   { pattern: "/research/*", access: "github-org" },
 	 * ]
@@ -262,7 +265,7 @@ const R2_BUCKET_ITEM_WRITE_PERMISSION_GROUP_ID =
  * ```
  *
  * @example
- * Site with GitHub org access control:
+ * Site with GitHub org access control and public bypass paths:
  * ```typescript
  * const site = new WorkerSite("docs-site", {
  *   accountId: "abc123",
@@ -273,6 +276,8 @@ const R2_BUCKET_ITEM_WRITE_PERMISSION_GROUP_ID =
  *   githubIdentityProviderId: "github-idp-id",
  *   githubOrganizations: ["my-org"],
  *   paths: [
+ *     { pattern: "/", access: "bypass" },
+ *     { pattern: "/styles.css", access: "bypass" },
  *     { pattern: "/public/*", access: "public" },
  *     { pattern: "/private/*", access: "github-org" },
  *   ],
@@ -458,7 +463,7 @@ export class WorkerSite extends pulumi.ComponentResource {
 					const pathConfig = args.paths[pathIdx];
 
 					const policyIncludes =
-						pathConfig.access === "public"
+						pathConfig.access === "public" || pathConfig.access === "bypass"
 							? [{ everyone: {} }]
 							: pulumi
 									.all([
@@ -492,10 +497,13 @@ export class WorkerSite extends pulumi.ComponentResource {
 							policies: [
 								{
 									name:
-										pathConfig.access === "public"
-											? "Allow everyone"
-											: "GitHub org members",
-									decision: "allow",
+										pathConfig.access === "bypass"
+											? "Bypass for public path"
+											: pathConfig.access === "public"
+												? "Allow everyone"
+												: "GitHub org members",
+									decision:
+										pathConfig.access === "bypass" ? "bypass" : "allow",
 									precedence: 1,
 									includes: policyIncludes,
 								},

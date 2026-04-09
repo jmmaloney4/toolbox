@@ -119,6 +119,107 @@ describe("WorkerSite", () => {
 		expect(byName("-app-d")).toHaveLength(4);
 	});
 
+	it("creates bypass policy for bypass access paths", async () => {
+		const site = new WorkerSite("bypass-site", {
+			accountId: "account-123",
+			zoneId: "zone-123",
+			name: "bypass-site",
+			domains: ["bypass.example.com"],
+			r2Bucket: { bucketName: "bypass-assets" },
+			paths: [
+				{ pattern: "/", access: "bypass" },
+				{ pattern: "/styles.css", access: "bypass" },
+			],
+		});
+
+		await Promise.all(
+			site.accessApplications.map((app) => resolveOutput(app.id)),
+		);
+
+		expect(site.accessApplications).toHaveLength(2);
+
+		const apps = byName("bypass-site-app-d");
+		expect(apps).toHaveLength(2);
+
+		for (const app of apps) {
+			const policies = app.inputs.policies as Array<Record<string, unknown>>;
+			expect(policies).toHaveLength(1);
+			expect(policies[0].decision).toBe("bypass");
+			expect(policies[0].name).toBe("Bypass for public path");
+			const includes = policies[0].includes as Array<Record<string, unknown>>;
+			expect(includes).toEqual([{ everyone: {} }]);
+		}
+	});
+
+	it("uses bypass decision for bypass paths and allow for other paths", async () => {
+		const site = new WorkerSite("mixed-site", {
+			accountId: "account-123",
+			zoneId: "zone-123",
+			name: "mixed-site",
+			domains: ["mixed.example.com"],
+			r2Bucket: { bucketName: "mixed-assets" },
+			githubIdentityProviderId: "github-idp",
+			githubOrganizations: ["my-org"],
+			paths: [
+				{ pattern: "/favicon.ico", access: "bypass" },
+				{ pattern: "/public/*", access: "public" },
+				{ pattern: "/private/*", access: "github-org" },
+			],
+		});
+
+		await Promise.all(
+			site.accessApplications.map((app) => resolveOutput(app.id)),
+		);
+
+		expect(site.accessApplications).toHaveLength(3);
+
+		const apps = byName("mixed-site-app-d");
+		expect(apps).toHaveLength(3);
+
+		// Find apps by path index: p0=bypass, p1=public, p2=github-org
+		const bypassApp = apps.find((a) => a.name.includes("-p0"));
+		const publicApp = apps.find((a) => a.name.includes("-p1"));
+		const privateApp = apps.find((a) => a.name.includes("-p2"));
+
+		const bypassPolicies = bypassApp!.inputs.policies as Array<
+			Record<string, unknown>
+		>;
+		expect(bypassPolicies[0].decision).toBe("bypass");
+		expect(bypassPolicies[0].name).toBe("Bypass for public path");
+
+		const publicPolicies = publicApp!.inputs.policies as Array<
+			Record<string, unknown>
+		>;
+		expect(publicPolicies[0].decision).toBe("allow");
+		expect(publicPolicies[0].name).toBe("Allow everyone");
+
+		const privatePolicies = privateApp!.inputs.policies as Array<
+			Record<string, unknown>
+		>;
+		expect(privatePolicies[0].decision).toBe("allow");
+		expect(privatePolicies[0].name).toBe("GitHub org members");
+	});
+
+	it("allows bypass paths without githubIdentityProviderId", async () => {
+		// bypass paths should not require github config
+		const site = new WorkerSite("bypass-only-site", {
+			accountId: "account-123",
+			zoneId: "zone-123",
+			name: "bypass-only-site",
+			domains: ["bypass-only.example.com"],
+			r2Bucket: { bucketName: "bypass-only-assets" },
+			paths: [
+				{ pattern: "/", access: "bypass" },
+				{ pattern: "/robots.txt", access: "bypass" },
+			],
+		});
+		await resolveOutput(site.worker.id);
+		await Promise.all(
+			site.accessApplications.map((app) => resolveOutput(app.id)),
+		);
+		expect(site.accessApplications).toHaveLength(2);
+	});
+
 	it("creates an R2 bucket when requested and binds it to the worker", async () => {
 		const site = new WorkerSite("bucket-site", {
 			accountId: "account-123",
