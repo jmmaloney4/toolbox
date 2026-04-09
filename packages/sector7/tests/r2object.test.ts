@@ -25,8 +25,8 @@ let provider: R2ObjectProvider | undefined;
 vi.mock("@pulumi/pulumi", () => ({
 	dynamic: {
 		Resource: class {
-			constructor(capturedProvider: R2ObjectProvider) {
-				provider = capturedProvider;
+			constructor(resourceProvider: R2ObjectProvider) {
+				provider = resourceProvider;
 			}
 		},
 	},
