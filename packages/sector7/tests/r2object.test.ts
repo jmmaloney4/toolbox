@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-type MockProvider = {
+type R2ObjectProvider = {
 	check: (
 		olds: unknown,
 		news: Record<string, string>,
@@ -20,12 +20,12 @@ type MockProvider = {
 	}>;
 };
 
-let provider: MockProvider | undefined;
+let provider: R2ObjectProvider | undefined;
 
 vi.mock("@pulumi/pulumi", () => ({
 	dynamic: {
 		Resource: class {
-			constructor(capturedProvider: MockProvider) {
+			constructor(capturedProvider: R2ObjectProvider) {
 				provider = capturedProvider;
 			}
 		},
