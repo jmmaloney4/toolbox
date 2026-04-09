@@ -4,6 +4,7 @@ set -euo pipefail
 ADR_FILES="${ADR_FILES:?ADR_FILES env var is required}"
 PR_URL="${PR_URL:?PR_URL env var is required}"
 BASE_BRANCH="${BASE_BRANCH:-main}"
+MAX_RETRIES="${MAX_RETRIES:-4}"
 
 if [ ! -f "$ADR_FILES" ]; then
   echo "Error: ADR_FILES '$ADR_FILES' does not exist" >&2
@@ -13,6 +14,37 @@ fi
 # Configure git for commits
 git config user.name "GitHub Actions ADR Bot"
 git config user.email "actions@github.com"
+
+# push_with_retry: attempt git push, retrying on non-fast-forward failures.
+# On each failure the function fetches the latest base branch, rebases the
+# placeholder branch, sleeps with exponential backoff, then retries.
+# Backoff delays (seconds): 30, 60, 120, 240 (doubles each attempt).
+push_with_retry() {
+  local attempt=1
+  local delay=30
+
+  while true; do
+    echo "Push attempt ${attempt}/${MAX_RETRIES}…"
+    if git push origin "${BASE_BRANCH}-placeholder:${BASE_BRANCH}"; then
+      return 0
+    fi
+
+    if [ "$attempt" -ge "$MAX_RETRIES" ]; then
+      echo "Error: git push failed after ${MAX_RETRIES} attempts. Giving up." >&2
+      return 1
+    fi
+
+    echo "Push failed (attempt ${attempt}). Waiting ${delay}s before retry…"
+    sleep "$delay"
+
+    echo "Fetching latest ${BASE_BRANCH} and rebasing…"
+    git fetch origin "${BASE_BRANCH}"
+    git rebase "origin/${BASE_BRANCH}"
+
+    attempt=$(( attempt + 1 ))
+    delay=$(( delay * 2 ))
+  done
+}
 
 # Fetch latest base branch to reduce race condition window
 git fetch origin "${BASE_BRANCH}"
@@ -82,6 +114,6 @@ else
   git commit -m "Reserve ADR number(s) for PR
 
 Related PR: ${PR_URL}"
-  git push origin "${BASE_BRANCH}-placeholder:${BASE_BRANCH}"
+  push_with_retry
   echo "Pushed placeholder(s) to ${BASE_BRANCH}"
 fi
