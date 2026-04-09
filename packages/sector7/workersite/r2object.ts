@@ -54,6 +54,18 @@ interface R2ObjectState extends R2ObjectArgs {
 	etag: string;
 }
 
+const readFileSyncIfExists = (
+	fs: typeof import("node:fs"),
+	filePath: string,
+): Buffer | undefined => {
+	try {
+		return fs.readFileSync(filePath);
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+		throw error;
+	}
+};
+
 /** Upload a file to R2 and return the normalized ETag. */
 const uploadObjectToR2 = async (args: R2ObjectArgs): Promise<string> => {
 	const fs = (await import("node:fs")) as typeof import("node:fs");
@@ -121,9 +133,7 @@ const r2ObjectProvider: dynamic.ResourceProvider = {
 	): Promise<dynamic.CheckResult> {
 		const fs = (await import("node:fs")) as typeof import("node:fs");
 		const failures: dynamic.CheckFailure[] = [];
-		try {
-			fs.readFileSync(news.filePath);
-		} catch {
+		if (!readFileSyncIfExists(fs, news.filePath)) {
 			failures.push({
 				property: "filePath",
 				reason: `file not found: ${news.filePath}`,
@@ -150,10 +160,10 @@ const r2ObjectProvider: dynamic.ResourceProvider = {
 		if (olds.secretAccessKey !== news.secretAccessKey)
 			replaces.push("secretAccessKey");
 
-		const currentEtag = crypto
-			.createHash("md5")
-			.update(fs.readFileSync(news.filePath))
-			.digest("hex");
+		const currentFile = readFileSyncIfExists(fs, news.filePath);
+		const currentEtag = currentFile
+			? crypto.createHash("md5").update(currentFile).digest("hex")
+			: "";
 		const changed =
 			replaces.length > 0 ||
 			currentEtag !== olds.etag ||
