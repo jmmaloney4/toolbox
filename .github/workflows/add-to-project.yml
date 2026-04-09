@@ -22,6 +22,10 @@ on:
         required: false
         default: OR
         type: string
+    secrets:
+      github-token:
+        description: 'GitHub personal access token with project write access'
+        required: true
 permissions:
   contents: read
 jobs:
@@ -33,10 +37,12 @@ jobs:
         uses: actions/add-to-project@244f685bbc3b7adfa8466e08b698b5577571133e # v1.0.2
         with:
           project-url: ${{ inputs.project_url }}
+          github-token: ${{ secrets.github-token }}
       - name: Add issue or PR to project (label filter)
         if: inputs.labeled != ''
         uses: actions/add-to-project@244f685bbc3b7adfa8466e08b698b5577571133e # v1.0.2
         with:
           project-url: ${{ inputs.project_url }}
+          github-token: ${{ secrets.github-token }}
           labeled: ${{ inputs.labeled }}
           label-operator: ${{ inputs.label-operator }}
