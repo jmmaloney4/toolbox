@@ -32,4 +32,4 @@ runs:
         INPUT_GITHUB_TOKEN: ${{ inputs.github-token }}
         INPUT_LABELED: ${{ inputs.labeled }}
         INPUT_LABEL_OPERATOR: ${{ inputs.label-operator }}
-      run: ${{ github.action_path }}/main.sh
+      run: nix shell nixpkgs#gh nixpkgs#jq -- bash ${{ github.action_path }}/main.sh
