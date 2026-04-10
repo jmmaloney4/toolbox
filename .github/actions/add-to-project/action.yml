@@ -1,5 +1,5 @@
 name: "Add to Project"
-description: "Add the current issue or PR to a GitHub Project V2 via gh CLI"
+description: "Add the current issue or PR to a GitHub Project V2 via gh CLI. Requires nix on the runner (self-hosted)."
 
 inputs:
   project-url:

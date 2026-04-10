@@ -38,7 +38,7 @@ fi
 if [[ -n "$LABELED" ]]; then
   ISSUE_LABELS=$(jq -r '(.issue // .pull_request | .labels // []) | map(.name | ascii_downcase) | join(",")' <<< "$EVENT")
   # Normalize filter labels to lowercase
-  FILTER_LABELS=$(echo "$LABELED" | tr '[:upper:]' '[:lower:]')
+  FILTER_LABELS="${LABELED,,}"
 
   PASS=false
   OP="${LABEL_OPERATOR,,}"
