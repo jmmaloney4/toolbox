@@ -104,7 +104,7 @@ PROJECT_ID=$(gh api graphql --fail \
   -F number="$PROJECT_NUMBER" \
   --jq ".${GRAPHQL_OWNER}.projectV2.id")
 
-if [[ -z "$PROJECT_ID" ]]; then
+if [[ -z "$PROJECT_ID" || "$PROJECT_ID" == "null" ]]; then
   echo "::error::Project not found at ${PROJECT_URL}"
   exit 1
 fi
@@ -134,6 +134,11 @@ else
     -f projectId="$PROJECT_ID" \
     -f title="$ISSUE_URL" \
     --jq '.addProjectV2DraftIssue.projectItem.id')
+fi
+
+if [[ -z "$ITEM_ID" || "$ITEM_ID" == "null" ]]; then
+  echo "::error::Failed to add item to project at ${PROJECT_URL}"
+  exit 1
 fi
 
 echo "itemId=${ITEM_ID}" >> "$GITHUB_OUTPUT"
