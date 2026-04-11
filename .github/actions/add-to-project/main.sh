@@ -96,7 +96,7 @@ fi
 
 # --- Get project node ID ---
 echo "Fetching project node ID..."
-PROJECT_ID=$(gh api graphql --fail \
+PROJECT_ID=$(gh api graphql \
   -f query="query(\$owner: String!, \$number: Int!) {
     ${GRAPHQL_OWNER}(login: \$owner) { projectV2(number: \$number) { id } }
   }" \
@@ -112,7 +112,7 @@ fi
 # --- Add item to project ---
 if [[ "$ISSUE_OWNER" == "$OWNER_NAME" ]]; then
   echo "Adding item to project (same owner)"
-  ITEM_ID=$(gh api graphql --fail \
+  ITEM_ID=$(gh api graphql \
     -f query='mutation($projectId: ID!, $contentId: ID!) {
       addProjectV2ItemById(input: { projectId: $projectId, contentId: $contentId }) {
         item { id }
@@ -125,7 +125,7 @@ else
   # Cross-owner: create a draft issue linking to the original
   ISSUE_URL=$(jq -r '(.issue // .pull_request).html_url // empty' <<< "$EVENT")
   echo "Adding draft issue to project (cross-owner: ${ISSUE_OWNER} -> ${OWNER_NAME})"
-  ITEM_ID=$(gh api graphql --fail \
+  ITEM_ID=$(gh api graphql \
     -f query='mutation($projectId: ID!, $title: String!) {
       addProjectV2DraftIssue(input: { projectId: $projectId, title: $title }) {
         projectItem { id }
