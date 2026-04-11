@@ -23,11 +23,11 @@ GRAPHQL_OWNER="organization"
 [[ "$OWNER_TYPE" == "users" ]] && GRAPHQL_OWNER="user"
 
 echo "::group::Add to project ${OWNER_TYPE}/${OWNER_NAME}/${PROJECT_NUMBER}"
+trap 'echo "::endgroup::"' EXIT
 
 # --- Read issue/PR from event payload ---
-EVENT=$(cat "$GITHUB_EVENT_PATH")
-CONTENT_ID=$(jq -r '(.issue // .pull_request).node_id // empty' <<< "$EVENT")
-ISSUE_OWNER=$(jq -r '.repository.owner.login // empty' <<< "$EVENT")
+CONTENT_ID=$(jq -r '(.issue // .pull_request).node_id // empty' "$GITHUB_EVENT_PATH")
+ISSUE_OWNER=$(jq -r '.repository.owner.login // empty' "$GITHUB_EVENT_PATH")
 
 if [[ -z "$CONTENT_ID" ]]; then
   echo "::error::Could not determine issue/PR node_id from event payload"
@@ -36,7 +36,7 @@ fi
 
 # --- Label filtering ---
 if [[ -n "$LABELED" ]]; then
-  ISSUE_LABELS=$(jq -r '(.issue // .pull_request | .labels // []) | map(.name | ascii_downcase) | join(",")' <<< "$EVENT")
+  ISSUE_LABELS=$(jq -r '(.issue // .pull_request | .labels // []) | map(.name | ascii_downcase) | join(",")' "$GITHUB_EVENT_PATH")
   # Normalize filter labels to lowercase
   FILTER_LABELS="${LABELED,,}"
 
@@ -89,7 +89,6 @@ if [[ -n "$LABELED" ]]; then
   esac
 
   if [[ "$PASS" == "false" ]]; then
-    echo "::endgroup::"
     exit 0
   fi
 fi
@@ -123,7 +122,7 @@ if [[ "$ISSUE_OWNER" == "$OWNER_NAME" ]]; then
     --jq '.addProjectV2ItemById.item.id')
 else
   # Cross-owner: create a draft issue linking to the original
-  ISSUE_URL=$(jq -r '(.issue // .pull_request).html_url // empty' <<< "$EVENT")
+  ISSUE_URL=$(jq -r '(.issue // .pull_request).html_url // empty' "$GITHUB_EVENT_PATH")
   echo "Adding draft issue to project (cross-owner: ${ISSUE_OWNER} -> ${OWNER_NAME})"
   ITEM_ID=$(gh api graphql \
     -f query='mutation($projectId: ID!, $title: String!) {
@@ -143,4 +142,3 @@ fi
 
 echo "itemId=${ITEM_ID}" >> "$GITHUB_OUTPUT"
 echo "Added item ${ITEM_ID}"
-echo "::endgroup::"
