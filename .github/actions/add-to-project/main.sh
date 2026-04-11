@@ -10,7 +10,7 @@ LABEL_OPERATOR="${INPUT_LABEL_OPERATOR:-OR}"
 # --- Parse project URL ---
 # Accepts: https://github.com/orgs/{owner}/projects/{number}
 #          https://github.com/users/{owner}/projects/{number}
-if [[ ! "$PROJECT_URL" =~ /(orgs|users)/([^/]+)/projects/([0-9]+) ]]; then
+if [[ ! "$PROJECT_URL" =~ ^https://github\.com/(orgs|users)/([^/]+)/projects/([0-9]+)/?$ ]]; then
   echo "::error::Invalid project URL: ${PROJECT_URL}"
   echo "::error::Expected: https://github.com/{orgs|users}/{owner}/projects/{number}"
   exit 1
