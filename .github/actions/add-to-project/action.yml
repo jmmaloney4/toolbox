@@ -1,0 +1,35 @@
+name: "Add to Project"
+description: "Add the current issue or PR to a GitHub Project V2 via gh CLI. Requires nix on the runner (self-hosted)."
+
+inputs:
+  project-url:
+    description: "GitHub Project URL (e.g. https://github.com/orgs/ORG/projects/N)"
+    required: true
+  github-token:
+    description: "Personal access token with project write access"
+    required: true
+  labeled:
+    description: "Comma-separated labels to filter; omit or empty to add all"
+    required: false
+    default: ""
+  label-operator:
+    description: "Label filter mode: AND, OR, or NOT (default OR)"
+    required: false
+    default: "OR"
+
+outputs:
+  item-id:
+    description: "Node ID of the added project item"
+    value: ${{ steps.add.outputs.itemId }}
+
+runs:
+  using: "composite"
+  steps:
+    - id: add
+      shell: bash
+      env:
+        INPUT_PROJECT_URL: ${{ inputs.project-url }}
+        INPUT_GITHUB_TOKEN: ${{ inputs.github-token }}
+        INPUT_LABELED: ${{ inputs.labeled }}
+        INPUT_LABEL_OPERATOR: ${{ inputs.label-operator }}
+      run: nix shell nixpkgs#gh nixpkgs#jq -- bash ${{ github.action_path }}/main.sh
