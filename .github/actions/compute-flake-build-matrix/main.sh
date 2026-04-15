@@ -49,7 +49,8 @@ all_outputs=$(nix -L run nixpkgs#jq -- -s -c --arg system "$system" '
           flake_attr: (".#" + $parts[0] + "." + $system + "." + $name),
           cached: ((.cacheStatus == "cached") or (.cacheStatus == "local") or (.isCached == true)),
           store_path: (.outputs.out // (.drvPath // "unknown")),
-          is_image: (($parts[-1] // "" | endswith("-image")) // false)
+          is_image: (($parts[-1] // "") | endswith("-image")) // false),
+          ci_skip: ((.meta.ci.skip // false) == true)
         }
       )
   ' "$tmp_all")
@@ -58,7 +59,8 @@ echo "All detected outputs: $all_outputs"
 
 # Build include array from only uncached, buildable outputs OR container images (which must be pushed regardless of cache)
 include_array=$(nix -L run nixpkgs#jq -- -c '
-  map(select(.cached == false or .is_image == true))
+  map(select(.ci_skip == false))
+  | map(select(.cached == false or .is_image == true))
   # Filter out categories we dont want to build (packages, checks, OR images)
   # IMPORTANT: Use parentheses around (.category | test(...)) to ensure OR applies to boolean result,
   # otherwise pipe precedence passes string context to .is_image causing "Cannot index string" error.
@@ -96,10 +98,10 @@ if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
     if [ -n "$all_outputs" ] && [ "$all_outputs" != "null" ] && [ "$all_outputs" != "[]" ]; then
       # Render a markdown table listing all outputs and whether they are cached
       nix -L run nixpkgs#jq -- -rc '
-        ["| Category | System | Name | Attr | Store Path | Cached |",
+        ["| Category | System | Name | Attr | Store Path | Status |",
          "|---|---|---|---|---|---|"]
         + ( .
-            | map("| " + (if .is_image then "container-image" else .category end) + " | " + .system + " | **" + .name + "** | " + .flake_attr + " | `" + .store_path + "` | " + (if .cached then "📦  yes" else "🏗️  no" end) + " |")
+            | map("| " + (if .is_image then "container-image" else .category end) + " | " + .system + " | **" + .name + "** | " + .flake_attr + " | `" + .store_path + "` | " + (if .ci_skip then "⏭️  skipped" elif .cached then "📦  cached" else "🏗️  build" end) + " |")
           )
         | .[]
       ' <<<"$all_outputs"
