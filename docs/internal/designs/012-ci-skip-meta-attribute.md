@@ -46,8 +46,10 @@ Two changes in `main.sh`:
 1. In the first jq block (building `all_outputs`), extract and carry the skip signal:
 
    ```jq
-   ci_skip: ((.meta.ci.skip // false) == true)
+   ci_skip: (.meta.ci.skip == true)
    ```
+
+   Note: `null == true` evaluates to `false` in jq, so missing or non-boolean values are correctly treated as "not skipped" without an explicit `// false` fallback.
 
 2. In the second jq block (building `include_array`), filter out skipped targets:
 
