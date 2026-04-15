@@ -50,7 +50,7 @@ all_outputs=$(nix -L run nixpkgs#jq -- -s -c --arg system "$system" '
           cached: ((.cacheStatus == "cached") or (.cacheStatus == "local") or (.isCached == true)),
           store_path: (.outputs.out // (.drvPath // "unknown")),
           is_image: (($parts[-1] // "") | endswith("-image")) // false,
-          ci_skip: (.meta.ci.skip? == true)
+          ci_skip: ((.meta.ci.skip? == true) // false)
         }
       )
   ' "$tmp_all")
