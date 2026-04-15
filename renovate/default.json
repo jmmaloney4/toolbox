@@ -35,5 +35,12 @@
 	},
 	"nix": {
 		"enabled": true
-	}
+	},
+	"packageRules": [
+		{
+			"description": "Skip stability days for internal toolbox actions (own repo)",
+			"matchPackageNames": ["jmmaloney4/toolbox"],
+			"minimumReleaseAge": null
+		}
+	]
 }
