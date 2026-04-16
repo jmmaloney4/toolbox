@@ -59,13 +59,13 @@ jobs:
         with:
           repository: ${{ inputs.repository }}
           ref: ${{ inputs.ref }}
-      - uses: jmmaloney4/toolbox/.github/actions/nix-setup@591ab2d08d3f590934b9dcf75c8c7ff084b469b0 # main
+      - uses: jmmaloney4/toolbox/.github/actions/nix-setup@73b0c490c72bbea2941cf44eb9b6bb127878c7ef # main
         with:
           runs-on: ${{ inputs.runs-on }}
           cache: ${{ !contains(inputs.runs-on, 'self-hosted') }}
       - name: Detect all (project, stack) pairs
         id: set-matrix
-        uses: jmmaloney4/toolbox/.github/actions/detect-pulumi-stacks@591ab2d08d3f590934b9dcf75c8c7ff084b469b0 # main
+        uses: jmmaloney4/toolbox/.github/actions/detect-pulumi-stacks@73b0c490c72bbea2941cf44eb9b6bb127878c7ef # main
         with:
           ignore_projects: ${{ inputs.ignore_projects }}
   pulumi-preview-and-deploy:
@@ -109,7 +109,7 @@ jobs:
               exit 1
               ;;
           esac
-      - uses: jmmaloney4/toolbox/.github/actions/pulumi-setup@591ab2d08d3f590934b9dcf75c8c7ff084b469b0 # main
+      - uses: jmmaloney4/toolbox/.github/actions/pulumi-setup@73b0c490c72bbea2941cf44eb9b6bb127878c7ef # main
         with:
           google_workload_identity_provider: ${{ inputs.google_workload_identity_provider }}
           google_service_account_email: ${{ inputs.google_service_account_email }}
@@ -139,21 +139,21 @@ jobs:
       - name: pulumi preview
         id: preview
         continue-on-error: true
-        uses: jmmaloney4/toolbox/.github/actions/pulumi-preview@591ab2d08d3f590934b9dcf75c8c7ff084b469b0 # main
+        uses: jmmaloney4/toolbox/.github/actions/pulumi-preview@73b0c490c72bbea2941cf44eb9b6bb127878c7ef # main
         with:
           project: ${{ matrix.project }}
           stack: ${{ matrix.stack }}
           safe-name: ${{ steps.names.outputs.safe_name }}
       - name: upload stage preview artifacts
         if: ${{ always() && matrix.stack == 'stage' }}
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: stage-previews-${{ steps.names.outputs.safe_name }}
           path: previews/*
           if-no-files-found: ignore
       - name: upload prod preview artifacts
         if: ${{ always() && matrix.stack == 'prod' }}
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: prod-previews-${{ steps.names.outputs.safe_name }}
           path: previews/*
