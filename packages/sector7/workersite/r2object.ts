@@ -54,6 +54,30 @@ interface R2ObjectState extends R2ObjectArgs {
 	etag: string;
 }
 
+const tryStatFileSync = (
+	fs: typeof import("node:fs"),
+	filePath: string,
+): boolean => {
+	try {
+		return fs.statSync(filePath).isFile();
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+		throw error;
+	}
+};
+
+const tryReadFileSync = (
+	fs: typeof import("node:fs"),
+	filePath: string,
+): Buffer | undefined => {
+	try {
+		return fs.readFileSync(filePath);
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+		throw error;
+	}
+};
+
 /** Upload a file to R2 and return the normalized ETag. */
 const uploadObjectToR2 = async (args: R2ObjectArgs): Promise<string> => {
 	const fs = (await import("node:fs")) as typeof import("node:fs");
@@ -122,11 +146,18 @@ const r2ObjectProvider: dynamic.ResourceProvider = {
 		const fs = (await import("node:fs")) as typeof import("node:fs");
 		const failures: dynamic.CheckFailure[] = [];
 		try {
-			fs.readFileSync(news.filePath);
-		} catch {
+			if (!tryStatFileSync(fs, news.filePath)) {
+				failures.push({
+					property: "filePath",
+					reason: `file not found: ${news.filePath}`,
+				});
+			}
+		} catch (error) {
 			failures.push({
 				property: "filePath",
-				reason: `file not found: ${news.filePath}`,
+				reason: `failed to stat file: ${news.filePath}: ${
+					error instanceof Error ? error.message : String(error)
+				}`,
 			});
 		}
 		return { inputs: news, failures };
@@ -150,10 +181,11 @@ const r2ObjectProvider: dynamic.ResourceProvider = {
 		if (olds.secretAccessKey !== news.secretAccessKey)
 			replaces.push("secretAccessKey");
 
-		const currentEtag = crypto
-			.createHash("md5")
-			.update(fs.readFileSync(news.filePath))
-			.digest("hex");
+		const currentFile = tryReadFileSync(fs, news.filePath);
+		const currentEtag = currentFile
+			? crypto.createHash("md5").update(currentFile).digest("hex")
+			: // Missing files should force a change without crashing refresh/diff.
+				"";
 		const changed =
 			replaces.length > 0 ||
 			currentEtag !== olds.etag ||
