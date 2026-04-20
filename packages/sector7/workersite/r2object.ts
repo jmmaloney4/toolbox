@@ -184,8 +184,8 @@ const r2ObjectProvider: dynamic.ResourceProvider = {
 		const currentFile = tryReadFileSync(fs, news.filePath);
 		const currentEtag = currentFile
 			? crypto.createHash("md5").update(currentFile).digest("hex")
-			// Missing files should force a change without crashing refresh/diff.
-			: "";
+			: // Missing files should force a change without crashing refresh/diff.
+				"";
 		const changed =
 			replaces.length > 0 ||
 			currentEtag !== olds.etag ||
