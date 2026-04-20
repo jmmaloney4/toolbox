@@ -496,14 +496,16 @@ export class WorkerSite extends pulumi.ComponentResource {
 							sessionDuration: "24h",
 							policies: [
 								{
-									name:
-										pathConfig.access === "bypass"
-											? "Bypass for public path"
-											: pathConfig.access === "public"
-												? "Allow everyone"
-												: "GitHub org members",
-									decision:
-										pathConfig.access === "bypass" ? "bypass" : "allow",
+								name: {
+									bypass: "Bypass for public path",
+									public: "Allow everyone",
+									"github-org": "GitHub org members",
+								}[pathConfig.access],
+								decision: {
+									bypass: "bypass",
+									public: "allow",
+									"github-org": "allow",
+								}[pathConfig.access],
 									precedence: 1,
 									includes: policyIncludes,
 								},
