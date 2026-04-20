@@ -1,11 +1,12 @@
 ---
 id: ADR-012
-title: "Ci Skip Meta Attribute"
+title: Ci Skip Meta Attribute
 status: proposed
 date: 2026-04-15
 ---
 
 # ADR 012: Ci Skip Meta Attribute
+
 *Date:* 2026-04-15
 *Status:* proposed
 
