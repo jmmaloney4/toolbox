@@ -322,7 +322,7 @@ describe("WorkerSite", () => {
 		const resourcesInput = policies[0].resources as pulumi.Input<string>;
 
 		expect(await resolveOutput(resourcesInput)).toBe(
-			"com.cloudflare.edge.r2.bucket.account-123_default_asset-site-assets:*",
+			'{"com.cloudflare.edge.r2.bucket.account-123_default_asset-site-assets":"*"}',
 		);
 	});
 
