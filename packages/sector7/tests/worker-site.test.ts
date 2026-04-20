@@ -194,19 +194,27 @@ describe("WorkerSite", () => {
 		const publicApp = apps.find((a) => a.name.includes("-p1"));
 		const privateApp = apps.find((a) => a.name.includes("-p2"));
 
-		const bypassPolicies = bypassApp!.inputs.policies as Array<
+		expect(bypassApp).toBeDefined();
+		expect(publicApp).toBeDefined();
+		expect(privateApp).toBeDefined();
+
+		if (!bypassApp || !publicApp || !privateApp) {
+			throw new Error("Expected bypass, public, and private access apps to exist");
+		}
+
+		const bypassPolicies = bypassApp.inputs.policies as Array<
 			Record<string, unknown>
 		>;
 		expect(bypassPolicies[0].decision).toBe("bypass");
 		expect(bypassPolicies[0].name).toBe("Bypass for public path");
 
-		const publicPolicies = publicApp!.inputs.policies as Array<
+		const publicPolicies = publicApp.inputs.policies as Array<
 			Record<string, unknown>
 		>;
 		expect(publicPolicies[0].decision).toBe("allow");
 		expect(publicPolicies[0].name).toBe("Allow everyone");
 
-		const privatePolicies = privateApp!.inputs.policies as Array<
+		const privatePolicies = privateApp.inputs.policies as Array<
 			Record<string, unknown>
 		>;
 		expect(privatePolicies[0].decision).toBe("allow");
