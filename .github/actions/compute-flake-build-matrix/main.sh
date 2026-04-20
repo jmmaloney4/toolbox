@@ -59,7 +59,7 @@ echo "All detected outputs: $all_outputs"
 
 # Build include array from only uncached, buildable outputs OR container images (which must be pushed regardless of cache)
 include_array=$(nix -L run nixpkgs#jq -- -c '
-  map(select(.ci_skip == false and (.cached == false or .is_image == true)))
+  map(select(.ci_skip != true and (.cached == false or .is_image == true)))
   # Filter out categories we dont want to build (packages, checks, OR images)
   # IMPORTANT: Use parentheses around (.category | test(...)) to ensure OR applies to boolean result,
   # otherwise pipe precedence passes string context to .is_image causing "Cannot index string" error.
