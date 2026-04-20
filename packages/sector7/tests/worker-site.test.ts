@@ -199,7 +199,9 @@ describe("WorkerSite", () => {
 		expect(privateApp).toBeDefined();
 
 		if (!bypassApp || !publicApp || !privateApp) {
-			throw new Error("Expected bypass, public, and private access apps to exist");
+			throw new Error(
+				"Expected bypass, public, and private access apps to exist",
+			);
 		}
 
 		const bypassPolicies = bypassApp.inputs.policies as Array<
