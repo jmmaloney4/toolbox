@@ -246,4 +246,63 @@ describe("WorkerSite", () => {
 			},
 		});
 	});
+
+	it("cascades defaults when observability is disabled", async () => {
+		const site = new WorkerSite("disabled-obs-site", {
+			accountId: "account-123",
+			zoneId: "zone-123",
+			name: "disabled-obs-site",
+			domains: ["disabled.example.com"],
+			r2Bucket: { bucketName: "disabled-obs-assets" },
+			observability: {
+				enabled: false,
+			},
+		});
+
+		await resolveOutput(site.worker.id);
+
+		const worker = byName("-worker")[0];
+		expect(worker.inputs.observability).toEqual({
+			enabled: false,
+			headSamplingRate: 0.1,
+			logs: {
+				enabled: false,
+				headSamplingRate: 0.1,
+				invocationLogs: false,
+				destinations: ["cloudflare"],
+				persist: false,
+			},
+		});
+	});
+
+	it("cascades defaults when logs are disabled but observability is enabled", async () => {
+		const site = new WorkerSite("no-logs-site", {
+			accountId: "account-123",
+			zoneId: "zone-123",
+			name: "no-logs-site",
+			domains: ["nologs.example.com"],
+			r2Bucket: { bucketName: "no-logs-assets" },
+			observability: {
+				enabled: true,
+				logs: {
+					enabled: false,
+				},
+			},
+		});
+
+		await resolveOutput(site.worker.id);
+
+		const worker = byName("-worker")[0];
+		expect(worker.inputs.observability).toEqual({
+			enabled: true,
+			headSamplingRate: 0.1,
+			logs: {
+				enabled: false,
+				headSamplingRate: 0.1,
+				invocationLogs: false,
+				destinations: ["cloudflare"],
+				persist: false,
+			},
+		});
+	});
 });

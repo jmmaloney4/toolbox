@@ -219,23 +219,23 @@ redirects: [
 
 ### `WorkerSiteArgs`
 
-| Field                      | Type                 | Required    | Description                                          |
-| -------------------------- | -------------------- | ----------- | ---------------------------------------------------- |
-| `accountId`                | `string`             | Yes         | Cloudflare account ID                                |
-| `zoneId`                   | `string`             | Yes         | Cloudflare zone ID required by `WorkersCustomDomain` |
-| `name`                     | `string`             | Yes         | Name for the Worker and related resources            |
-| `domains`                  | `string[]`           | Yes         | Hostnames to bind to the Worker                      |
-| `r2Bucket.bucketName`      | `string`             | Yes         | R2 bucket name                                       |
-| `r2Bucket.create`          | `boolean`            | No          | Create the bucket if it does not already exist       |
-| `r2Bucket.prefix`          | `string`             | No          | Prefix prepended to generated-script object lookups  |
-| `githubIdentityProviderId` | `string`             | Conditional | Required when a path uses `github-org`               |
-| `githubOrganizations`      | `string[]`           | Conditional | Required when a path uses `github-org`               |
-| `paths`                    | `PathConfig[]`       | No          | Access-control rules; omit for fully public sites    |
-| `cacheTtlSeconds`          | `number`             | No          | Cache TTL for generated Worker responses             |
-| `assets`                   | `AssetConfig`        | No          | Declarative upload configuration                     |
-| `redirects`                | `RedirectRule[]`     | No          | Host redirects for the generated Worker              |
-| `workerScript`             | `WorkerScriptConfig` | No          | Custom Worker source and extra bindings              |
-| `observability`            | `WorkerObservabilityConfig` | No   | Worker observability and log sampling settings       |
+| Field                      | Type                        | Required    | Description                                          |
+| -------------------------- | --------------------------- | ----------- | ---------------------------------------------------- |
+| `accountId`                | `string`                    | Yes         | Cloudflare account ID                                |
+| `zoneId`                   | `string`                    | Yes         | Cloudflare zone ID required by `WorkersCustomDomain` |
+| `name`                     | `string`                    | Yes         | Name for the Worker and related resources            |
+| `domains`                  | `string[]`                  | Yes         | Hostnames to bind to the Worker                      |
+| `r2Bucket.bucketName`      | `string`                    | Yes         | R2 bucket name                                       |
+| `r2Bucket.create`          | `boolean`                   | No          | Create the bucket if it does not already exist       |
+| `r2Bucket.prefix`          | `string`                    | No          | Prefix prepended to generated-script object lookups  |
+| `githubIdentityProviderId` | `string`                    | Conditional | Required when a path uses `github-org`               |
+| `githubOrganizations`      | `string[]`                  | Conditional | Required when a path uses `github-org`               |
+| `paths`                    | `PathConfig[]`              | No          | Access-control rules; omit for fully public sites    |
+| `cacheTtlSeconds`          | `number`                    | No          | Cache TTL for generated Worker responses             |
+| `assets`                   | `AssetConfig`               | No          | Declarative upload configuration                     |
+| `redirects`                | `RedirectRule[]`            | No          | Host redirects for the generated Worker              |
+| `workerScript`             | `WorkerScriptConfig`        | No          | Custom Worker source and extra bindings              |
+| `observability`            | `WorkerObservabilityConfig` | No          | Worker observability and log sampling settings       |
 
 ### `PathConfig`
 
@@ -259,15 +259,15 @@ redirects: [
 
 ### `WorkerObservabilityConfig`
 
-| Field                           | Type        | Required | Description                                          |
-| ------------------------------- | ----------- | -------- | ---------------------------------------------------- |
-| `enabled`                       | `boolean`   | No       | Enables Worker observability                         |
-| `headSamplingRate`              | `number`    | No       | Request sampling rate; defaults to `0.1`             |
-| `logs.enabled`                  | `boolean`   | No       | Enables Worker logs                                  |
-| `logs.headSamplingRate`         | `number`    | No       | Log sampling rate; defaults to `headSamplingRate`    |
-| `logs.invocationLogs`           | `boolean`   | No       | Enables invocation logs                              |
-| `logs.destinations`             | `string[]`  | No       | Log destinations; defaults to `["cloudflare"]`       |
-| `logs.persist`                  | `boolean`   | No       | Persists logs in Cloudflare                          |
+| Field                   | Type       | Required | Description                                       |
+| ----------------------- | ---------- | -------- | ------------------------------------------------- |
+| `enabled`               | `boolean`  | No       | Enables Worker observability                      |
+| `headSamplingRate`      | `number`   | No       | Request sampling rate; defaults to `0.1`          |
+| `logs.enabled`          | `boolean`  | No       | Enables Worker logs                               |
+| `logs.headSamplingRate` | `number`   | No       | Log sampling rate; defaults to `headSamplingRate` |
+| `logs.invocationLogs`   | `boolean`  | No       | Enables invocation logs                           |
+| `logs.destinations`     | `string[]` | No       | Log destinations; defaults to `["cloudflare"]`    |
+| `logs.persist`          | `boolean`  | No       | Persists logs in Cloudflare                       |
 
 ## Troubleshooting
 

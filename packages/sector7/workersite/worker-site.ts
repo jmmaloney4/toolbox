@@ -121,7 +121,7 @@ export interface WorkerObservabilityConfig {
 	logs?: {
 		/**
 		 * Whether Worker logs are enabled.
-		 * @default true
+		 * Defaults to the resolved observability enabled value.
 		 */
 		enabled?: pulumi.Input<boolean>;
 
@@ -133,7 +133,7 @@ export interface WorkerObservabilityConfig {
 
 		/**
 		 * Whether invocation logs are enabled.
-		 * @default true
+		 * Defaults to the resolved logs enabled value.
 		 */
 		invocationLogs?: pulumi.Input<boolean>;
 
@@ -145,7 +145,7 @@ export interface WorkerObservabilityConfig {
 
 		/**
 		 * Whether logs should be persisted by Cloudflare.
-		 * @default true
+		 * Defaults to true when both observability and logs are enabled, false otherwise.
 		 */
 		persist?: pulumi.Input<boolean>;
 	};
@@ -435,9 +435,44 @@ export class WorkerSite extends pulumi.ComponentResource {
 		const prefix = args.r2Bucket.prefix
 			? pulumi.output(args.r2Bucket.prefix)
 			: undefined;
-		const observabilitySamplingRate = args.observability?.headSamplingRate ?? 0.1;
-		const logSamplingRate =
-			args.observability?.logs?.headSamplingRate ?? observabilitySamplingRate;
+		// Resolve observability defaults via pulumi.all so that nested flags
+		// cascade from their parent: logs.enabled defaults to observability
+		// enabled, invocationLogs defaults to logs.enabled, etc.  This avoids
+		// contradictory combinations like enabled:false with logs.enabled:true.
+		const workerObservability = pulumi
+			.all([
+				args.observability?.enabled ?? true,
+				args.observability?.headSamplingRate ?? 0.1,
+				args.observability?.logs?.enabled,
+				args.observability?.logs?.headSamplingRate,
+				args.observability?.logs?.invocationLogs,
+				args.observability?.logs?.destinations,
+				args.observability?.logs?.persist,
+			])
+			.apply(
+				([
+					obsEnabled,
+					headSamplingRate,
+					logsEnabledRaw,
+					logHeadSamplingRateRaw,
+					invocationLogsRaw,
+					destinationsRaw,
+					persistRaw,
+				]) => {
+					const logsEnabled = logsEnabledRaw ?? obsEnabled;
+					return {
+						enabled: obsEnabled,
+						headSamplingRate,
+						logs: {
+							enabled: logsEnabled,
+							headSamplingRate: logHeadSamplingRateRaw ?? headSamplingRate,
+							invocationLogs: invocationLogsRaw ?? logsEnabled,
+							destinations: destinationsRaw ?? ["cloudflare"],
+							persist: persistRaw ?? (obsEnabled && logsEnabled),
+						},
+					};
+				},
+			);
 
 		let scriptContent: pulumi.Input<string>;
 		let extraBindings: Array<{
@@ -484,19 +519,7 @@ export class WorkerSite extends pulumi.ComponentResource {
 					},
 					...extraBindings,
 				],
-				observability: {
-					enabled: args.observability?.enabled ?? true,
-					headSamplingRate: observabilitySamplingRate,
-					logs: {
-						enabled: args.observability?.logs?.enabled ?? true,
-						headSamplingRate: logSamplingRate,
-						invocationLogs: args.observability?.logs?.invocationLogs ?? true,
-						destinations: args.observability?.logs?.destinations ?? [
-							"cloudflare",
-						],
-						persist: args.observability?.logs?.persist ?? true,
-					},
-				},
+				observability: workerObservability,
 			},
 			resourceOpts,
 		);
