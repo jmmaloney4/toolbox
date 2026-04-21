@@ -321,12 +321,9 @@ describe("WorkerSite", () => {
 		const policies = token.inputs.policies as Array<Record<string, unknown>>;
 		const resourcesInput = policies[0].resources as pulumi.Input<string>;
 
-		// resources is a plain object cast as string (provider type mismatch — see ADR-013)
-		const resolved = await resolveOutput(resourcesInput);
-		expect(resolved).toEqual({
-			"com.cloudflare.edge.r2.bucket.account-123_default_asset-site-assets":
-				"*",
-		} as unknown as string);
+		expect(await resolveOutput(resourcesInput)).toBe(
+			'{"com.cloudflare.edge.r2.bucket.account-123_default_asset-site-assets":"*"}',
+		);
 	});
 
 	it("allows overriding worker observability settings", async () => {
