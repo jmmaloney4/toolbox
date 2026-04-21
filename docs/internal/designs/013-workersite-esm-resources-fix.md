@@ -19,17 +19,17 @@ The `WorkerSite` component (ADR-005, extended by ADR-011) generates a Cloudflare
 
 1. **ESM script rejected**: The generated script uses `export default { async fetch(...) { ... } }` (ESM format). The Cloudflare REST API rejects this with `Unexpected token 'export'` unless the `hasModules` flag is set to `true` on the `WorkersScript` resource.
 
-2. **AccountToken `resources` type mismatch**: The Pulumi TypeScript type for `AccountTokenPolicy.resources` declares `Input<string>`, but the underlying Cloudflare provider actually expects a plain JSON object (e.g., `{ "com.cloudflare.edge.r2.bucket.xxx": "*" }`). Passing a `JSON.stringify()`'d string produces the error `R2 Buckets are invalid`.
+2. **AccountToken `resources` key format**: The Cloudflare API resource identifier for R2 buckets always uses `default` as the location segment (`com.cloudflare.edge.r2.bucket.{accountId}_default_{bucketName}`), regardless of the bucket's actual storage location (e.g. `ENAM`). Using the actual location produces the error `R2 Buckets are invalid`.
 
 The hand-rolled `cavinsresearch.io` code avoided both issues by:
 - Using esbuild (`--format=esm`) to compile a `.ts` worker file, piping stdout to `workerBuild.stdout` as script content. The compiled output presumably signaled ESM correctly.
-- Using `as any` to pass a plain object for `resources`, bypassing the type checker.
+- Hardcoding `_default_` as the location segment in the resources key.
 
 # Decision
 
 1. **Set `hasModules: true`** on the `WorkersScript` resource. The generated script is valid ESM JavaScript (no TypeScript syntax, no type annotations). The `hasModules` flag tells the Cloudflare API to interpret the script as an ES module, which is the correct and intended format. This is a one-line additive change with no build step required.
 
-2. **Pass a plain object cast with `as unknown as string`** for `AccountTokenPolicy.resources`. The cast matches the pattern used in the proven hand-rolled code and correctly communicates intent: the provider type is wrong, not our usage. A comment explaining the mismatch is included at the call site.
+2. **Use `JSON.stringify` with `default` location** for `AccountTokenPolicy.resources`. The Pulumi provider correctly types this as `Input<string>` (it's a JSON-encoded object serialized as a string). The resource key must use `default` as the location segment — using the bucket's actual location (e.g. `ENAM`) is rejected by the Cloudflare API.
 
 # Consequences
 
@@ -42,8 +42,8 @@ The hand-rolled `cavinsresearch.io` code avoided both issues by:
 
 ## Negative
 
-- `as unknown as string` is a type-system escape hatch; the real fix should be in the Pulumi Cloudflare provider's type definitions.
-- If the provider ever starts validating the string type at runtime, this cast would break. Low risk — the provider has always accepted objects here.
+- The `default` location segment is undocumented Cloudflare behavior — if they change the API to use actual locations, this will break. Low risk given the existing production usage pattern.
+- The resource key format is opaque and must be constructed exactly right; errors produce unhelpful messages like "R2 Buckets are invalid".
 
 # Alternatives
 
@@ -51,7 +51,7 @@ The hand-rolled `cavinsresearch.io` code avoided both issues by:
 
 - **Service Worker format**: Rewrite the generated script to use `addEventListener("fetch", ...)` instead of `export default`. Rejected because it uses the legacy format and loses the cleaner ESM API (`request, env, ctx` parameters). ESM is the current Cloudflare standard.
 
-- **Upstream provider type fix**: Open a PR on pulumi-cloudflare to fix the `resources` type from `Input<string>` to `Input<Record<string, string>>`. Correct long-term fix but out of scope for unblocking deployment now.
+- **Upstream provider type fix**: Open a PR on pulumi-cloudflare to fix the `resources` type from `Input<string>` to `Input<Record<string, string>>`. Would eliminate the JSON.stringify, but the Pulumi gRPC encoder requires a string at the wire level anyway.
 
 # Security / Privacy / Compliance
 
@@ -69,8 +69,8 @@ The hand-rolled `cavinsresearch.io` code avoided both issues by:
 # Implementation Notes
 
 - Files changed:
-  - `packages/sector7/workersite/worker-site.ts`: Add `hasModules: true` to WorkersScript; change `resources` from `JSON.stringify(obj)` to `obj as unknown as string`.
-  - `packages/sector7/tests/worker-site.test.ts`: Update test assertion to expect plain object instead of JSON string.
+  - `packages/sector7/workersite/worker-site.ts`: Add `hasModules: true` to WorkersScript; change `resources` key to use `default` location segment with `JSON.stringify`.
+  - `packages/sector7/tests/worker-site.test.ts`: Revert test to expect JSON.stringify output with `default` location.
 - No new dependencies.
 - Downstream consumers (`cavinsresearch.io`) update via lockfile bump (`pnpm update @jmmaloney4/sector7`).
 
