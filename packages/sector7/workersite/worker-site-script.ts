@@ -67,13 +67,8 @@ export function generateWorkerScript(
  * Phase 2: Edge caching with configurable TTL
  */
 
-interface Env {
-	${bucketBinding}: R2Bucket;
-	CACHE_TTL_SECONDS: string;
-}
-
 export default {
-	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+	async fetch(request, env, ctx) {
 		try {
 			const url = new URL(request.url);
 ${redirectBlock ? `\n${redirectBlock}\n` : ""}
@@ -136,7 +131,7 @@ ${redirectBlock ? `\n${redirectBlock}\n` : ""}
 /**
  * Create HTTP Response from R2 object with proper headers
  */
-function createResponse(object: R2ObjectBody, objectKey: string, status: number, cacheStatus: string, env: Env): Response {
+function createResponse(object, objectKey, status, cacheStatus, env) {
 	const headers = new Headers();
 
 	// Content-Type from R2 metadata
@@ -169,7 +164,7 @@ function createResponse(object: R2ObjectBody, objectKey: string, status: number,
 /**
  * Guess content type from file extension
  */
-function guessContentType(key: string) {
+function guessContentType(key) {
 	// Get the basename (after last '/')
 	const base = key.substring(key.lastIndexOf('/') + 1);
 	const dot = base.lastIndexOf('.');

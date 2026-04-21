@@ -54,6 +54,18 @@ interface R2ObjectState extends R2ObjectArgs {
 	etag: string;
 }
 
+const tryStatFileSync = (
+	fs: typeof import("node:fs"),
+	filePath: string,
+): boolean => {
+	try {
+		return fs.statSync(filePath).isFile();
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+		throw error;
+	}
+};
+
 const tryReadFileSync = (
 	fs: typeof import("node:fs"),
 	filePath: string,
@@ -134,7 +146,7 @@ const r2ObjectProvider: dynamic.ResourceProvider = {
 		const fs = (await import("node:fs")) as typeof import("node:fs");
 		const failures: dynamic.CheckFailure[] = [];
 		try {
-			if (!tryReadFileSync(fs, news.filePath)) {
+			if (!tryStatFileSync(fs, news.filePath)) {
 				failures.push({
 					property: "filePath",
 					reason: `file not found: ${news.filePath}`,
@@ -143,7 +155,7 @@ const r2ObjectProvider: dynamic.ResourceProvider = {
 		} catch (error) {
 			failures.push({
 				property: "filePath",
-				reason: `failed to read file: ${news.filePath}: ${
+				reason: `failed to stat file: ${news.filePath}: ${
 					error instanceof Error ? error.message : String(error)
 				}`,
 			});
