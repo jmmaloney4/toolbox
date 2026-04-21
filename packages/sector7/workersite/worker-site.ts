@@ -638,20 +638,16 @@ export class WorkerSite extends pulumi.ComponentResource {
 									id: R2_BUCKET_ITEM_WRITE_PERMISSION_GROUP_ID,
 								},
 							],
-						// The Pulumi TS type declares `resources` as `Input<string>`, but
-						// the underlying Cloudflare provider expects a plain JSON object
-						// (not a serialized string).  The cast suppresses the type mismatch;
-						// removing it would require a provider-level type fix.
-						// eslint-disable-next-line @typescript-eslint/no-explicit-any
+						// The `resources` field identifies the R2 bucket the token may
+						// write to.  The Cloudflare API expects a JSON-encoded object
+						// (the Pulumi TS type correctly declares Input<string>), but
+						// the resource key MUST use "default" as the location segment
+						// regardless of the bucket's actual storage location.
 						resources: pulumi
-							.all([
-								args.accountId,
-								bucketName,
-								this.bucket?.location ?? args.r2Bucket.location ?? "default",
-							])
-							.apply(([acctId, bktName, loc]: [string, string, string]) => {
-								const key = `com.cloudflare.edge.r2.bucket.${acctId}_${loc.toLowerCase()}_${bktName}`;
-								return { [key]: "*" } as unknown as string;
+							.all([args.accountId, bucketName])
+							.apply(([acctId, bktName]: [string, string]) => {
+								const key = `com.cloudflare.edge.r2.bucket.${acctId}_default_${bktName}`;
+								return JSON.stringify({ [key]: "*" });
 							}),
 						},
 					],
