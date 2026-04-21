@@ -1,7 +1,7 @@
 ---
 id: ADR-013
 title: ESM Worker Scripts and AccountToken Resources Type Mismatch
-status: Proposed
+status: Accepted
 date: 2026-04-21
 deciders: [platform]
 consulted: []
@@ -27,7 +27,7 @@ The hand-rolled `cavinsresearch.io` code avoided both issues by:
 
 # Decision
 
-1. **Set `hasModules: true`** on the `WorkersScript` resource. The generated script is valid ESM JavaScript (no TypeScript syntax, no type annotations). The `hasModules` flag tells the Cloudflare API to interpret the script as an ES module, which is the correct and intended format. This is a one-line additive change with no build step required.
+1. **Set `mainModule: "worker.js"`** on the `WorkersScript` resource. The generated script uses `export default { async fetch(...) { ... } }` (ESM format). The Cloudflare REST API needs an explicit signal to interpret the script as an ES module. The `hasModules` property is output-only in the Pulumi provider and cannot be set. Instead, `mainModule` (an input property) tells the API to treat the script as a module-syntax Worker.
 
 2. **Use `JSON.stringify` with `default` location** for `AccountTokenPolicy.resources`. The Pulumi provider correctly types this as `Input<string>` (it's a JSON-encoded object serialized as a string). The resource key must use `default` as the location segment — using the bucket's actual location (e.g. `ENAM`) is rejected by the Cloudflare API.
 
@@ -37,8 +37,8 @@ The hand-rolled `cavinsresearch.io` code avoided both issues by:
 
 - No build step (esbuild, @pulumi/command) needed — the template already generates clean JS.
 - One-line fix per issue; minimal diff, easy to review.
-- `hasModules` is the official Cloudflare API mechanism for ESM workers.
-- Plain object pattern for `resources` matches proven production code.
+- `mainModule` is the documented Pulumi input property for module-syntax Workers.
+- JSON.stringify with hardcoded `default` location matches proven production code.
 
 ## Negative
 
@@ -69,7 +69,7 @@ The hand-rolled `cavinsresearch.io` code avoided both issues by:
 # Implementation Notes
 
 - Files changed:
-  - `packages/sector7/workersite/worker-site.ts`: Add `hasModules: true` to WorkersScript; change `resources` key to use `default` location segment with `JSON.stringify`.
+  - `packages/sector7/workersite/worker-site.ts`: Add `mainModule: "worker.js"` to WorkersScript; change `resources` key to use `default` location segment with `JSON.stringify`.
   - `packages/sector7/tests/worker-site.test.ts`: Revert test to expect JSON.stringify output with `default` location.
 - No new dependencies.
 - Downstream consumers (`cavinsresearch.io`) update via lockfile bump (`pnpm update @jmmaloney4/sector7`).
