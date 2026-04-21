@@ -573,7 +573,7 @@ export class WorkerSite extends pulumi.ComponentResource {
 									.apply(
 										([orgs, idpId]: [string[], string]) =>
 											orgs.map((org: string) => ({
-												github: {
+												githubOrganization: {
 													identityProviderId: idpId,
 													name: org,
 												},
@@ -638,17 +638,17 @@ export class WorkerSite extends pulumi.ComponentResource {
 									id: R2_BUCKET_ITEM_WRITE_PERMISSION_GROUP_ID,
 								},
 							],
-						// The `resources` field identifies the R2 bucket the token may
-						// write to.  The Cloudflare API expects a JSON-encoded object
-						// (the Pulumi TS type correctly declares Input<string>), but
-						// the resource key MUST use "default" as the location segment
-						// regardless of the bucket's actual storage location.
-						resources: pulumi
-							.all([args.accountId, bucketName])
-							.apply(([acctId, bktName]: [string, string]) => {
-								const key = `com.cloudflare.edge.r2.bucket.${acctId}_default_${bktName}`;
-								return JSON.stringify({ [key]: "*" });
-							}),
+							// The `resources` field identifies the R2 bucket the token may
+							// write to.  The Cloudflare API expects a JSON-encoded object
+							// (the Pulumi TS type correctly declares Input<string>), but
+							// the resource key MUST use "default" as the location segment
+							// regardless of the bucket's actual storage location.
+							resources: pulumi
+								.all([args.accountId, bucketName])
+								.apply(([acctId, bktName]: [string, string]) => {
+									const key = `com.cloudflare.edge.r2.bucket.${acctId}_default_${bktName}`;
+									return JSON.stringify({ [key]: "*" });
+								}),
 						},
 					],
 				},
