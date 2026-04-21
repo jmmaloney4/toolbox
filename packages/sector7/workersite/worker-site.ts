@@ -509,7 +509,7 @@ export class WorkerSite extends pulumi.ComponentResource {
 				accountId: args.accountId,
 				scriptName: args.name,
 				content: scriptContent,
-				hasModules: true,
+				mainModule: "worker.js",
 				bindings: [
 					{
 						name: bucketBinding,
