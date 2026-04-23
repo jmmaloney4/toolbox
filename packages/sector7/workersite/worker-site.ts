@@ -101,6 +101,33 @@ export interface WorkerScriptConfig {
 }
 
 /**
+ * Configuration for auto-creating a GitHub OAuth Identity Provider in
+ * Cloudflare Zero Trust Access.
+ *
+ * When provided, WorkerSite creates a `ZeroTrustAccessIdentityProvider`
+ * resource (type `"github"`) and uses its generated ID for any paths with
+ * `access: "github-org"`.  This is the preferred alternative to passing a
+ * pre-existing `githubIdentityProviderId` — the two options are mutually
+ * exclusive.
+ *
+ * The GitHub OAuth App must be created manually in
+ * GitHub Settings → Developer settings → OAuth Apps.
+ * The callback URL should be `https://<your-team>.cloudflareaccess.com/cdn-cgi/access/callback`.
+ */
+export interface GithubOAuthConfig {
+	/**
+	 * GitHub OAuth App client ID.
+	 */
+	clientId: pulumi.Input<string>;
+
+	/**
+	 * GitHub OAuth App client secret.
+	 * This value will be stored as a Pulumi secret.
+	 */
+	clientSecret: pulumi.Input<string>;
+}
+
+/**
  * Configuration for Cloudflare Worker observability.
  */
 export interface WorkerObservabilityConfig {
@@ -223,7 +250,10 @@ export interface WorkerSiteArgs {
 
 	/**
 	 * GitHub Identity Provider ID in Cloudflare Access.
-	 * Required only when at least one path has `access: "github-org"`.
+	 * Required only when at least one path has `access: "github-org"` and
+	 * `githubOAuthConfig` is not provided.
+	 *
+	 * Mutually exclusive with `githubOAuthConfig`.
 	 */
 	githubIdentityProviderId?: pulumi.Input<string>;
 
@@ -232,6 +262,27 @@ export interface WorkerSiteArgs {
 	 * Required only when at least one path has `access: "github-org"`.
 	 */
 	githubOrganizations?: pulumi.Input<string>[];
+
+	/**
+	 * Auto-create a GitHub OAuth Identity Provider for Cloudflare Access.
+	 * When provided, a `ZeroTrustAccessIdentityProvider` resource is created
+	 * and its ID is used for any paths with `access: "github-org"`.
+	 *
+	 * Mutually exclusive with `githubIdentityProviderId`.
+	 *
+	 * @example
+	 * ```typescript
+	 * githubOAuthConfig: {
+	 *   clientId: "Ov23li...",
+	 *   clientSecret: pulumi.secret("abc123..."),
+	 * },
+	 * githubOrganizations: ["my-org"],
+	 * paths: [
+	 *   { pattern: "/*", access: "github-org" },
+	 * ],
+	 * ```
+	 */
+	githubOAuthConfig?: GithubOAuthConfig;
 
 	/**
 	 * Path access configurations for Zero Trust Access Applications.
@@ -325,7 +376,7 @@ const R2_BUCKET_ITEM_WRITE_PERMISSION_GROUP_ID =
  * ```
  *
  * @example
- * Site with GitHub org access control and public bypass paths:
+ * Site with GitHub org access control using auto-created Identity Provider:
  * ```typescript
  * const site = new WorkerSite("docs-site", {
  *   accountId: "abc123",
@@ -333,7 +384,10 @@ const R2_BUCKET_ITEM_WRITE_PERMISSION_GROUP_ID =
  *   name: "docs-site",
  *   domains: ["docs.example.com"],
  *   r2Bucket: { bucketName: "docs-site-assets", create: true },
- *   githubIdentityProviderId: "github-idp-id",
+ *   githubOAuthConfig: {
+ *     clientId: "Ov23li...",
+ *     clientSecret: pulumi.secret("abc123..."),
+ *   },
  *   githubOrganizations: ["my-org"],
  *   paths: [
  *     { pattern: "/", access: "bypass" },
@@ -368,6 +422,13 @@ export class WorkerSite extends pulumi.ComponentResource {
 	public readonly accessApplications: cloudflare.ZeroTrustAccessApplication[];
 
 	/**
+	 * Auto-created GitHub Identity Provider (present when `githubOAuthConfig` is provided).
+	 * Undefined when using a pre-existing `githubIdentityProviderId` or when no
+	 * GitHub auth is needed.
+	 */
+	public readonly githubIdp: cloudflare.ZeroTrustAccessIdentityProvider | undefined;
+
+	/**
 	 * Uploaded R2 objects (populated when assets is provided).
 	 */
 	public readonly uploadedAssets: R2Object[];
@@ -400,13 +461,19 @@ export class WorkerSite extends pulumi.ComponentResource {
 			);
 		}
 
+		if (args.githubOAuthConfig && args.githubIdentityProviderId) {
+			throw new Error(
+				"githubOAuthConfig and githubIdentityProviderId are mutually exclusive",
+			);
+		}
+
 		const githubOrgPaths = (args.paths ?? []).filter(
 			(p) => p.access === "github-org",
 		);
 		if (githubOrgPaths.length > 0) {
-			if (!args.githubIdentityProviderId) {
+			if (!args.githubIdentityProviderId && !args.githubOAuthConfig) {
 				throw new Error(
-					"githubIdentityProviderId is required when using github-org access",
+					"githubIdentityProviderId or githubOAuthConfig is required when using github-org access",
 				);
 			}
 			if (!args.githubOrganizations || args.githubOrganizations.length === 0) {
@@ -417,6 +484,28 @@ export class WorkerSite extends pulumi.ComponentResource {
 		}
 
 		const resourceOpts = { parent: this };
+
+		// 0. Auto-create GitHub Identity Provider if requested
+		this.githubIdp = undefined;
+		let githubIdentityProviderId: pulumi.Input<string> | undefined =
+			args.githubIdentityProviderId;
+
+		if (args.githubOAuthConfig) {
+			this.githubIdp = new cloudflare.ZeroTrustAccessIdentityProvider(
+				`${name}-github-idp`,
+				{
+					accountId: args.accountId,
+					name: pulumi.interpolate`${args.name} GitHub`,
+					type: "github",
+					config: {
+						clientId: args.githubOAuthConfig.clientId,
+						clientSecret: args.githubOAuthConfig.clientSecret,
+					},
+				},
+				resourceOpts,
+			);
+			githubIdentityProviderId = this.githubIdp.id;
+		}
 
 		// 1. Create or reference R2 bucket
 		if (args.r2Bucket.create === true) {
@@ -565,11 +654,11 @@ export class WorkerSite extends pulumi.ComponentResource {
 					const policyIncludes =
 						pathConfig.access === "public" || pathConfig.access === "bypass"
 							? [{ everyone: {} }]
-							: pulumi
-									.all([
-										pulumi.all(args.githubOrganizations ?? []),
-										args.githubIdentityProviderId ?? "",
-									])
+						: pulumi
+								.all([
+									pulumi.all(args.githubOrganizations ?? []),
+									githubIdentityProviderId ?? "",
+								])
 									.apply(
 										([orgs, idpId]: [string[], string]) =>
 											orgs.map((org: string) => ({
@@ -690,6 +779,7 @@ export class WorkerSite extends pulumi.ComponentResource {
 			worker: this.worker,
 			workerDomains: this.workerDomains,
 			accessApplications: this.accessApplications,
+			githubIdp: this.githubIdp,
 			uploadedAssets: this.uploadedAssets,
 			boundDomains: this.boundDomains,
 			workerName: this.workerName,

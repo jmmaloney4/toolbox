@@ -280,7 +280,28 @@ describe("WorkerSite", () => {
 					paths: [{ pattern: "/private/*", access: "github-org" }],
 				}),
 		).toThrow(
-			"githubIdentityProviderId is required when using github-org access",
+			"githubIdentityProviderId or githubOAuthConfig is required when using github-org access",
+		);
+	});
+
+	it("rejects both githubOAuthConfig and githubIdentityProviderId", () => {
+		expect(
+			() =>
+				new WorkerSite("conflict-site", {
+					accountId: "account-123",
+					zoneId: "zone-123",
+					name: "conflict-site",
+					domains: ["conflict.example.com"],
+					r2Bucket: { bucketName: "conflict-assets" },
+					githubIdentityProviderId: "manual-idp-id",
+					githubOAuthConfig: {
+						clientId: "Ov23li",
+						clientSecret: "secret",
+					},
+					paths: [{ pattern: "/*", access: "github-org" }],
+				}),
+		).toThrow(
+			"githubOAuthConfig and githubIdentityProviderId are mutually exclusive",
 		);
 	});
 
@@ -415,5 +436,67 @@ describe("WorkerSite", () => {
 				persist: false,
 			},
 		});
+	});
+
+	it("auto-creates a GitHub Identity Provider when githubOAuthConfig is provided", async () => {
+		const site = new WorkerSite("oauth-site", {
+			accountId: "account-123",
+			zoneId: "zone-123",
+			name: "oauth-site",
+			domains: ["oauth.example.com"],
+			r2Bucket: { bucketName: "oauth-assets" },
+			githubOAuthConfig: {
+				clientId: "Ov23li-test",
+				clientSecret: "test-secret",
+			},
+			githubOrganizations: ["my-org"],
+			paths: [
+				{ pattern: "/", access: "bypass" },
+				{ pattern: "/private/*", access: "github-org" },
+			],
+		});
+
+		await resolveOutput(site.worker.id);
+		await Promise.all(
+			site.accessApplications.map((app) => resolveOutput(app.id)),
+		);
+
+		// Verify the IDP resource was created
+		expect(site.githubIdp).toBeDefined();
+		const idps = byName("-github-idp");
+		expect(idps).toHaveLength(1);
+		expect(idps[0].inputs.type).toBe("github");
+		expect(idps[0].inputs.config).toEqual({
+			clientId: "Ov23li-test",
+			clientSecret: "test-secret",
+		});
+		expect(idps[0].inputs.accountId).toBe("account-123");
+
+		// Verify Access applications were created (2 paths x 1 domain = 2)
+		expect(site.accessApplications).toHaveLength(2);
+
+		// Verify github-org path uses the auto-created IDP
+		const privateApp = byName("oauth-site-app-d").find((a) =>
+			a.name.includes("-p1"),
+		);
+		expect(privateApp).toBeDefined();
+	});
+
+	it("does not create an IDP when githubOAuthConfig is not provided", async () => {
+		const site = new WorkerSite("no-idp-site", {
+			accountId: "account-123",
+			zoneId: "zone-123",
+			name: "no-idp-site",
+			domains: ["no-idp.example.com"],
+			r2Bucket: { bucketName: "no-idp-assets" },
+			paths: [
+				{ pattern: "/", access: "bypass" },
+			],
+		});
+
+		await resolveOutput(site.worker.id);
+
+		expect(site.githubIdp).toBeUndefined();
+		expect(byName("-github-idp")).toHaveLength(0);
 	});
 });
