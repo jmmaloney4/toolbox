@@ -17,8 +17,11 @@
 
 1. Cloudflare account with a zone already managed by Cloudflare nameservers
 2. Zone ID and account ID for the target site
-3. If you use `github-org` access, a GitHub Identity Provider configured in Cloudflare Access
-4. If you use `assets`, `@aws-sdk/client-s3` available to the Pulumi program
+3. A [Cloudflare API token](#cloudflare-api-token-permissions) with the required permissions
+4. If you use `github-org` access, either:
+   - Provide `githubOAuthConfig` to auto-create a GitHub Identity Provider, or
+   - Provide `githubIdentityProviderId` to reference a pre-existing one
+5. If you use `assets`, `@aws-sdk/client-s3` available to the Pulumi program
 
 ## Usage
 
@@ -65,6 +68,34 @@ export const boundDomains = site.boundDomains;
 
 ### Mixed public/private site with Cloudflare Access
 
+Using `githubOAuthConfig` (auto-creates the GitHub Identity Provider):
+
+```typescript
+import { WorkerSite } from "@jmmaloney4/sector7/workersite";
+
+const site = new WorkerSite("research-site", {
+  accountId: "your-cloudflare-account-id",
+  zoneId: "your-cloudflare-zone-id",
+  name: "research-site",
+  domains: ["research.example.com"],
+  r2Bucket: {
+    bucketName: "research-site-assets",
+    create: true,
+  },
+  githubOAuthConfig: {
+    clientId: "your-github-oauth-app-client-id",
+    clientSecret: "your-github-oauth-app-client-secret",
+  },
+  githubOrganizations: ["your-org"],
+  paths: [
+    { pattern: "/public/*", access: "public" },
+    { pattern: "/private/*", access: "github-org" },
+  ],
+});
+```
+
+Or using a pre-existing Identity Provider with `githubIdentityProviderId`:
+
 ```typescript
 import { WorkerSite } from "@jmmaloney4/sector7/workersite";
 
@@ -85,6 +116,8 @@ const site = new WorkerSite("research-site", {
   ],
 });
 ```
+
+`githubOAuthConfig` and `githubIdentityProviderId` are mutually exclusive.
 
 ### Custom Worker script
 
@@ -171,14 +204,16 @@ After adding this config, `pulumi preview` should show an `observability` block 
 1. An optional `cloudflare.R2Bucket` when `r2Bucket.create` is `true`
 2. A `cloudflare.WorkersScript`
 3. One `cloudflare.WorkersCustomDomain` per hostname in `domains`
-4. Zero or more `cloudflare.ZeroTrustAccessApplication` resources, one per `(domain, path)` combination when `paths` is provided
-5. An `cloudflare.AccountToken` plus one `R2Object` per uploaded file when `assets` is provided
+4. An optional `cloudflare.ZeroTrustAccessIdentityProvider` when `githubOAuthConfig` is provided
+5. Zero or more `cloudflare.ZeroTrustAccessApplication` resources, one per `(domain, path)` combination when `paths` is provided
+6. An `cloudflare.AccountToken` plus one `R2Object` per uploaded file when `assets` is provided
 
 ## Access control model
 
 - Omit `paths` for a fully public site
 - Use `paths` with `access: "public"` or `access: "github-org"` to create Cloudflare Access applications
-- `githubIdentityProviderId` and `githubOrganizations` are required only when at least one path uses `github-org`
+- When a path uses `github-org`, you must provide either `githubOAuthConfig` (auto-creates the IDP) or `githubIdentityProviderId` (references a pre-existing one)
+- `githubOrganizations` is required when a path uses `github-org`
 
 Cloudflare Access enforces authorization before requests reach the Worker. The Worker itself does not implement authentication.
 
@@ -228,7 +263,8 @@ redirects: [
 | `r2Bucket.bucketName`      | `string`                    | Yes         | R2 bucket name                                       |
 | `r2Bucket.create`          | `boolean`                   | No          | Create the bucket if it does not already exist       |
 | `r2Bucket.prefix`          | `string`                    | No          | Prefix prepended to generated-script object lookups  |
-| `githubIdentityProviderId` | `string`                    | Conditional | Required when a path uses `github-org`               |
+| `githubIdentityProviderId` | `string`                    | Conditional | Pre-existing GitHub IDP UUID; mutually exclusive with `githubOAuthConfig` |
+| `githubOAuthConfig`        | `GithubOAuthConfig`         | Conditional | Auto-create a GitHub IDP; mutually exclusive with `githubIdentityProviderId` |
 | `githubOrganizations`      | `string[]`                  | Conditional | Required when a path uses `github-org`               |
 | `paths`                    | `PathConfig[]`              | No          | Access-control rules; omit for fully public sites    |
 | `cacheTtlSeconds`          | `number`                    | No          | Cache TTL for generated Worker responses             |
@@ -236,6 +272,18 @@ redirects: [
 | `redirects`                | `RedirectRule[]`            | No          | Host redirects for the generated Worker              |
 | `workerScript`             | `WorkerScriptConfig`        | No          | Custom Worker source and extra bindings              |
 | `observability`            | `WorkerObservabilityConfig` | No          | Worker observability and log sampling settings       |
+
+### `GithubOAuthConfig`
+
+| Field          | Type     | Required | Description                                                        |
+| -------------- | -------- | -------- | ------------------------------------------------------------------ |
+| `clientId`     | `string` | Yes      | GitHub OAuth App client ID                                         |
+| `clientSecret` | `string` | Yes      | GitHub OAuth App client secret (use Pulumi secrets)                |
+| `name`         | `string` | No       | Display name for the Identity Provider in Cloudflare Zero Trust UI |
+
+When provided, WorkerSite auto-creates a `cloudflare.ZeroTrustAccessIdentityProvider` of type `github` and uses its ID for all Access applications that require `github-org` authentication. This is mutually exclusive with `githubIdentityProviderId`.
+
+You must create a GitHub OAuth App at https://github.com/settings/developers with the callback URL set to `https://<your-team-name>.cloudflareaccess.com/cdn-cgi/access/callback`.
 
 ### `PathConfig`
 
@@ -268,6 +316,42 @@ redirects: [
 | `logs.invocationLogs`   | `boolean`  | No       | Enables invocation logs                           |
 | `logs.destinations`     | `string[]` | No       | Log destinations; defaults to `["cloudflare"]`    |
 | `logs.persist`          | `boolean`  | No       | Persists logs in Cloudflare                       |
+
+## Cloudflare API token permissions
+
+WorkerSite creates the following Cloudflare resources, and the API token must have permissions for all of them:
+
+| Resource created by WorkerSite                              | Required token permission (Account) |
+| ----------------------------------------------------------- | ----------------------------------- |
+| `cloudflare.R2Bucket` (when `r2Bucket.create` is true)     | R2: Edit                            |
+| `cloudflare.WorkersScript`                                  | Workers Scripts: Edit               |
+| `cloudflare.WorkersCustomDomain`                            | Workers Routes: Edit                |
+| `cloudflare.ZeroTrustAccessIdentityProvider` (when `githubOAuthConfig` is set) | Access: Identity Providers: Edit |
+| `cloudflare.ZeroTrustAccessApplication` (when `paths` is set) | Access: Apps and Policies: Edit  |
+| `cloudflare.AccountToken` (when `assets` is set)            | Account Settings: Read              |
+
+**Zone-level:**
+
+| Required token permission (Zone) |
+| -------------------------------- |
+| Workers Routes: Edit             |
+
+### Minimum token configuration
+
+Create a **Custom Token** in the Cloudflare dashboard (My Profile > API Tokens > Create Token) with:
+
+Account-level permissions (scoped to the target account):
+- Workers Scripts: Edit
+- Workers Routes: Edit
+- R2: Edit
+- Access: Apps and Policies: Edit
+- Access: Identity Providers: Edit
+- Account Settings: Read
+
+Zone-level permissions (scoped to the target zone):
+- Workers Routes: Edit
+
+If you do not use `paths` (fully public site), you can omit the Access permissions. If you do not use `assets`, you can omit Account Settings: Read.
 
 ## Troubleshooting
 
