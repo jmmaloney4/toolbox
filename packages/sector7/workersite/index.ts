@@ -1,4 +1,3 @@
-export * from "./r2object.ts";
 export * from "./worker-site.ts";
 export {
 	generateWorkerScript,
