@@ -6,10 +6,145 @@ import {
 	type ComponentResourceOptions,
 	type Resource,
 } from "@pulumi/pulumi";
-import * as crypto from "node:crypto";
 import * as pulumi from "@pulumi/pulumi";
 import * as cloudflare from "@pulumi/cloudflare";
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+
+// ---------------------------------------------------------------------------
+// AWS Signature Version 4 — minimal implementation for S3 PUT/DELETE only.
+// Uses node:crypto (dynamically imported) and global fetch(). No external deps.
+// See: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_sigv.html
+// ---------------------------------------------------------------------------
+
+interface SigV4Credentials {
+	accessKeyId: string;
+	secretAccessKey: string;
+}
+
+/**
+ * Derive the signing key for a given date/region/service.
+ * HMAC chain: (secret) → dateKey → regionKey → serviceKey → signingKey
+ */
+const deriveSigningKey = async (
+	nodeCrypto: typeof import("node:crypto"),
+	secretAccessKey: string,
+	dateStamp: string,
+	region: string,
+	service: string,
+): Promise<Buffer> => {
+	const hmac = (key: Buffer | string, data: string) =>
+		nodeCrypto.createHmac("sha256", key).update(data).digest();
+	const dateKey = hmac(`AWS4${secretAccessKey}`, dateStamp);
+	const regionKey = hmac(dateKey, region);
+	const serviceKey = hmac(regionKey, service);
+	return hmac(serviceKey, "aws4_request");
+};
+
+/**
+ * Build an AWS Sig V4 signed request and execute it via fetch().
+ *
+ * This is deliberately scoped to the two operations we need:
+ *   - PUT    (upload object body)
+ *   - DELETE (remove object)
+ *
+ * No query strings, no multipart, no chunked encoding.
+ */
+const signedFetch = async (
+	method: "PUT" | "DELETE",
+	url: string,
+	creds: SigV4Credentials,
+	body?: Buffer,
+	contentType?: string,
+): Promise<Response> => {
+	const nodeCrypto = (await import("node:crypto")) as typeof import("node:crypto");
+
+	const parsed = new URL(url);
+	const host = parsed.host;
+	const now = new Date();
+	const amzDate = now.toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
+	const dateStamp = amzDate.slice(0, 8);
+	const region = "auto";
+	const service = "s3";
+
+	// Payload hash
+	const payloadHash = body
+		? nodeCrypto.createHash("sha256").update(body).digest("hex")
+		: nodeCrypto.createHash("sha256").update("").digest("hex");
+
+	// Canonical headers — must be sorted by lowercase name
+	const headers: Record<string, string> = {
+		"content-type": contentType ?? "",
+		host,
+		"x-amz-content-sha256": payloadHash,
+		"x-amz-date": amzDate,
+	};
+	// Drop empty content-type for DELETE
+	if (method === "DELETE") {
+		delete headers["content-type"];
+	}
+
+	const signedHeaderNames = Object.keys(headers).sort().join(";");
+	const canonicalHeaders = Object.keys(headers)
+		.sort()
+		.map((k) => `${k}:${headers[k].trim()}`)
+		.join("\n") + "\n";
+
+	// Canonical request
+	const canonicalQueryString = "";
+	const canonicalRequest = [
+		method,
+		parsed.pathname,
+		canonicalQueryString,
+		canonicalHeaders,
+		signedHeaderNames,
+		payloadHash,
+	].join("\n");
+
+	// String to sign
+	const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
+	const stringToSign = [
+		"AWS4-HMAC-SHA256",
+		amzDate,
+		credentialScope,
+		nodeCrypto.createHash("sha256").update(canonicalRequest).digest("hex"),
+	].join("\n");
+
+	// Sign
+	const signingKey = await deriveSigningKey(
+		nodeCrypto,
+		creds.secretAccessKey,
+		dateStamp,
+		region,
+		service,
+	);
+	const signature = nodeCrypto
+		.createHmac("sha256", signingKey)
+		.update(stringToSign)
+		.digest("hex");
+
+	const authorization =
+		`AWS4-HMAC-SHA256 Credential=${creds.accessKeyId}/${credentialScope}, ` +
+		`SignedHeaders=${signedHeaderNames}, Signature=${signature}`;
+
+	// Build fetch headers (must match canonical exactly)
+	const fetchHeaders: Record<string, string> = {
+		Authorization: authorization,
+		"X-Amz-Content-Sha256": payloadHash,
+		"X-Amz-Date": amzDate,
+	};
+	if (contentType) {
+		fetchHeaders["Content-Type"] = contentType;
+	}
+
+	return fetch(url, {
+		method,
+		headers: fetchHeaders,
+		body: body ? new Uint8Array(body) : undefined,
+	});
+};
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 /**
  * A single static file to upload to R2 as a Pulumi-managed resource.
@@ -116,6 +251,10 @@ interface R2ObjectState extends R2ObjectArgs {
 	etag: string;
 }
 
+// ---------------------------------------------------------------------------
+// File helpers
+// ---------------------------------------------------------------------------
+
 const tryStatFileSync = (
 	fs: typeof import("node:fs"),
 	filePath: string,
@@ -140,38 +279,54 @@ const tryReadFileSync = (
 	}
 };
 
+// ---------------------------------------------------------------------------
+// R2 operations via native S3 signing (no AWS SDK)
+// ---------------------------------------------------------------------------
+
 /** Upload a file to R2 and return the normalized ETag. */
 const uploadObjectToR2 = async (args: R2ObjectArgs): Promise<string> => {
 	const fs = (await import("node:fs")) as typeof import("node:fs");
 	const nodeCrypto = (await import("node:crypto")) as typeof import("node:crypto");
 
-	const {
-		accountId,
-		bucketName,
-		key,
-		filePath,
-		contentType,
-		accessKeyId,
-		secretAccessKey,
-	} = args;
-	const client = new S3Client({
-		region: "auto",
-		endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
-		credentials: { accessKeyId, secretAccessKey },
-	});
+	const { accountId, bucketName, key, filePath, contentType, accessKeyId, secretAccessKey } = args;
 	const body = fs.readFileSync(filePath);
-	const result = await client.send(
-		new PutObjectCommand({
-			Bucket: bucketName,
-			Key: key,
-			Body: body,
-			ContentType: contentType,
-		}),
-	);
-	return (
-		result.ETag ?? nodeCrypto.createHash("md5").update(body).digest("hex")
-	).replace(/"/g, "");
+	const url = `https://${accountId}.r2.cloudflarestorage.com/${bucketName}/${key}`;
+
+	const response = await signedFetch("PUT", url, { accessKeyId, secretAccessKey }, body, contentType);
+
+	if (!response.ok) {
+		const text = await response.text();
+		throw new Error(`R2 PUT ${key} failed: ${response.status} ${response.statusText}\n${text}`);
+	}
+
+	const etag = response.headers.get("ETag");
+	return (etag ?? nodeCrypto.createHash("md5").update(body).digest("hex")).replace(/"/g, "");
 };
+
+/** Delete an object from R2. */
+const deleteObjectFromR2 = async (args: {
+	accountId: string;
+	bucketName: string;
+	key: string;
+	accessKeyId: string;
+	secretAccessKey: string;
+}): Promise<void> => {
+	const url = `https://${args.accountId}.r2.cloudflarestorage.com/${args.bucketName}/${args.key}`;
+	const response = await signedFetch("DELETE", url, {
+		accessKeyId: args.accessKeyId,
+		secretAccessKey: args.secretAccessKey,
+	});
+
+	// R2 returns 204 on successful delete; tolerate 404 (already gone)
+	if (response.status !== 204 && response.status !== 404) {
+		const text = await response.text();
+		throw new Error(`R2 DELETE ${args.key} failed: ${response.status} ${response.statusText}\n${text}`);
+	}
+};
+
+// ---------------------------------------------------------------------------
+// Pulumi dynamic provider
+// ---------------------------------------------------------------------------
 
 /**
  * Pulumi dynamic resource provider that manages a single object in a
@@ -188,17 +343,16 @@ const uploadObjectToR2 = async (args: R2ObjectArgs): Promise<string> => {
  * deserialization.  See the Pulumi dynamic provider serialization docs:
  * https://www.pulumi.com/docs/concepts/resources/dynamic-providers/#how-dynamic-providers-are-serialized
  *
- * The `@aws-sdk/client-s3` import IS static because this module lives behind
- * the `./workersite/r2` sub-path — consumers who need R2 upload must install
- * it as a required dependency.
+ * S3 requests are signed natively using AWS Signature Version 4 (node:crypto +
+ * fetch) — no @aws-sdk/client-s3 dependency required (ADR-015).
  *
  * Lifecycle
  * ---------
  * - check  : verify the local file exists
  * - diff   : compare MD5(file) to stored etag; replace on key/bucket/account change
- * - create : PutObject with body + content-type; store etag
- * - update : re-upload via PutObject; store new etag
- * - delete : DeleteObject
+ * - create : PUT with body + content-type; store etag
+ * - update : re-upload via PUT; store new etag
+ * - delete : DELETE
  */
 const r2ObjectProvider: dynamic.ResourceProvider = {
 	async check(
@@ -272,24 +426,16 @@ const r2ObjectProvider: dynamic.ResourceProvider = {
 	},
 
 	async delete(_id: string, props: R2ObjectState): Promise<void> {
-		const { accountId, bucketName, key, accessKeyId, secretAccessKey } = props;
-		const client = new S3Client({
-			region: "auto",
-			endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
-			credentials: { accessKeyId, secretAccessKey },
-		});
-		await client.send(
-			new DeleteObjectCommand({ Bucket: bucketName, Key: key }),
-		);
+		await deleteObjectFromR2(props);
 	},
 };
 
 /**
  * A single object stored in a Cloudflare R2 bucket.
  *
- * Uses the S3-compatible API for all CRUD operations.  Content changes are
- * detected via MD5 comparison against the stored ETag — no external binary
- * required.
+ * Uses the S3-compatible API for all CRUD operations via native AWS Sig V4
+ * signing (node:crypto + fetch).  Content changes are detected via MD5
+ * comparison against the stored ETag — no external binary required.
  *
  * Parameters
  * ----------
@@ -326,8 +472,9 @@ const R2_BUCKET_ITEM_WRITE_PERMISSION_GROUP_ID =
  * Returns the created `R2Object` instances.
  *
  * This function lives on the `./workersite/r2` sub-path to isolate the
- * `@aws-sdk/client-s3` dependency from consumers that only need
- * `WorkerSite` infrastructure (ADR-014).
+ * R2 upload concern from consumers that only need `WorkerSite`
+ * infrastructure (ADR-014).  No external dependencies are required —
+ * S3 signing is implemented natively via node:crypto + fetch (ADR-015).
  *
  * @param name - Pulumi resource name prefix.
  * @param args - Upload configuration (account, bucket, files).
@@ -374,9 +521,12 @@ export function uploadAssets(
 	);
 
 	const accessKeyId = r2Token.id;
-	const secretAccessKey = r2Token.value.apply((v: string) =>
-		crypto.createHash("sha256").update(v).digest("hex"),
-	);
+	const secretAccessKey = r2Token.value.apply((v: string) => {
+		// crypto is safe at the top level here — this runs in the Pulumi
+		// host process (not inside a serialized dynamic provider closure).
+		const nodeCrypto = require("node:crypto") as typeof import("node:crypto");
+		return nodeCrypto.createHash("sha256").update(v).digest("hex");
+	});
 
 	const assets: R2Object[] = [];
 	for (let index = 0; index < args.files.length; index++) {

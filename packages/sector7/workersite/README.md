@@ -21,7 +21,7 @@
 4. If you use `github-org` access, either:
    - Provide `githubOAuthConfig` to auto-create a GitHub Identity Provider, or
    - Provide `githubIdentityProviderId` to reference a pre-existing one
-5. If you use `uploadAssets`, `@aws-sdk/client-s3` must be installed in the consuming project
+5. If you use `uploadAssets`, no additional dependencies are needed — S3 signing is implemented natively
 
 ## Usage
 
@@ -242,7 +242,7 @@ Cloudflare Access enforces authorization before requests reach the Worker. The W
 
 ## Asset uploads
 
-R2 asset uploads are managed via `uploadAssets` from the `./workersite/r2` sub-path, decoupled from `WorkerSite` (ADR-014). This isolates the `@aws-sdk/client-s3` dependency from consumers that only need infrastructure.
+R2 asset uploads are managed via `uploadAssets` from the `./workersite/r2` sub-path, decoupled from `WorkerSite` (ADR-014). S3-compatible signing is implemented natively via `node:crypto` + `fetch` — no external SDK required (ADR-015).
 
 ```typescript
 import { uploadAssets } from "@jmmaloney4/sector7/workersite/r2";
@@ -261,7 +261,7 @@ uploadAssets("my-site", {
 - Change detection uses MD5/ETag comparison
 - `uploadAssets` creates a scoped `AccountToken` for R2 object writes automatically
 - The token scope is limited to the configured bucket
-- `@aws-sdk/client-s3` is required when using this sub-path
+- No external dependencies — S3 signing uses `node:crypto` + `fetch` natively (ADR-015)
 
 ## Redirects
 

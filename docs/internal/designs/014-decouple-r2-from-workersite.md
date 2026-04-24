@@ -12,6 +12,7 @@ links:
   - adr-005: ./005-cloudflare-workersite.md
   - adr-011: ./011-workersite-extensions.md
   - adr-013: ./013-workersite-esm-resources-fix.md
+  - adr-015: ./015-replace-aws-sdk-with-native-s3-signing.md
   - pr-156: https://github.com/jmmaloney4/toolbox/pull/156
   - issue-155: https://github.com/jmmaloney4/toolbox/issues/155
 ---
@@ -71,11 +72,9 @@ concerns that happen to share a bucket reference.
    `r2object.ts` or the new `r2` sub-path. The barrel-guard type test
    (already in place) validates this at compile time.
 
-5. The `typeof import("@aws-sdk/client-s3")` casts in `r2object.ts` MAY be
-   replaced with plain static imports at the top of the file, since the
-   sub-path makes the dependency requirement explicit. Dynamic imports were
-   used to defer the module resolution, but they add complexity without
-   benefit when the dep is a required peer for the sub-path.
+5. The `typeof import("...")` casts and the `@aws-sdk/client-s3` dependency
+   have been replaced with native AWS Signature Version 4 signing via
+   `node:crypto` + `fetch()`. No external SDK dependency is required (ADR-015).
 
 # Consequences
 
