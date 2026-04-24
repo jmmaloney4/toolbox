@@ -1,14 +1,16 @@
-/**
- * Type-level regression guard: R2Object must NOT be re-exported from the main
- * workersite barrel.  This file is type-checked by its own tsconfig
- * (tsconfig.barrel-guard.json) as part of CI.
- *
- * If someone adds `export * from "./r2object.ts"` back to index.ts, the
- * @ts-expect-error directives become unused and tsc fails.
- */
+// Barrel guard: ensure R2Object and related types are NOT re-exported from
+// the main workersite barrel.  They live on the ./r2 sub-path (ADR-014).
+// If someone re-adds them to index.ts, the @ts-expect-error directives
+// will produce "Unused '@ts-expect-error' directive" errors and fail CI.
 
-// @ts-expect-error — R2Object lives on the ./r2 sub-path, not the main barrel
-import type { R2Object } from "./index.ts";
+// @ts-expect-error — R2Object lives on ./workersite/r2 sub-path only
+import { R2Object } from "./index.ts";
 
-// @ts-expect-error — R2ObjectInputs lives on the ./r2 sub-path
-import type { R2ObjectInputs } from "./index.ts";
+// @ts-expect-error — AssetFile lives on ./workersite/r2 sub-path only
+import { type AssetFile } from "./index.ts";
+
+// @ts-expect-error — AssetConfig lives on ./workersite/r2 sub-path only
+import { type AssetConfig } from "./index.ts";
+
+// @ts-expect-error — uploadAssets lives on ./workersite/r2 sub-path only
+import { uploadAssets } from "./index.ts";

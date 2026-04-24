@@ -1,6 +1,6 @@
 # WorkerSite
 
-`WorkerSite` is a Pulumi `ComponentResource` for hosting static sites on Cloudflare Workers with R2 storage, optional Cloudflare Access protection, declarative asset uploads, and custom-domain bindings.
+`WorkerSite` is a Pulumi `ComponentResource` for hosting static sites on Cloudflare Workers with R2 storage, optional Cloudflare Access protection, and custom-domain bindings. R2 asset uploads are available via the separate `./workersite/r2` sub-path (ADR-014).
 
 ## Features
 
@@ -8,7 +8,7 @@
 - Multiple domains via `WorkersCustomDomain`
 - DNS managed automatically by Cloudflare custom-domain bindings
 - Optional path-level Cloudflare Access policies
-- Optional declarative R2 uploads during `pulumi up`
+- Optional declarative R2 uploads via the `./workersite/r2` sub-path during `pulumi up`
 - Optional host redirects in the generated Worker script
 - Optional custom Worker script with extra plain-text bindings
 - Default Cloudflare Worker observability with configurable request/log sampling
@@ -21,11 +21,11 @@
 4. If you use `github-org` access, either:
    - Provide `githubOAuthConfig` to auto-create a GitHub Identity Provider, or
    - Provide `githubIdentityProviderId` to reference a pre-existing one
-5. If you use `assets`, `@aws-sdk/client-s3` available to the Pulumi program
+5. If you use `uploadAssets`, `@aws-sdk/client-s3` must be installed in the consuming project
 
 ## Usage
 
-### Public site with declarative uploads and redirect
+### Public site with redirect
 
 ```typescript
 import { WorkerSite } from "@jmmaloney4/sector7/workersite";
@@ -46,24 +46,46 @@ const site = new WorkerSite("docs-site", {
       statusCode: 301,
     },
   ],
-  assets: {
-    files: [
-      {
-        key: "index.html",
-        filePath: "/absolute/path/to/dist/index.html",
-        contentType: "text/html; charset=utf-8",
-      },
-      {
-        key: "styles.css",
-        filePath: "/absolute/path/to/dist/styles.css",
-        contentType: "text/css; charset=utf-8",
-      },
-    ],
-  },
 });
 
 export const workerName = site.workerName;
 export const boundDomains = site.boundDomains;
+```
+
+### Public site with declarative uploads
+
+```typescript
+import { WorkerSite } from "@jmmaloney4/sector7/workersite";
+import { uploadAssets } from "@jmmaloney4/sector7/workersite/r2";
+
+const site = new WorkerSite("docs-site", {
+  accountId: "your-cloudflare-account-id",
+  zoneId: "your-cloudflare-zone-id",
+  name: "docs-site",
+  domains: ["docs.example.com"],
+  r2Bucket: {
+    bucketName: "docs-site-assets",
+    create: true,
+  },
+});
+
+uploadAssets("docs-site", {
+  accountId: "your-cloudflare-account-id",
+  bucketName: "docs-site-assets",
+  files: [
+    {
+      key: "index.html",
+      filePath: "/absolute/path/to/dist/index.html",
+      contentType: "text/html; charset=utf-8",
+    },
+    {
+      key: "styles.css",
+      filePath: "/absolute/path/to/dist/styles.css",
+      contentType: "text/css; charset=utf-8",
+    },
+  ],
+  dependsOn: [site.worker],
+}, { parent: site });
 ```
 
 ### Mixed public/private site with Cloudflare Access
@@ -206,7 +228,8 @@ After adding this config, `pulumi preview` should show an `observability` block 
 3. One `cloudflare.WorkersCustomDomain` per hostname in `domains`
 4. An optional `cloudflare.ZeroTrustAccessIdentityProvider` when `githubOAuthConfig` is provided
 5. Zero or more `cloudflare.ZeroTrustAccessApplication` resources, one per `(domain, path)` combination when `paths` is provided
-6. An `cloudflare.AccountToken` plus one `R2Object` per uploaded file when `assets` is provided
+
+When using `uploadAssets` from the `./workersite/r2` sub-path, an additional `cloudflare.AccountToken` and one `R2Object` per file are created.
 
 ## Access control model
 
@@ -219,14 +242,26 @@ Cloudflare Access enforces authorization before requests reach the Worker. The W
 
 ## Asset uploads
 
-If you pass `assets`, `WorkerSite` uploads files declaratively as part of `pulumi up`.
+R2 asset uploads are managed via `uploadAssets` from the `./workersite/r2` sub-path, decoupled from `WorkerSite` (ADR-014). This isolates the `@aws-sdk/client-s3` dependency from consumers that only need infrastructure.
+
+```typescript
+import { uploadAssets } from "@jmmaloney4/sector7/workersite/r2";
+
+uploadAssets("my-site", {
+  accountId: "your-account-id",
+  bucketName: "my-site-assets",
+  files: [
+    { key: "index.html", filePath: "/dist/index.html", contentType: "text/html" },
+  ],
+  dependsOn: [site.worker],
+}, { parent: site });
+```
 
 - Each file becomes a separate `R2Object` dynamic resource
 - Change detection uses MD5/ETag comparison
-- The component creates a scoped `AccountToken` for R2 object writes automatically
+- `uploadAssets` creates a scoped `AccountToken` for R2 object writes automatically
 - The token scope is limited to the configured bucket
-
-If you do not pass `assets`, you can still upload files by another workflow and let `WorkerSite` only manage the Worker and domains.
+- `@aws-sdk/client-s3` is required when using this sub-path
 
 ## Redirects
 
@@ -268,7 +303,6 @@ redirects: [
 | `githubOrganizations`      | `string[]`                  | Conditional | Required when a path uses `github-org`               |
 | `paths`                    | `PathConfig[]`              | No          | Access-control rules; omit for fully public sites    |
 | `cacheTtlSeconds`          | `number`                    | No          | Cache TTL for generated Worker responses             |
-| `assets`                   | `AssetConfig`               | No          | Declarative upload configuration                     |
 | `redirects`                | `RedirectRule[]`            | No          | Host redirects for the generated Worker              |
 | `workerScript`             | `WorkerScriptConfig`        | No          | Custom Worker source and extra bindings              |
 | `observability`            | `WorkerObservabilityConfig` | No          | Worker observability and log sampling settings       |
@@ -292,7 +326,9 @@ You must create a GitHub OAuth App at https://github.com/settings/developers wit
 | `pattern` | `string`                   | Yes      | Path pattern such as `/blog/*` |
 | `access`  | `"public" \| "github-org"` | Yes      | Access mode for the path       |
 
-### `AssetConfig`
+### `AssetConfig` (via `./workersite/r2`)
+
+See [Asset uploads](#asset-uploads) for usage. Available from `@jmmaloney4/sector7/workersite/r2`.
 
 | Field   | Type          | Required | Description                            |
 | ------- | ------------- | -------- | -------------------------------------- |
@@ -328,7 +364,12 @@ WorkerSite creates the following Cloudflare resources, and the API token must ha
 | `cloudflare.WorkersCustomDomain`                            | Workers Routes: Edit                |
 | `cloudflare.ZeroTrustAccessIdentityProvider` (when `githubOAuthConfig` is set) | Access: Identity Providers: Edit |
 | `cloudflare.ZeroTrustAccessApplication` (when `paths` is set) | Access: Apps and Policies: Edit  |
-| `cloudflare.AccountToken` (when `assets` is set)            | Account Settings: Read              |
+
+When using `uploadAssets` from the `./workersite/r2` sub-path:
+
+| Resource created by uploadAssets         | Required token permission (Account) |
+| ---------------------------------------- | ----------------------------------- |
+| `cloudflare.AccountToken`                | Account Settings: Read              |
 
 **Zone-level:**
 
@@ -351,7 +392,7 @@ Account-level permissions (scoped to the target account):
 Zone-level permissions (scoped to the target zone):
 - Workers Routes: Edit
 
-If you do not use `paths` (fully public site), you can omit the Access permissions. If you do not use `assets`, you can omit Account Settings: Read.
+If you do not use `paths` (fully public site), you can omit the Access permissions. Account Settings: Read is only needed when using `uploadAssets` from the `./workersite/r2` sub-path.
 
 ## Troubleshooting
 

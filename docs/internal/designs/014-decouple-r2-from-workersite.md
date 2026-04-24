@@ -1,7 +1,7 @@
 ---
 id: ADR-014
 title: Decouple R2 Upload from WorkerSite
-status: Proposed
+status: Accepted
 date: 2026-04-24
 deciders: [platform]
 consulted: []
@@ -127,11 +127,12 @@ the dynamic import to it, avoiding the module resolution requirement entirely.
 
 # Security / Privacy / Compliance
 
-- R2 credentials (access key ID, secret access key) are currently generated
-  inside WorkerSite and passed to R2Object. After decoupling, these credentials
-  MUST be exposed as WorkerSite outputs so the upload helper can receive them.
-  These are Pulumi `Output<string>` (secret-wrapped by default), so the
-  security posture is unchanged.
+- `uploadAssets` creates its own scoped `AccountToken` with write access to the
+  specific bucket only. Credentials are derived per Cloudflare's spec:
+  `accessKeyId = token.id`, `secretAccessKey = SHA-256(token.value)`.
+- WorkerSite does not expose any R2 credentials — it no longer creates an upload
+  token. This is a net improvement: the token is only created when assets are
+  actually being uploaded, and its lifetime is managed by Pulumi as a resource.
 
 # Operational Notes
 
@@ -143,7 +144,7 @@ the dynamic import to it, avoiding the module resolution requirement entirely.
 
 # Status Transitions
 
-- Proposed → Accepted: pending review of implementation plan.
+- Proposed → Accepted: 2026-04-24, implementation completed.
 
 # Implementation Notes
 

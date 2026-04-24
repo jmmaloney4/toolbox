@@ -1,7 +1,5 @@
 export {
 	type PathConfig,
-	type AssetFile,
-	type AssetConfig,
 	type WorkerScriptConfig,
 	type GithubOAuthConfig,
 	type WorkerObservabilityConfig,

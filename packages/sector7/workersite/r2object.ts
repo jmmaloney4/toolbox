@@ -3,7 +3,55 @@ import {
 	dynamic,
 	type Input,
 	type Output,
+	type ComponentResourceOptions,
+	type Resource,
 } from "@pulumi/pulumi";
+import * as crypto from "node:crypto";
+import * as pulumi from "@pulumi/pulumi";
+import * as cloudflare from "@pulumi/cloudflare";
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+
+/**
+ * A single static file to upload to R2 as a Pulumi-managed resource.
+ */
+export interface AssetFile {
+	/**
+	 * Absolute path to the local file on disk.
+	 */
+	filePath: Input<string>;
+
+	/**
+	 * R2 object key (e.g., "index.html", "styles/main.css").
+	 */
+	key: Input<string>;
+
+	/**
+	 * MIME content type (e.g., "text/html; charset=utf-8").
+	 */
+	contentType: Input<string>;
+}
+
+/**
+ * Configuration for declarative R2 asset uploads.
+ *
+ * When provided, `uploadAssets` creates a scoped R2 API token and uploads each
+ * listed file as a separate Pulumi dynamic resource.  Content changes are
+ * detected via MD5 comparison against the stored ETag — no external binary
+ * required.
+ *
+ * Notes
+ * -----
+ * The generated AccountToken is scoped to R2_BUCKET_ITEM_WRITE on the specific
+ * bucket only.  Credentials are derived per Cloudflare's spec:
+ *   accessKeyId     = token.id
+ *   secretAccessKey = SHA-256(token.value)
+ */
+export interface AssetConfig {
+	/**
+	 * Files to upload.  Each file becomes a separate Pulumi R2Object resource.
+	 */
+	files: AssetFile[];
+}
 
 /**
  * Inputs accepted at the call site.  Pulumi resolves all `Input<T>` values
@@ -29,6 +77,20 @@ export interface R2ObjectInputs {
 	accessKeyId: Input<string>;
 	/** R2 API token secret access key (= SHA-256 of AccountToken.value). Store as a Pulumi secret. */
 	secretAccessKey: Input<string>;
+}
+
+/**
+ * Arguments for `uploadAssets`.
+ */
+export interface UploadAssetsArgs {
+	/** Cloudflare account ID. */
+	accountId: Input<string>;
+	/** Name of the R2 bucket to upload to. */
+	bucketName: Input<string>;
+	/** Files to upload. */
+	files: AssetFile[];
+	/** Resource dependencies (e.g. the Worker and bucket). */
+	dependsOn?: Input<Input<Resource>[]>;
 }
 
 /**
@@ -81,10 +143,7 @@ const tryReadFileSync = (
 /** Upload a file to R2 and return the normalized ETag. */
 const uploadObjectToR2 = async (args: R2ObjectArgs): Promise<string> => {
 	const fs = (await import("node:fs")) as typeof import("node:fs");
-	const crypto = (await import("node:crypto")) as typeof import("node:crypto");
-	const { S3Client, PutObjectCommand } = (await import(
-		"@aws-sdk/client-s3"
-	)) as typeof import("@aws-sdk/client-s3");
+	const nodeCrypto = (await import("node:crypto")) as typeof import("node:crypto");
 
 	const {
 		accountId,
@@ -110,7 +169,7 @@ const uploadObjectToR2 = async (args: R2ObjectArgs): Promise<string> => {
 		}),
 	);
 	return (
-		result.ETag ?? crypto.createHash("md5").update(body).digest("hex")
+		result.ETag ?? nodeCrypto.createHash("md5").update(body).digest("hex")
 	).replace(/"/g, "");
 };
 
@@ -120,15 +179,18 @@ const uploadObjectToR2 = async (args: R2ObjectArgs): Promise<string> => {
  *
  * Notes
  * -----
- * All imports are intentionally inlined as dynamic import() calls inside
- * provider callbacks rather than imported at module top level.  Pulumi
+ * Node built-in imports (fs, crypto) are inlined as dynamic import() calls
+ * inside provider callbacks rather than imported at module top level.  Pulumi
  * serializes the provider object via V8 source capture; top-level ES module
- * imports of Node built-ins (fs, crypto) or large CJS packages capture
- * native-code functions that cannot be serialized, causing a
- * "Function code: function () { [native code] }" error.
+ * imports of Node built-ins capture native-code functions that cannot be
+ * serialized, causing a "Function code: function () { [native code] }" error.
  * Dynamic import() calls are emitted verbatim and evaluated at runtime after
  * deserialization.  See the Pulumi dynamic provider serialization docs:
  * https://www.pulumi.com/docs/concepts/resources/dynamic-providers/#how-dynamic-providers-are-serialized
+ *
+ * The `@aws-sdk/client-s3` import IS static because this module lives behind
+ * the `./workersite/r2` sub-path — consumers who need R2 upload must install
+ * it as a required dependency.
  *
  * Lifecycle
  * ---------
@@ -169,7 +231,7 @@ const r2ObjectProvider: dynamic.ResourceProvider = {
 		news: R2ObjectArgs,
 	): Promise<dynamic.DiffResult> {
 		const fs = (await import("node:fs")) as typeof import("node:fs");
-		const crypto = (await import(
+		const nodeCrypto = (await import(
 			"node:crypto"
 		)) as typeof import("node:crypto");
 
@@ -183,7 +245,7 @@ const r2ObjectProvider: dynamic.ResourceProvider = {
 
 		const currentFile = tryReadFileSync(fs, news.filePath);
 		const currentEtag = currentFile
-			? crypto.createHash("md5").update(currentFile).digest("hex")
+			? nodeCrypto.createHash("md5").update(currentFile).digest("hex")
 			: // Missing files should force a change without crashing refresh/diff.
 				"";
 		const changed =
@@ -210,10 +272,6 @@ const r2ObjectProvider: dynamic.ResourceProvider = {
 	},
 
 	async delete(_id: string, props: R2ObjectState): Promise<void> {
-		const { S3Client, DeleteObjectCommand } = (await import(
-			"@aws-sdk/client-s3"
-		)) as typeof import("@aws-sdk/client-s3");
-
 		const { accountId, bucketName, key, accessKeyId, secretAccessKey } = props;
 		const client = new S3Client({
 			region: "auto",
@@ -253,4 +311,94 @@ export class R2Object extends dynamic.Resource {
 	) {
 		super(r2ObjectProvider, name, { etag: undefined, ...args }, opts);
 	}
+}
+
+// Cloudflare permission group ID for R2 bucket item write access.
+// Used to scope the API token created for asset uploads.
+const R2_BUCKET_ITEM_WRITE_PERMISSION_GROUP_ID =
+	"2efd5506f9c8494dacb1fa10a3e7d5b6";
+
+/**
+ * Upload static assets to R2 as Pulumi-managed resources.
+ *
+ * Creates a scoped R2 API token and uploads each file as a separate
+ * `R2Object` dynamic resource with MD5-based change detection.
+ * Returns the created `R2Object` instances.
+ *
+ * This function lives on the `./workersite/r2` sub-path to isolate the
+ * `@aws-sdk/client-s3` dependency from consumers that only need
+ * `WorkerSite` infrastructure (ADR-014).
+ *
+ * @param name - Pulumi resource name prefix.
+ * @param args - Upload configuration (account, bucket, files).
+ * @param opts - Pulumi component resource options (set `parent` to the WorkerSite).
+ * @returns Array of created R2Object resources.
+ */
+export function uploadAssets(
+	name: string,
+	args: UploadAssetsArgs,
+	opts?: ComponentResourceOptions,
+): R2Object[] {
+	const parent = opts?.parent;
+	const resourceOpts = parent ? { parent } : {};
+
+	// Create a scoped R2 API token for uploads.
+	const r2Token = new cloudflare.AccountToken(
+		`${name}-r2-token`,
+		{
+			accountId: args.accountId,
+			name: `${name}-r2-upload`,
+			policies: [
+				{
+					effect: "allow",
+					permissionGroups: [
+						{
+							id: R2_BUCKET_ITEM_WRITE_PERMISSION_GROUP_ID,
+						},
+					],
+					resources: pulumi
+						.output({
+							accountId: args.accountId,
+							bucketName: args.bucketName,
+						})
+						.apply(
+							({ accountId, bucketName }: { accountId: string; bucketName: string }) => {
+								const key = `com.cloudflare.edge.r2.bucket.${accountId}_default_${bucketName}`;
+								return JSON.stringify({ [key]: "*" });
+							},
+						),
+				},
+			],
+		},
+		resourceOpts,
+	);
+
+	const accessKeyId = r2Token.id;
+	const secretAccessKey = r2Token.value.apply((v: string) =>
+		crypto.createHash("sha256").update(v).digest("hex"),
+	);
+
+	const assets: R2Object[] = [];
+	for (let index = 0; index < args.files.length; index++) {
+		const file = args.files[index];
+		const r2obj = new R2Object(
+			`${name}-asset-${index}`,
+			{
+				accountId: args.accountId,
+				bucketName: args.bucketName,
+				key: file.key,
+				filePath: file.filePath,
+				contentType: file.contentType,
+				accessKeyId,
+				secretAccessKey,
+			},
+			{
+				...resourceOpts,
+				dependsOn: args.dependsOn,
+			},
+		);
+		assets.push(r2obj);
+	}
+
+	return assets;
 }
