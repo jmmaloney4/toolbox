@@ -1,3 +1,19 @@
+## Barrel exports and package import surfaces
+
+Barrel files (`index.ts` with re-exports) are fine for internal cohesion but require intentionality about what you surface to consumers.
+
+1. **Use explicit named re-exports, not `export *`.**
+   Write `export { WorkerSite, type WorkerSiteArgs } from "./worker-site.ts"` instead of `export * from "./worker-site.ts"`. This forces you to acknowledge every symbol you expose and makes it trivial to grep for "what public surface depends on X".
+
+2. **Group by dependency boundary, not by file system layout.**
+   If a module carries a heavy or optional dependency (e.g. `@aws-sdk/client-s3`), put it behind a separate sub-path export (`package.json` `exports["./workersite/r2"]`) rather than mixing it into the main barrel. The barrel should reflect the dependency graph.
+
+3. **Every re-export is a commitment.**
+   If you put something in the barrel, you are signing up for keeping its transitive type closure clean for all consumers. Optional peer deps, platform-specific types, or heavy type-only deps that not every consumer needs do not belong in the main barrel.
+
+4. **Guard the boundary with `@ts-expect-error`.**
+   When a type is intentionally excluded from a barrel, add a `barrel-guard.ts` file in the same directory that asserts the exclusion. Example: `// @ts-expect-error — R2Object lives on the ./r2 sub-path`. If someone re-adds the export, tsc fails on the unused directive. The file is picked up by the default `tsconfig.json` (`include: ["**/*.ts"]`), so the jackpkgs nix tsc check validates it automatically.
+
 ## Making a workflow reusable with `workflow_call`
 
 This guide shows how to convert an existing workflow into a callable (reusable) workflow that other repositories can invoke via `uses:`.
