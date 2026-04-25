@@ -70,16 +70,16 @@ const signedFetch = async (
 		? nodeCrypto.createHash("sha256").update(body).digest("hex")
 		: nodeCrypto.createHash("sha256").update("").digest("hex");
 
-	// Canonical headers — must be sorted by lowercase name
+	// Canonical headers — must be sorted by lowercase name.
+	// Only include content-type when it has a value so the signed
+	// headers match the actual fetch headers exactly.
 	const headers: Record<string, string> = {
-		"content-type": contentType ?? "",
 		host,
 		"x-amz-content-sha256": payloadHash,
 		"x-amz-date": amzDate,
 	};
-	// Drop empty content-type for DELETE
-	if (method === "DELETE") {
-		delete headers["content-type"];
+	if (contentType) {
+		headers["content-type"] = contentType;
 	}
 
 	const signedHeaderNames = Object.keys(headers).sort().join(";");
@@ -486,8 +486,10 @@ export function uploadAssets(
 	args: UploadAssetsArgs,
 	opts?: ComponentResourceOptions,
 ): R2Object[] {
-	const parent = opts?.parent;
-	const resourceOpts = parent ? { parent } : {};
+	// Use caller-provided opts as the base for child resources so that
+	// options like `protect`, `provider`, `aliases` etc. are forwarded.
+	const tokenOpts = { ...opts };
+	const r2ObjectOpts = { ...opts, dependsOn: args.dependsOn };
 
 	// Create a scoped R2 API token for uploads.
 	const r2Token = new cloudflare.AccountToken(
@@ -517,22 +519,22 @@ export function uploadAssets(
 				},
 			],
 		},
-		resourceOpts,
+		tokenOpts,
 	);
 
 	const accessKeyId = r2Token.id;
-	const secretAccessKey = r2Token.value.apply((v: string) => {
-		// crypto is safe at the top level here — this runs in the Pulumi
-		// host process (not inside a serialized dynamic provider closure).
-		const nodeCrypto = require("node:crypto") as typeof import("node:crypto");
+	const secretAccessKey = r2Token.value.apply(async (v: string) => {
+		// crypto is safe here — this runs in the Pulumi host process
+		// (not inside a serialized dynamic provider closure).
+		const nodeCrypto = (await import("node:crypto")) as typeof import("node:crypto");
 		return nodeCrypto.createHash("sha256").update(v).digest("hex");
 	});
 
 	const assets: R2Object[] = [];
-	for (let index = 0; index < args.files.length; index++) {
-		const file = args.files[index];
+	for (const file of args.files) {
+		const safeKey = file.key.toString().replace(/[^a-zA-Z0-9-_]/g, "-");
 		const r2obj = new R2Object(
-			`${name}-asset-${index}`,
+			`${name}-asset-${safeKey}`,
 			{
 				accountId: args.accountId,
 				bucketName: args.bucketName,
@@ -543,8 +545,7 @@ export function uploadAssets(
 				secretAccessKey,
 			},
 			{
-				...resourceOpts,
-				dependsOn: args.dependsOn,
+				...r2ObjectOpts,
 			},
 		);
 		assets.push(r2obj);
