@@ -96,31 +96,69 @@ jobs:
         with:
           repository: ${{ inputs.repository }}
           ref: ${{ inputs.ref }}
-      - name: Validate nodejs_package_manager input
-        shell: bash
-        run: |
-          case "${{ inputs.nodejs_package_manager }}" in
-            pnpm|npm|none)
-              echo "✓ Valid package manager: ${{ inputs.nodejs_package_manager }}"
-              ;;
-            *)
-              echo "❌ Error: Invalid nodejs_package_manager value '${{ inputs.nodejs_package_manager }}'"
-              echo "   Must be one of: pnpm, npm, none"
-              exit 1
-              ;;
-          esac
       - uses: jmmaloney4/toolbox/.github/actions/pulumi-setup@bc7846003f39ec61654d70f5cfd1413046b3b763 # main
         with:
           google_workload_identity_provider: ${{ inputs.google_workload_identity_provider }}
           google_service_account_email: ${{ inputs.google_service_account_email }}
           nodejs_package_manager: ${{ inputs.nodejs_package_manager }}
-          # Auth & registry for GitHub Packages (public or private still needs a token)
+      - name: Validate .#ci-pulumi shell
+        shell: bash
+        env:
+          NODEJS_PACKAGE_MANAGER: ${{ inputs.nodejs_package_manager }}
+        run: |
+          set -euo pipefail
+          case "$NODEJS_PACKAGE_MANAGER" in
+            pnpm|npm|none) ;;
+            *)
+              echo "❌ Error: Invalid nodejs_package_manager value '$NODEJS_PACKAGE_MANAGER'"
+              echo "   Must be one of: pnpm, npm, none"
+              exit 1
+              ;;
+          esac
+
+          export DEVSHELL_NO_MOTD=1
+          export DEVSHELL_NO_GREETING=1
+          export DEVSHELL_QUIET=1
+
+          # Variables in this script are expanded by the inner bash run inside nix develop.
+          # shellcheck disable=SC2016
+          nix develop .#ci-pulumi --command bash -euo pipefail -c '
+            missing=0
+            require_tool() {
+              local tool="$1"
+              if ! command -v "$tool" >/dev/null 2>&1; then
+                echo "::error title=Missing tool in .#ci-pulumi::$tool is not available in the caller repository .#ci-pulumi shell" >&2
+                missing=1
+              fi
+            }
+
+            require_tool pulumi
+            require_tool jq
+
+            case "$NODEJS_PACKAGE_MANAGER" in
+              pnpm|npm) require_tool "$NODEJS_PACKAGE_MANAGER" ;;
+              none) ;;
+            esac
+
+            if [[ "$missing" -ne 0 ]]; then
+              echo "" >&2
+              echo "The reusable Pulumi workflow runs commands in the caller repository with:" >&2
+              echo "  nix develop .#ci-pulumi --command ..." >&2
+              echo "" >&2
+              echo "Update the caller repository flake so .#ci-pulumi includes Pulumi workflow tools." >&2
+              echo "For nodejs_package_manager=$NODEJS_PACKAGE_MANAGER, .#ci-pulumi must include $NODEJS_PACKAGE_MANAGER." >&2
+              exit 1
+            fi
+          '
+      # Auth & registry for GitHub Packages (public or private still needs a token)
       - name: Configure .npmrc for GitHub Packages
         if: ${{ inputs.nodejs_package_manager != 'none' }}
         run: |
-          echo "@jmmaloney4:registry=https://npm.pkg.github.com" >> ~/.npmrc
-          echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" >> ~/.npmrc
-          echo "always-auth=true" >> ~/.npmrc
+          {
+            echo "@jmmaloney4:registry=https://npm.pkg.github.com"
+            echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}"
+            echo "always-auth=true"
+          } >> ~/.npmrc
       - name: Install pnpm dependencies
         if: ${{ inputs.nodejs_package_manager == 'pnpm' }}
         run: nix develop .#ci-pulumi --command pnpm install --frozen-lockfile
