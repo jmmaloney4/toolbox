@@ -524,16 +524,8 @@ export function uploadAssets(
 		dependsOn: pulumi
 			.all([opts?.dependsOn ?? [], args.dependsOn ?? []])
 			.apply(([optDep, argDep]) => {
-				const optArr = Array.isArray(optDep)
-					? optDep
-					: optDep
-						? [optDep]
-						: [];
-				const argArr = Array.isArray(argDep)
-					? argDep
-					: argDep
-						? [argDep]
-						: [];
+				const optArr = Array.isArray(optDep) ? optDep : optDep ? [optDep] : [];
+				const argArr = Array.isArray(argDep) ? argDep : argDep ? [argDep] : [];
 				return [...optArr, ...argArr];
 			}) as unknown as Resource[],
 	};
@@ -587,7 +579,7 @@ export function uploadAssets(
 
 	const assets: R2Object[] = [];
 	for (const [index, file] of args.files.entries()) {
-		const safeKey = String(file.key).replace(/[^a-zA-Z0-9-_]/g, "-");
+		const safeKey = file.key.replace(/[^a-zA-Z0-9-_]/g, "-");
 		const r2obj = new R2Object(
 			`${name}-asset-${index}-${safeKey}`,
 			{
