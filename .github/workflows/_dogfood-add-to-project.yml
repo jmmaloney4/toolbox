@@ -8,8 +8,4 @@ permissions:
   contents: read
 jobs:
   add-to-project:
-    # Secrets cannot be used in `if`; set PROJECT_URL when you want this enabled.
-    if: vars.PROJECT_URL != ''
     uses: jmmaloney4/toolbox/.github/workflows/add-to-project.yml@bc7846003f39ec61654d70f5cfd1413046b3b763 # main
-    with:
-      project_url: ${{ vars.PROJECT_URL }}
