@@ -519,7 +519,24 @@ export function uploadAssets(
 	// Use caller-provided opts as the base for child resources so that
 	// options like `protect`, `provider`, `aliases` etc. are forwarded.
 	const tokenOpts = { ...opts };
-	const r2ObjectOpts = { ...opts, dependsOn: args.dependsOn };
+	const r2ObjectOpts = {
+		...opts,
+		dependsOn: pulumi
+			.all([opts?.dependsOn ?? [], args.dependsOn ?? []])
+			.apply(([optDep, argDep]) => {
+				const optArr = Array.isArray(optDep)
+					? optDep
+					: optDep
+						? [optDep]
+						: [];
+				const argArr = Array.isArray(argDep)
+					? argDep
+					: argDep
+						? [argDep]
+						: [];
+				return [...optArr, ...argArr];
+			}) as unknown as Resource[],
+	};
 
 	// Create a scoped R2 API token for uploads.
 	const r2Token = new cloudflare.AccountToken(
