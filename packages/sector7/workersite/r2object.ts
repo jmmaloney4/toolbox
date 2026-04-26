@@ -1,13 +1,13 @@
+import * as cloudflare from "@pulumi/cloudflare";
+import * as pulumi from "@pulumi/pulumi";
 import {
+	type ComponentResourceOptions,
 	type CustomResourceOptions,
 	dynamic,
 	type Input,
 	type Output,
-	type ComponentResourceOptions,
 	type Resource,
 } from "@pulumi/pulumi";
-import * as pulumi from "@pulumi/pulumi";
-import * as cloudflare from "@pulumi/cloudflare";
 
 // ---------------------------------------------------------------------------
 // AWS Signature Version 4 — minimal implementation for S3 PUT/DELETE only.
@@ -55,12 +55,17 @@ const signedFetch = async (
 	body?: Buffer,
 	contentType?: string,
 ): Promise<Response> => {
-	const nodeCrypto = (await import("node:crypto")) as typeof import("node:crypto");
+	const nodeCrypto = (await import(
+		"node:crypto"
+	)) as typeof import("node:crypto");
 
 	const parsed = new URL(url);
 	const host = parsed.host;
 	const now = new Date();
-	const amzDate = now.toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
+	const amzDate = now
+		.toISOString()
+		.replace(/[-:]/g, "")
+		.replace(/\.\d+Z$/, "Z");
 	const dateStamp = amzDate.slice(0, 8);
 	const region = "auto";
 	const service = "s3";
@@ -83,10 +88,11 @@ const signedFetch = async (
 	}
 
 	const signedHeaderNames = Object.keys(headers).sort().join(";");
-	const canonicalHeaders = Object.keys(headers)
-		.sort()
-		.map((k) => `${k}:${headers[k].trim()}`)
-		.join("\n") + "\n";
+	const canonicalHeaders =
+		Object.keys(headers)
+			.sort()
+			.map((k) => `${k}:${headers[k].trim()}`)
+			.join("\n") + "\n";
 
 	// Canonical request
 	const canonicalQueryString = "";
@@ -286,21 +292,41 @@ const tryReadFileSync = (
 /** Upload a file to R2 and return the normalized ETag. */
 const uploadObjectToR2 = async (args: R2ObjectArgs): Promise<string> => {
 	const fs = (await import("node:fs")) as typeof import("node:fs");
-	const nodeCrypto = (await import("node:crypto")) as typeof import("node:crypto");
+	const nodeCrypto = (await import(
+		"node:crypto"
+	)) as typeof import("node:crypto");
 
-	const { accountId, bucketName, key, filePath, contentType, accessKeyId, secretAccessKey } = args;
+	const {
+		accountId,
+		bucketName,
+		key,
+		filePath,
+		contentType,
+		accessKeyId,
+		secretAccessKey,
+	} = args;
 	const body = fs.readFileSync(filePath);
 	const url = `https://${accountId}.r2.cloudflarestorage.com/${bucketName}/${key}`;
 
-	const response = await signedFetch("PUT", url, { accessKeyId, secretAccessKey }, body, contentType);
+	const response = await signedFetch(
+		"PUT",
+		url,
+		{ accessKeyId, secretAccessKey },
+		body,
+		contentType,
+	);
 
 	if (!response.ok) {
 		const text = await response.text();
-		throw new Error(`R2 PUT ${key} failed: ${response.status} ${response.statusText}\n${text}`);
+		throw new Error(
+			`R2 PUT ${key} failed: ${response.status} ${response.statusText}\n${text}`,
+		);
 	}
 
 	const etag = response.headers.get("ETag");
-	return (etag ?? nodeCrypto.createHash("md5").update(body).digest("hex")).replace(/"/g, "");
+	return (
+		etag ?? nodeCrypto.createHash("md5").update(body).digest("hex")
+	).replace(/"/g, "");
 };
 
 /** Delete an object from R2. */
@@ -320,7 +346,9 @@ const deleteObjectFromR2 = async (args: {
 	// R2 returns 204 on successful delete; tolerate 404 (already gone)
 	if (response.status !== 204 && response.status !== 404) {
 		const text = await response.text();
-		throw new Error(`R2 DELETE ${args.key} failed: ${response.status} ${response.statusText}\n${text}`);
+		throw new Error(
+			`R2 DELETE ${args.key} failed: ${response.status} ${response.statusText}\n${text}`,
+		);
 	}
 };
 
@@ -511,7 +539,13 @@ export function uploadAssets(
 							bucketName: args.bucketName,
 						})
 						.apply(
-							({ accountId, bucketName }: { accountId: string; bucketName: string }) => {
+							({
+								accountId,
+								bucketName,
+							}: {
+								accountId: string;
+								bucketName: string;
+							}) => {
 								const key = `com.cloudflare.edge.r2.bucket.${accountId}_default_${bucketName}`;
 								return JSON.stringify({ [key]: "*" });
 							},
@@ -526,15 +560,17 @@ export function uploadAssets(
 	const secretAccessKey = r2Token.value.apply(async (v: string) => {
 		// crypto is safe here — this runs in the Pulumi host process
 		// (not inside a serialized dynamic provider closure).
-		const nodeCrypto = (await import("node:crypto")) as typeof import("node:crypto");
+		const nodeCrypto = (await import(
+			"node:crypto"
+		)) as typeof import("node:crypto");
 		return nodeCrypto.createHash("sha256").update(v).digest("hex");
 	});
 
 	const assets: R2Object[] = [];
-	for (const file of args.files) {
-		const safeKey = file.key.toString().replace(/[^a-zA-Z0-9-_]/g, "-");
+	for (const [index, file] of args.files.entries()) {
+		const safeKey = String(file.key).replace(/[^a-zA-Z0-9-_]/g, "-");
 		const r2obj = new R2Object(
-			`${name}-asset-${safeKey}`,
+			`${name}-asset-${index}-${safeKey}`,
 			{
 				accountId: args.accountId,
 				bucketName: args.bucketName,
