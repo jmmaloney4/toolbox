@@ -163,8 +163,10 @@ export interface AssetFile {
 
 	/**
 	 * R2 object key (e.g., "index.html", "styles/main.css").
+	 * Must be a static string known at construction time — Pulumi resource
+	 * names cannot incorporate Output values.
 	 */
-	key: Input<string>;
+	key: string;
 
 	/**
 	 * MIME content type (e.g., "text/html; charset=utf-8").
