@@ -1,4 +1,5 @@
 import * as crypto from "node:crypto";
+import * as path from "node:path";
 import * as cloudflare from "@pulumi/cloudflare";
 import * as pulumi from "@pulumi/pulumi";
 import {
@@ -663,9 +664,7 @@ export function uploadAssets(
 
 const joinStaticAssetPath = (basePath: string, fileName: string): string => {
 	if (!basePath || basePath === "/") return fileName.replace(/^[\\/]+/, "");
-	const normalizedBasePath = basePath.replace(/[\\/]+$/, "");
-	const normalizedFileName = fileName.replace(/^[\\/]+/, "");
-	return `${normalizedBasePath}/${normalizedFileName}`;
+	return path.join(basePath, fileName);
 };
 
 /**
