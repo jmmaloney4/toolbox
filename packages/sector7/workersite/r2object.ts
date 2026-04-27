@@ -134,6 +134,7 @@ const signedFetch = async (
 	// Build fetch headers (must match canonical exactly)
 	const fetchHeaders: Record<string, string> = {
 		Authorization: authorization,
+		Host: host,
 		"X-Amz-Content-Sha256": payloadHash,
 		"X-Amz-Date": amzDate,
 	};
@@ -291,6 +292,14 @@ const tryReadFileSync = (
 // R2 operations via native S3 signing (no AWS SDK)
 // ---------------------------------------------------------------------------
 
+// RFC 3986 strict encoding: encodeURIComponent plus the characters
+// AWS Sig V4 requires for path segments but encodeURIComponent skips.
+// These characters are: ! ' ( ) *
+const rfc3986Encode = (s: string): string =>
+	encodeURIComponent(s).replace(/[!'()*]/g, (c) =>
+		`%${c.charCodeAt(0).toString(16).toUpperCase()}`,
+	);
+
 /** Upload a file to R2 and return the normalized ETag. */
 const uploadObjectToR2 = async (args: R2ObjectArgs): Promise<string> => {
 	const fs = (await import("node:fs")) as typeof import("node:fs");
@@ -308,7 +317,7 @@ const uploadObjectToR2 = async (args: R2ObjectArgs): Promise<string> => {
 		secretAccessKey,
 	} = args;
 	const body = fs.readFileSync(filePath);
-	const url = `https://${accountId}.r2.cloudflarestorage.com/${bucketName}/${key.split("/").map(encodeURIComponent).join("/")}`;
+	const url = `https://${accountId}.r2.cloudflarestorage.com/${bucketName}/${key.split("/").map(rfc3986Encode).join("/")}`;
 
 	const response = await signedFetch(
 		"PUT",
@@ -339,7 +348,7 @@ const deleteObjectFromR2 = async (args: {
 	accessKeyId: string;
 	secretAccessKey: string;
 }): Promise<void> => {
-	const url = `https://${args.accountId}.r2.cloudflarestorage.com/${args.bucketName}/${args.key.split("/").map(encodeURIComponent).join("/")}`;
+	const url = `https://${args.accountId}.r2.cloudflarestorage.com/${args.bucketName}/${args.key.split("/").map(rfc3986Encode).join("/")}`;
 	const response = await signedFetch("DELETE", url, {
 		accessKeyId: args.accessKeyId,
 		secretAccessKey: args.secretAccessKey,
