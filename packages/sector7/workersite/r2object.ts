@@ -141,7 +141,7 @@ const signedFetch = async (
 		fetchHeaders["Content-Type"] = contentType;
 	}
 
-	return fetch(url, {
+	return fetch(parsed.href, {
 		method,
 		headers: fetchHeaders,
 		body: body ? new Uint8Array(body) : undefined,
@@ -308,7 +308,7 @@ const uploadObjectToR2 = async (args: R2ObjectArgs): Promise<string> => {
 		secretAccessKey,
 	} = args;
 	const body = fs.readFileSync(filePath);
-	const url = `https://${accountId}.r2.cloudflarestorage.com/${bucketName}/${key}`;
+	const url = `https://${accountId}.r2.cloudflarestorage.com/${bucketName}/${key.split("/").map(encodeURIComponent).join("/")}`;
 
 	const response = await signedFetch(
 		"PUT",
@@ -339,7 +339,7 @@ const deleteObjectFromR2 = async (args: {
 	accessKeyId: string;
 	secretAccessKey: string;
 }): Promise<void> => {
-	const url = `https://${args.accountId}.r2.cloudflarestorage.com/${args.bucketName}/${args.key}`;
+	const url = `https://${args.accountId}.r2.cloudflarestorage.com/${args.bucketName}/${args.key.split("/").map(encodeURIComponent).join("/")}`;
 	const response = await signedFetch("DELETE", url, {
 		accessKeyId: args.accessKeyId,
 		secretAccessKey: args.secretAccessKey,
@@ -527,7 +527,7 @@ export function uploadAssets(
 				const optArr = Array.isArray(optDep) ? optDep : optDep ? [optDep] : [];
 				const argArr = Array.isArray(argDep) ? argDep : argDep ? [argDep] : [];
 				return [...optArr, ...argArr];
-			}) as unknown as Resource[],
+			}),
 	};
 
 	// Create a scoped R2 API token for uploads.
