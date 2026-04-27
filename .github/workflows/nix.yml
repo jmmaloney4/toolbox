@@ -24,13 +24,16 @@ on:
       REGISTRY_PASSWORD:
         description: 'Registry password/token (usually GITHUB_TOKEN)'
         required: false
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
+
 permissions:
   contents: read
   id-token: write
   packages: write
+
 jobs:
   detect:
     name: '☃️ detect flake outputs'
@@ -63,6 +66,7 @@ jobs:
           image_names=$(echo '${{ steps.compute.outputs.matrix_include }}' | jq -c '[ .[] | select(.is_image == true) | .name ]')
           echo "Found images: $image_names"
           echo "image_matrix=$image_names" >> "$GITHUB_OUTPUT"
+
   build:
     name: "👷‍♂️ ${{ matrix.category }}.${{ matrix.system }}.${{ matrix.name }}"
     needs: [detect]
@@ -89,7 +93,8 @@ jobs:
           attr='${{ matrix.flake_attr }}'
           echo "Building via nix-fast-build: $attr"
           # Build only missing (uncached) derivations, with CI-friendly logs and no out-link
-          nix-fast-build --skip-cached --no-nom --no-link --flake "$attr"
+          nix-fast-build --skip-cached --no-nom --no-link -j 2 --flake "$attr"
+
   push-images:
     name: "🐳 push ${{ matrix.package-name }}"
     needs: [detect, build]
