@@ -1,7 +1,5 @@
-import * as crypto from "node:crypto";
 import * as cloudflare from "@pulumi/cloudflare";
 import * as pulumi from "@pulumi/pulumi";
-import { R2Object } from "./r2object.ts";
 import {
 	generateWorkerScript,
 	type RedirectRule,
@@ -24,48 +22,6 @@ export interface PathConfig {
 	 * - "github-org": Require GitHub organization membership
 	 */
 	access: "public" | "bypass" | "github-org";
-}
-
-/**
- * A single static file to upload to R2 as a Pulumi-managed resource.
- */
-export interface AssetFile {
-	/**
-	 * Absolute path to the local file on disk.
-	 */
-	filePath: pulumi.Input<string>;
-
-	/**
-	 * R2 object key (e.g., "index.html", "styles/main.css").
-	 */
-	key: pulumi.Input<string>;
-
-	/**
-	 * MIME content type (e.g., "text/html; charset=utf-8").
-	 */
-	contentType: pulumi.Input<string>;
-}
-
-/**
- * Configuration for declarative R2 asset uploads.
- *
- * When provided, WorkerSite creates a scoped R2 API token and uploads each
- * listed file as a separate Pulumi dynamic resource.  Content changes are
- * detected via MD5 comparison against the stored ETag — no external binary
- * required.
- *
- * Notes
- * -----
- * The generated AccountToken is scoped to R2_BUCKET_ITEM_WRITE on the specific
- * bucket only.  Credentials are derived per Cloudflare's spec:
- *   accessKeyId     = token.id
- *   secretAccessKey = SHA-256(token.value)
- */
-export interface AssetConfig {
-	/**
-	 * Files to upload.  Each file becomes a separate Pulumi R2Object resource.
-	 */
-	files: AssetFile[];
 }
 
 /**
@@ -188,7 +144,7 @@ export interface WorkerObservabilityConfig {
  * - Optional path-level access control (Zero Trust; omit for fully public sites)
  * - R2 backend with Cache API
  * - Configurable cache TTL
- * - Optional declarative R2 asset uploads (AssetConfig)
+ * - Optional declarative R2 asset uploads via the `./workersite/r2` sub-path (ADR-014)
  * - Optional host-level redirect rules injected into the generated Worker script
  * - Optional custom Worker script with extra bindings
  */
@@ -307,13 +263,6 @@ export interface WorkerSiteArgs {
 	cacheTtlSeconds?: pulumi.Input<number>;
 
 	/**
-	 * Declarative R2 asset upload configuration.
-	 * When set, WorkerSite creates a scoped API token and uploads each file as
-	 * a separate Pulumi dynamic resource with MD5-based change detection.
-	 */
-	assets?: AssetConfig;
-
-	/**
 	 * Host-level HTTP redirect rules injected into the generated Worker script.
 	 * Evaluated before R2 serving.  Ignored when `workerScript` is set.
 	 *
@@ -340,11 +289,6 @@ export interface WorkerSiteArgs {
 	observability?: WorkerObservabilityConfig;
 }
 
-// Cloudflare permission group ID for R2 bucket item write access.
-// Used to scope the API token created for asset uploads.
-const R2_BUCKET_ITEM_WRITE_PERMISSION_GROUP_ID =
-	"2efd5506f9c8494dacb1fa10a3e7d5b6";
-
 /**
  * WorkerSite component for hosting static sites on Cloudflare Workers.
  *
@@ -353,12 +297,12 @@ const R2_BUCKET_ITEM_WRITE_PERMISSION_GROUP_ID =
  * - R2-backed Worker serving static files with Cache API
  * - Multiple domains via WorkersCustomDomain
  * - Optional Zero Trust access control per path
- * - Optional declarative R2 asset uploads
+ * - Optional declarative R2 asset uploads via the `./workersite/r2` sub-path (ADR-014)
  * - Optional host-level redirect rules
  * - Optional custom Worker script with extra bindings
  *
  * @example
- * Fully public site with asset upload and www redirect:
+ * Fully public site with www redirect:
  * ```typescript
  * const site = new WorkerSite("my-site", {
  *   accountId: "abc123",
@@ -367,12 +311,10 @@ const R2_BUCKET_ITEM_WRITE_PERMISSION_GROUP_ID =
  *   domains: ["example.com", "www.example.com"],
  *   r2Bucket: { bucketName: "my-site-assets", create: true },
  *   redirects: [{ fromHost: "www.example.com", toHost: "example.com" }],
- *   assets: {
- *     files: [
- *       { key: "index.html", filePath: "/dist/index.html", contentType: "text/html" },
- *     ],
- *   },
  * });
+ * // Upload assets separately via the r2 sub-path:
+ * // import { uploadAssets } from "@jmmaloney4/sector7/workersite/r2";
+ * // uploadAssets("my-site", { accountId, bucketName, files }, { parent: site });
  * ```
  *
  * @example
@@ -427,11 +369,6 @@ export class WorkerSite extends pulumi.ComponentResource {
 	 * GitHub auth is needed.
 	 */
 	public readonly githubIdp: cloudflare.ZeroTrustAccessIdentityProvider | undefined;
-
-	/**
-	 * Uploaded R2 objects (populated when assets is provided).
-	 */
-	public readonly uploadedAssets: R2Object[];
 
 	/**
 	 * The domains bound to the Worker.
@@ -707,69 +644,6 @@ export class WorkerSite extends pulumi.ComponentResource {
 			}
 		}
 
-		// 6. Upload static assets (optional)
-		this.uploadedAssets = [];
-
-		if (args.assets && args.assets.files.length > 0) {
-			// Create a scoped R2 API token for uploads.
-			// accessKeyId = token.id
-			// secretAccessKey = SHA-256(token.value)  (Cloudflare R2 S3-compat spec)
-			const r2Token = new cloudflare.AccountToken(
-				`${name}-r2-token`,
-				{
-					accountId: args.accountId,
-					name: pulumi.interpolate`${args.name}-r2-upload`,
-					policies: [
-						{
-							effect: "allow",
-							permissionGroups: [
-								{
-									id: R2_BUCKET_ITEM_WRITE_PERMISSION_GROUP_ID,
-								},
-							],
-							// The `resources` field identifies the R2 bucket the token may
-							// write to.  The Cloudflare API expects a JSON-encoded object
-							// (the Pulumi TS type correctly declares Input<string>), but
-							// the resource key MUST use "default" as the location segment
-							// regardless of the bucket's actual storage location.
-							resources: pulumi
-								.all([args.accountId, bucketName])
-								.apply(([acctId, bktName]: [string, string]) => {
-									const key = `com.cloudflare.edge.r2.bucket.${acctId}_default_${bktName}`;
-									return JSON.stringify({ [key]: "*" });
-								}),
-						},
-					],
-				},
-				resourceOpts,
-			);
-
-			const accessKeyId = r2Token.id;
-			const secretAccessKey = r2Token.value.apply((v: string) =>
-				crypto.createHash("sha256").update(v).digest("hex"),
-			);
-
-			for (const [index, file] of args.assets.files.entries()) {
-				const r2obj = new R2Object(
-					`${name}-asset-${index}`,
-					{
-						accountId: args.accountId,
-						bucketName: bucketName,
-						key: file.key,
-						filePath: file.filePath,
-						contentType: file.contentType,
-						accessKeyId,
-						secretAccessKey,
-					},
-					{
-						...resourceOpts,
-						dependsOn: [this.worker, ...(this.bucket ? [this.bucket] : [])],
-					},
-				);
-				this.uploadedAssets.push(r2obj);
-			}
-		}
-
 		// Outputs
 		this.boundDomains = pulumi.output(args.domains);
 		this.workerName = this.worker.scriptName;
@@ -780,7 +654,6 @@ export class WorkerSite extends pulumi.ComponentResource {
 			workerDomains: this.workerDomains,
 			accessApplications: this.accessApplications,
 			githubIdp: this.githubIdp,
-			uploadedAssets: this.uploadedAssets,
 			boundDomains: this.boundDomains,
 			workerName: this.workerName,
 		});
