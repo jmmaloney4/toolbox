@@ -1,11 +1,12 @@
 ---
 id: ADR-015
-title: "Replace Aws Sdk With Native S3 Signing"
+title: Replace Aws Sdk With Native S3 Signing
 status: proposed
 date: 2026-04-24
 ---
 
 # ADR 015: Replace Aws Sdk With Native S3 Signing
+
 *Date:* 2026-04-24
 *Status:* proposed
 

@@ -32,7 +32,7 @@ vi.mock("@pulumi/pulumi", () => ({
 	},
 }));
 
-import { R2Object } from "../workersite/r2object.ts";
+import { R2Object } from "../r2/r2object.ts";
 
 const createArgs = (filePath: string) => ({
 	accountId: "account-123",

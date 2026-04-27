@@ -1,3 +1,5 @@
+import * as crypto from "node:crypto";
+import * as path from "node:path";
 import * as cloudflare from "@pulumi/cloudflare";
 import * as pulumi from "@pulumi/pulumi";
 import {
@@ -176,6 +178,30 @@ export interface AssetFile {
 }
 
 /**
+ * Static-site file descriptor for `uploadStaticAssets`.
+ */
+export type StaticAssetFile =
+	| {
+			/** R2 object key and, by default, the path below `basePath`. */
+			key: string;
+			/** Optional path below `basePath` when it differs from `key`. */
+			fileName?: string;
+			/** MIME content type (e.g. "text/html; charset=utf-8"). */
+			contentType: Input<string>;
+	  }
+	| {
+			/**
+			 * Existing static-site file name. Used as the R2 object key and, by
+			 * default, the path below `basePath`.
+			 */
+			name: string;
+			/** Optional path below `basePath` when it differs from `name`. */
+			fileName?: string;
+			/** MIME content type (e.g. "text/html; charset=utf-8"). */
+			contentType: Input<string>;
+	  };
+
+/**
  * Configuration for declarative R2 asset uploads.
  *
  * When provided, `uploadAssets` creates a scoped R2 API token and uploads each
@@ -233,6 +259,22 @@ export interface UploadAssetsArgs {
 	bucketName: Input<string>;
 	/** Files to upload. */
 	files: AssetFile[];
+	/** Resource dependencies (e.g. the Worker and bucket). */
+	dependsOn?: Input<Input<Resource>[]>;
+}
+
+/**
+ * Arguments for `uploadStaticAssets`.
+ */
+export interface UploadStaticAssetsArgs {
+	/** Cloudflare account ID. */
+	accountId: Input<string>;
+	/** Name of the R2 bucket to upload to. */
+	bucketName: Input<string>;
+	/** Directory containing the static-site files. */
+	basePath: string;
+	/** Files to upload from `basePath`. */
+	files: StaticAssetFile[];
 	/** Resource dependencies (e.g. the Worker and bucket). */
 	dependsOn?: Input<Input<Resource>[]>;
 }
@@ -296,8 +338,9 @@ const tryReadFileSync = (
 // AWS Sig V4 requires for path segments but encodeURIComponent skips.
 // These characters are: ! ' ( ) *
 const rfc3986Encode = (s: string): string =>
-	encodeURIComponent(s).replace(/[!'()*]/g, (c) =>
-		`%${c.charCodeAt(0).toString(16).toUpperCase()}`,
+	encodeURIComponent(s).replace(
+		/[!'()*]/g,
+		(c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
 	);
 
 /** Upload a file to R2 and return the normalized ETag. */
@@ -510,10 +553,10 @@ const R2_BUCKET_ITEM_WRITE_PERMISSION_GROUP_ID =
  * `R2Object` dynamic resource with MD5-based change detection.
  * Returns the created `R2Object` instances.
  *
- * This function lives on the `./workersite/r2` sub-path to isolate the
- * R2 upload concern from consumers that only need `WorkerSite`
- * infrastructure (ADR-014).  No external dependencies are required —
- * S3 signing is implemented natively via node:crypto + fetch (ADR-015).
+ * This function lives on the `./r2` sub-path to isolate the R2 upload concern
+ * from consumers that only need `WorkerSite` infrastructure (ADR-014).  No
+ * external dependencies are required — S3 signing is implemented natively via
+ * node:crypto + fetch (ADR-015).
  *
  * @param name - Pulumi resource name prefix.
  * @param args - Upload configuration (account, bucket, files).
@@ -587,10 +630,19 @@ export function uploadAssets(
 	});
 
 	const assets: R2Object[] = [];
-	for (const [index, file] of args.files.entries()) {
-		const safeKey = file.key.replace(/[^a-zA-Z0-9-_]/g, "-");
+	for (let index = 0; index < args.files.length; index++) {
+		const file = args.files[index];
+		// Use a short SHA-256 hash of the key as the resource identifier.
+		// This is stable across reorders (unlike array index) and unique
+		// in practice for any realistic number of assets.
+		const keyHash = crypto
+			.createHash("sha256")
+			.update(file.key)
+			.digest("hex")
+			.slice(0, 12);
+		const safeKey = file.key.replace(/[^a-zA-Z0-9-_]/g, "-").slice(0, 64);
 		const r2obj = new R2Object(
-			`${name}-asset-${index}-${safeKey}`,
+			`${name}-asset-${keyHash}-${safeKey}`,
 			{
 				accountId: args.accountId,
 				bucketName: args.bucketName,
@@ -608,4 +660,39 @@ export function uploadAssets(
 	}
 
 	return assets;
+}
+
+const joinStaticAssetPath = (basePath: string, fileName: string): string => {
+	if (!basePath || basePath === "/") return fileName.replace(/^[\\/]+/, "");
+	return path.join(basePath, fileName);
+};
+
+/**
+ * Upload static-site assets from a common base directory.
+ *
+ * This is a convenience wrapper around `uploadAssets` for the common case where
+ * R2 object keys map directly to files below a site output directory.
+ */
+export function uploadStaticAssets(
+	name: string,
+	args: UploadStaticAssetsArgs,
+	opts?: ComponentResourceOptions,
+): R2Object[] {
+	return uploadAssets(
+		name,
+		{
+			accountId: args.accountId,
+			bucketName: args.bucketName,
+			files: args.files.map((file) => {
+				const key = "key" in file ? file.key : file.name;
+				return {
+					key,
+					filePath: joinStaticAssetPath(args.basePath, file.fileName ?? key),
+					contentType: file.contentType,
+				};
+			}),
+			dependsOn: args.dependsOn,
+		},
+		opts,
+	);
 }

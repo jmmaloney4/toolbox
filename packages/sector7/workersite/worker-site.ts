@@ -144,7 +144,7 @@ export interface WorkerObservabilityConfig {
  * - Optional path-level access control (Zero Trust; omit for fully public sites)
  * - R2 backend with Cache API
  * - Configurable cache TTL
- * - Optional declarative R2 asset uploads via the `./workersite/r2` sub-path (ADR-014)
+ * - Optional declarative R2 asset uploads via the sibling `./r2` sub-path (ADR-014)
  * - Optional host-level redirect rules injected into the generated Worker script
  * - Optional custom Worker script with extra bindings
  */
@@ -297,7 +297,7 @@ export interface WorkerSiteArgs {
  * - R2-backed Worker serving static files with Cache API
  * - Multiple domains via WorkersCustomDomain
  * - Optional Zero Trust access control per path
- * - Optional declarative R2 asset uploads via the `./workersite/r2` sub-path (ADR-014)
+ * - Optional declarative R2 asset uploads via the sibling `./r2` sub-path (ADR-014)
  * - Optional host-level redirect rules
  * - Optional custom Worker script with extra bindings
  *
@@ -313,7 +313,7 @@ export interface WorkerSiteArgs {
  *   redirects: [{ fromHost: "www.example.com", toHost: "example.com" }],
  * });
  * // Upload assets separately via the r2 sub-path:
- * // import { uploadAssets } from "@jmmaloney4/sector7/workersite/r2";
+ * // import { uploadAssets } from "@jmmaloney4/sector7/r2";
  * // uploadAssets("my-site", { accountId, bucketName, files }, { parent: site });
  * ```
  *
@@ -368,7 +368,9 @@ export class WorkerSite extends pulumi.ComponentResource {
 	 * Undefined when using a pre-existing `githubIdentityProviderId` or when no
 	 * GitHub auth is needed.
 	 */
-	public readonly githubIdp: cloudflare.ZeroTrustAccessIdentityProvider | undefined;
+	public readonly githubIdp:
+		| cloudflare.ZeroTrustAccessIdentityProvider
+		| undefined;
 
 	/**
 	 * The domains bound to the Worker.
@@ -591,11 +593,11 @@ export class WorkerSite extends pulumi.ComponentResource {
 					const policyIncludes =
 						pathConfig.access === "public" || pathConfig.access === "bypass"
 							? [{ everyone: {} }]
-						: pulumi
-								.all([
-									pulumi.all(args.githubOrganizations ?? []),
-									githubIdentityProviderId ?? "",
-								])
+							: pulumi
+									.all([
+										pulumi.all(args.githubOrganizations ?? []),
+										githubIdentityProviderId ?? "",
+									])
 									.apply(
 										([orgs, idpId]: [string[], string]) =>
 											orgs.map((org: string) => ({
