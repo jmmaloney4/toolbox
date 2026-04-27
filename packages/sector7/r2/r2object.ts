@@ -633,7 +633,7 @@ export function uploadAssets(
 		// Include index to guarantee unique resource names even when keys
 		// differ only in chars that sanitize identically (e.g.
 		// "assets/main.css" vs "assets-main.css").
-		const safeKey = file.key.replace(/[^a-zA-Z0-9]/g, "").slice(0, 24);
+		const safeKey = file.key.replace(/[^a-zA-Z0-9-_]/g, "-").slice(0, 64);
 		const r2obj = new R2Object(
 			`${name}-asset-${index}-${safeKey}`,
 			{
@@ -658,7 +658,9 @@ export function uploadAssets(
 const joinStaticAssetPath = (basePath: string, fileName: string): string => {
 	const normalizedBasePath = basePath.replace(/[\\/]+$/, "");
 	const normalizedFileName = fileName.replace(/^[\\/]+/, "");
-	return `${normalizedBasePath}/${normalizedFileName}`;
+	return normalizedBasePath
+		? `${normalizedBasePath}/${normalizedFileName}`
+		: normalizedFileName;
 };
 
 /**
