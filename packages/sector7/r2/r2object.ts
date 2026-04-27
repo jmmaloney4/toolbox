@@ -630,9 +630,12 @@ export function uploadAssets(
 	const assets: R2Object[] = [];
 	for (let index = 0; index < args.files.length; index++) {
 		const file = args.files[index];
-		const safeKey = file.key.replace(/[^a-zA-Z0-9-_]/g, "-");
+		// Include index to guarantee unique resource names even when keys
+		// differ only in chars that sanitize identically (e.g.
+		// "assets/main.css" vs "assets-main.css").
+		const safeKey = file.key.replace(/[^a-zA-Z0-9]/g, "").slice(0, 24);
 		const r2obj = new R2Object(
-			`${name}-asset-${safeKey}`,
+			`${name}-asset-${index}-${safeKey}`,
 			{
 				accountId: args.accountId,
 				bucketName: args.bucketName,
