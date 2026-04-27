@@ -6,16 +6,16 @@
 import * as workersite from "./index.ts";
 
 // @ts-expect-error — R2Object lives on the sibling ./r2 sub-path only
-const r2ObjectGuard = workersite.R2Object;
+const _r2ObjectGuard = workersite.R2Object;
 
 // @ts-expect-error — AssetFile lives on the sibling ./r2 sub-path only
-type AssetFileGuard = workersite.AssetFile;
+type _AssetFileGuard = workersite.AssetFile;
 
 // @ts-expect-error — AssetConfig lives on the sibling ./r2 sub-path only
-type AssetConfigGuard = workersite.AssetConfig;
+type _AssetConfigGuard = workersite.AssetConfig;
 
 // @ts-expect-error — uploadAssets lives on the sibling ./r2 sub-path only
-const uploadAssetsGuard = workersite.uploadAssets;
+const _uploadAssetsGuard = workersite.uploadAssets;
 
 // @ts-expect-error — uploadStaticAssets lives on the sibling ./r2 sub-path only
-const uploadStaticAssetsGuard = workersite.uploadStaticAssets;
+const _uploadStaticAssetsGuard = workersite.uploadStaticAssets;

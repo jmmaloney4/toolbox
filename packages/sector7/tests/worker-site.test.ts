@@ -1,5 +1,5 @@
 import * as pulumi from "@pulumi/pulumi";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { WorkerSite } from "../workersite/worker-site";
 
 type MockResource = {

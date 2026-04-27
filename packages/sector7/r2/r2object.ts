@@ -1,3 +1,4 @@
+import * as crypto from "node:crypto";
 import * as cloudflare from "@pulumi/cloudflare";
 import * as pulumi from "@pulumi/pulumi";
 import {
@@ -630,12 +631,17 @@ export function uploadAssets(
 	const assets: R2Object[] = [];
 	for (let index = 0; index < args.files.length; index++) {
 		const file = args.files[index];
-		// Include index to guarantee unique resource names even when keys
-		// differ only in chars that sanitize identically (e.g.
-		// "assets/main.css" vs "assets-main.css").
+		// Use a short SHA-256 hash of the key as the resource identifier.
+		// This is stable across reorders (unlike array index) and unique
+		// in practice for any realistic number of assets.
+		const keyHash = crypto
+			.createHash("sha256")
+			.update(file.key)
+			.digest("hex")
+			.slice(0, 12);
 		const safeKey = file.key.replace(/[^a-zA-Z0-9-_]/g, "-").slice(0, 64);
 		const r2obj = new R2Object(
-			`${name}-asset-${index}-${safeKey}`,
+			`${name}-asset-${keyHash}-${safeKey}`,
 			{
 				accountId: args.accountId,
 				bucketName: args.bucketName,
@@ -656,11 +662,10 @@ export function uploadAssets(
 }
 
 const joinStaticAssetPath = (basePath: string, fileName: string): string => {
+	if (!basePath || basePath === "/") return fileName.replace(/^[\\/]+/, "");
 	const normalizedBasePath = basePath.replace(/[\\/]+$/, "");
 	const normalizedFileName = fileName.replace(/^[\\/]+/, "");
-	return normalizedBasePath
-		? `${normalizedBasePath}/${normalizedFileName}`
-		: normalizedFileName;
+	return `${normalizedBasePath}/${normalizedFileName}`;
 };
 
 /**
