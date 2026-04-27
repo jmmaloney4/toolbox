@@ -323,10 +323,10 @@ You must create a GitHub OAuth App at https://github.com/settings/developers wit
 
 See [Asset uploads](#asset-uploads) for usage. Available from `@jmmaloney4/sector7/r2`.
 
-| Helper               | File type           | Description                                     |
-| -------------------- | ------------------- | ----------------------------------------------- |
-| `uploadAssets`       | `AssetFile[]`       | Upload files with explicit absolute `filePath`s |
-| `uploadStaticAssets` | `StaticAssetFile[]` | Upload files from a common `basePath` directory |
+| Helper               | File type           | Description                                                                                          |
+| -------------------- | ------------------- | ---------------------------------------------------------------------------------------------------- |
+| `uploadAssets`       | `AssetFile[]`       | Upload files with explicit absolute `filePath`s                                                      |
+| `uploadStaticAssets` | `StaticAssetFile[]` | Upload files from a common `basePath` directory; accepts either `key` or existing `name` descriptors |
 
 ### `WorkerScriptConfig`
 

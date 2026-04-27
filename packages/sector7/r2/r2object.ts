@@ -178,22 +178,26 @@ export interface AssetFile {
 /**
  * Static-site file descriptor for `uploadStaticAssets`.
  */
-export interface StaticAssetFile {
-	/**
-	 * R2 object key and, by default, the path below `basePath`.
-	 */
-	key: string;
-
-	/**
-	 * Optional path below `basePath` when it differs from `key`.
-	 */
-	fileName?: string;
-
-	/**
-	 * MIME content type (e.g. "text/html; charset=utf-8").
-	 */
-	contentType: Input<string>;
-}
+export type StaticAssetFile =
+	| {
+			/** R2 object key and, by default, the path below `basePath`. */
+			key: string;
+			/** Optional path below `basePath` when it differs from `key`. */
+			fileName?: string;
+			/** MIME content type (e.g. "text/html; charset=utf-8"). */
+			contentType: Input<string>;
+	  }
+	| {
+			/**
+			 * Existing static-site file name. Used as the R2 object key and, by
+			 * default, the path below `basePath`.
+			 */
+			name: string;
+			/** Optional path below `basePath` when it differs from `name`. */
+			fileName?: string;
+			/** MIME content type (e.g. "text/html; charset=utf-8"). */
+			contentType: Input<string>;
+	  };
 
 /**
  * Configuration for declarative R2 asset uploads.
@@ -670,11 +674,14 @@ export function uploadStaticAssets(
 		{
 			accountId: args.accountId,
 			bucketName: args.bucketName,
-			files: args.files.map((file) => ({
-				key: file.key,
-				filePath: joinStaticAssetPath(args.basePath, file.fileName ?? file.key),
-				contentType: file.contentType,
-			})),
+			files: args.files.map((file) => {
+				const key = "key" in file ? file.key : file.name;
+				return {
+					key,
+					filePath: joinStaticAssetPath(args.basePath, file.fileName ?? key),
+					contentType: file.contentType,
+				};
+			}),
 			dependsOn: args.dependsOn,
 		},
 		opts,
