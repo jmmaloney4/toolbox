@@ -50,6 +50,7 @@ infrastructure and stays in WorkerSite.
    ```
 
    Key locations:
+
    - Line 4: `import { R2Object } from "./r2object.ts"`
    - `WorkerSiteArgs.assets` property (the `AssetConfig` input)
    - Line 434: `public readonly uploadedAssets: R2Object[]`
@@ -149,6 +150,7 @@ infrastructure and stays in WorkerSite.
    ```
 
    Confirm:
+
    - `worker-site.ts` has zero references to `R2Object`
    - `r2object.ts` uses static imports, no `typeof import()` casts
    - Main barrel does not re-export anything from r2 sub-path
@@ -180,6 +182,7 @@ Theoretical Edge and other consumers in `garden` currently pass `assets` to
    instantiations.
 
 2. For each consumer:
+
    - Remove `assets` from `WorkerSiteArgs`
    - Add `import { uploadAssets } from "@jmmaloney4/sector7/workersite/r2"`
    - After WorkerSite creation, call:

@@ -1,6 +1,6 @@
 ---
 id: ADR-014
-title: "Decouple R2 From WorkerSite"
+title: Decouple R2 From WorkerSite
 status: proposed
 date: 2026-04-24
 ---

@@ -22,6 +22,7 @@ The `WorkerSite` component (ADR-005, extended by ADR-011) generates a Cloudflare
 2. **AccountToken `resources` key format**: The Cloudflare API resource identifier for R2 buckets always uses `default` as the location segment (`com.cloudflare.edge.r2.bucket.{accountId}_default_{bucketName}`), regardless of the bucket's actual storage location (e.g. `ENAM`). Using the actual location produces the error `R2 Buckets are invalid`.
 
 The hand-rolled `cavinsresearch.io` code avoided both issues by:
+
 - Using esbuild (`--format=esm`) to compile a `.ts` worker file, piping stdout to `workerBuild.stdout` as script content. The compiled output presumably signaled ESM correctly.
 - Hardcoding `_default_` as the location segment in the resources key.
 

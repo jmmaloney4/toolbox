@@ -1,6 +1,6 @@
 # WorkerSite
 
-`WorkerSite` is a Pulumi `ComponentResource` for hosting static sites on Cloudflare Workers with R2 storage, optional Cloudflare Access protection, and custom-domain bindings. R2 asset uploads are available via the separate `./workersite/r2` sub-path (ADR-014).
+`WorkerSite` is a Pulumi `ComponentResource` for hosting static sites on Cloudflare Workers with R2 storage, optional Cloudflare Access protection, and custom-domain bindings. R2 asset uploads are available via the sibling `./r2` sub-path (ADR-014).
 
 ## Features
 
@@ -8,7 +8,7 @@
 - Multiple domains via `WorkersCustomDomain`
 - DNS managed automatically by Cloudflare custom-domain bindings
 - Optional path-level Cloudflare Access policies
-- Optional declarative R2 uploads via the `./workersite/r2` sub-path during `pulumi up`
+- Optional declarative R2 uploads via the sibling `./r2` sub-path during `pulumi up`
 - Optional host redirects in the generated Worker script
 - Optional custom Worker script with extra plain-text bindings
 - Default Cloudflare Worker observability with configurable request/log sampling
@@ -56,7 +56,7 @@ export const boundDomains = site.boundDomains;
 
 ```typescript
 import { WorkerSite } from "@jmmaloney4/sector7/workersite";
-import { uploadAssets } from "@jmmaloney4/sector7/workersite/r2";
+import { uploadStaticAssets } from "@jmmaloney4/sector7/r2";
 
 const site = new WorkerSite("docs-site", {
   accountId: "your-cloudflare-account-id",
@@ -69,20 +69,13 @@ const site = new WorkerSite("docs-site", {
   },
 });
 
-uploadAssets("docs-site", {
+uploadStaticAssets("docs-site", {
   accountId: "your-cloudflare-account-id",
-  bucketName: "docs-site-assets",
+  bucketName: site.bucket!.name,
+  basePath: "/absolute/path/to/dist",
   files: [
-    {
-      key: "index.html",
-      filePath: "/absolute/path/to/dist/index.html",
-      contentType: "text/html; charset=utf-8",
-    },
-    {
-      key: "styles.css",
-      filePath: "/absolute/path/to/dist/styles.css",
-      contentType: "text/css; charset=utf-8",
-    },
+    { key: "index.html", contentType: "text/html; charset=utf-8" },
+    { key: "styles.css", contentType: "text/css; charset=utf-8" },
   ],
   dependsOn: [site.worker],
 }, { parent: site });
@@ -229,7 +222,7 @@ After adding this config, `pulumi preview` should show an `observability` block 
 4. An optional `cloudflare.ZeroTrustAccessIdentityProvider` when `githubOAuthConfig` is provided
 5. Zero or more `cloudflare.ZeroTrustAccessApplication` resources, one per `(domain, path)` combination when `paths` is provided
 
-When using `uploadAssets` from the `./workersite/r2` sub-path, an additional `cloudflare.AccountToken` and one `R2Object` per file are created.
+When using `uploadAssets` from the sibling `./r2` sub-path, an additional `cloudflare.AccountToken` and one `R2Object` per file are created.
 
 ## Access control model
 
@@ -242,10 +235,10 @@ Cloudflare Access enforces authorization before requests reach the Worker. The W
 
 ## Asset uploads
 
-R2 asset uploads are managed via `uploadAssets` from the `./workersite/r2` sub-path, decoupled from `WorkerSite` (ADR-014). S3-compatible signing is implemented natively via `node:crypto` + `fetch` — no external SDK required (ADR-015).
+R2 asset uploads are managed via `uploadAssets` or `uploadStaticAssets` from the sibling `./r2` sub-path, decoupled from `WorkerSite` (ADR-014). S3-compatible signing is implemented natively via `node:crypto` + `fetch` — no external SDK required (ADR-015).
 
 ```typescript
-import { uploadAssets } from "@jmmaloney4/sector7/workersite/r2";
+import { uploadAssets } from "@jmmaloney4/sector7/r2";
 
 uploadAssets("my-site", {
   accountId: "your-account-id",
@@ -289,23 +282,23 @@ redirects: [
 
 ### `WorkerSiteArgs`
 
-| Field                      | Type                        | Required    | Description                                          |
-| -------------------------- | --------------------------- | ----------- | ---------------------------------------------------- |
-| `accountId`                | `string`                    | Yes         | Cloudflare account ID                                |
-| `zoneId`                   | `string`                    | Yes         | Cloudflare zone ID required by `WorkersCustomDomain` |
-| `name`                     | `string`                    | Yes         | Name for the Worker and related resources            |
-| `domains`                  | `string[]`                  | Yes         | Hostnames to bind to the Worker                      |
-| `r2Bucket.bucketName`      | `string`                    | Yes         | R2 bucket name                                       |
-| `r2Bucket.create`          | `boolean`                   | No          | Create the bucket if it does not already exist       |
-| `r2Bucket.prefix`          | `string`                    | No          | Prefix prepended to generated-script object lookups  |
-| `githubIdentityProviderId` | `string`                    | Conditional | Pre-existing GitHub IDP UUID; mutually exclusive with `githubOAuthConfig` |
+| Field                      | Type                        | Required    | Description                                                                  |
+| -------------------------- | --------------------------- | ----------- | ---------------------------------------------------------------------------- |
+| `accountId`                | `string`                    | Yes         | Cloudflare account ID                                                        |
+| `zoneId`                   | `string`                    | Yes         | Cloudflare zone ID required by `WorkersCustomDomain`                         |
+| `name`                     | `string`                    | Yes         | Name for the Worker and related resources                                    |
+| `domains`                  | `string[]`                  | Yes         | Hostnames to bind to the Worker                                              |
+| `r2Bucket.bucketName`      | `string`                    | Yes         | R2 bucket name                                                               |
+| `r2Bucket.create`          | `boolean`                   | No          | Create the bucket if it does not already exist                               |
+| `r2Bucket.prefix`          | `string`                    | No          | Prefix prepended to generated-script object lookups                          |
+| `githubIdentityProviderId` | `string`                    | Conditional | Pre-existing GitHub IDP UUID; mutually exclusive with `githubOAuthConfig`    |
 | `githubOAuthConfig`        | `GithubOAuthConfig`         | Conditional | Auto-create a GitHub IDP; mutually exclusive with `githubIdentityProviderId` |
-| `githubOrganizations`      | `string[]`                  | Conditional | Required when a path uses `github-org`               |
-| `paths`                    | `PathConfig[]`              | No          | Access-control rules; omit for fully public sites    |
-| `cacheTtlSeconds`          | `number`                    | No          | Cache TTL for generated Worker responses             |
-| `redirects`                | `RedirectRule[]`            | No          | Host redirects for the generated Worker              |
-| `workerScript`             | `WorkerScriptConfig`        | No          | Custom Worker source and extra bindings              |
-| `observability`            | `WorkerObservabilityConfig` | No          | Worker observability and log sampling settings       |
+| `githubOrganizations`      | `string[]`                  | Conditional | Required when a path uses `github-org`                                       |
+| `paths`                    | `PathConfig[]`              | No          | Access-control rules; omit for fully public sites                            |
+| `cacheTtlSeconds`          | `number`                    | No          | Cache TTL for generated Worker responses                                     |
+| `redirects`                | `RedirectRule[]`            | No          | Host redirects for the generated Worker                                      |
+| `workerScript`             | `WorkerScriptConfig`        | No          | Custom Worker source and extra bindings                                      |
+| `observability`            | `WorkerObservabilityConfig` | No          | Worker observability and log sampling settings                               |
 
 ### `GithubOAuthConfig`
 
@@ -326,13 +319,14 @@ You must create a GitHub OAuth App at https://github.com/settings/developers wit
 | `pattern` | `string`                   | Yes      | Path pattern such as `/blog/*` |
 | `access`  | `"public" \| "github-org"` | Yes      | Access mode for the path       |
 
-### `AssetConfig` (via `./workersite/r2`)
+### R2 upload config (via `./r2`)
 
-See [Asset uploads](#asset-uploads) for usage. Available from `@jmmaloney4/sector7/workersite/r2`.
+See [Asset uploads](#asset-uploads) for usage. Available from `@jmmaloney4/sector7/r2`.
 
-| Field   | Type          | Required | Description                            |
-| ------- | ------------- | -------- | -------------------------------------- |
-| `files` | `AssetFile[]` | Yes      | Files uploaded to R2 during deployment |
+| Helper               | File type           | Description                                     |
+| -------------------- | ------------------- | ----------------------------------------------- |
+| `uploadAssets`       | `AssetFile[]`       | Upload files with explicit absolute `filePath`s |
+| `uploadStaticAssets` | `StaticAssetFile[]` | Upload files from a common `basePath` directory |
 
 ### `WorkerScriptConfig`
 
@@ -357,19 +351,19 @@ See [Asset uploads](#asset-uploads) for usage. Available from `@jmmaloney4/secto
 
 WorkerSite creates the following Cloudflare resources, and the API token must have permissions for all of them:
 
-| Resource created by WorkerSite                              | Required token permission (Account) |
-| ----------------------------------------------------------- | ----------------------------------- |
-| `cloudflare.R2Bucket` (when `r2Bucket.create` is true)     | R2: Edit                            |
-| `cloudflare.WorkersScript`                                  | Workers Scripts: Edit               |
-| `cloudflare.WorkersCustomDomain`                            | Workers Routes: Edit                |
-| `cloudflare.ZeroTrustAccessIdentityProvider` (when `githubOAuthConfig` is set) | Access: Identity Providers: Edit |
-| `cloudflare.ZeroTrustAccessApplication` (when `paths` is set) | Access: Apps and Policies: Edit  |
+| Resource created by WorkerSite                                                 | Required token permission (Account) |
+| ------------------------------------------------------------------------------ | ----------------------------------- |
+| `cloudflare.R2Bucket` (when `r2Bucket.create` is true)                         | R2: Edit                            |
+| `cloudflare.WorkersScript`                                                     | Workers Scripts: Edit               |
+| `cloudflare.WorkersCustomDomain`                                               | Workers Routes: Edit                |
+| `cloudflare.ZeroTrustAccessIdentityProvider` (when `githubOAuthConfig` is set) | Access: Identity Providers: Edit    |
+| `cloudflare.ZeroTrustAccessApplication` (when `paths` is set)                  | Access: Apps and Policies: Edit     |
 
-When using `uploadAssets` from the `./workersite/r2` sub-path:
+When using `uploadAssets` from the sibling `./r2` sub-path:
 
-| Resource created by uploadAssets         | Required token permission (Account) |
-| ---------------------------------------- | ----------------------------------- |
-| `cloudflare.AccountToken`                | Account Settings: Read              |
+| Resource created by uploadAssets | Required token permission (Account) |
+| -------------------------------- | ----------------------------------- |
+| `cloudflare.AccountToken`        | Account Settings: Read              |
 
 **Zone-level:**
 
@@ -382,6 +376,7 @@ When using `uploadAssets` from the `./workersite/r2` sub-path:
 Create a **Custom Token** in the Cloudflare dashboard (My Profile > API Tokens > Create Token) with:
 
 Account-level permissions (scoped to the target account):
+
 - Workers Scripts: Edit
 - Workers Routes: Edit
 - R2: Edit
@@ -390,9 +385,10 @@ Account-level permissions (scoped to the target account):
 - Account Settings: Read
 
 Zone-level permissions (scoped to the target zone):
+
 - Workers Routes: Edit
 
-If you do not use `paths` (fully public site), you can omit the Access permissions. Account Settings: Read is only needed when using `uploadAssets` from the `./workersite/r2` sub-path.
+If you do not use `paths` (fully public site), you can omit the Access permissions. Account Settings: Read is only needed when using `uploadAssets` from the sibling `./r2` sub-path.
 
 ## Troubleshooting
 

@@ -2,26 +2,6 @@ import * as pulumi from "@pulumi/pulumi";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { WorkerSite } from "../workersite/worker-site";
 
-// Replace R2Object (dynamic.Resource) with a plain CustomResource so that
-// Pulumi's closure serializer is never invoked in the Vitest environment.
-// Vitest rewrites import() to __vite_ssr_dynamic_import__ (a captured-this
-// closure) which Pulumi cannot serialize, causing unhandled rejections even
-// though all test assertions pass.  Using a CustomResource bypasses the
-// dynamic-provider serialization path entirely while still going through the
-// Pulumi mock (newResource callback).
-vi.mock("../workersite/r2object.ts", () => ({
-	R2Object: class MockR2Object extends pulumi.CustomResource {
-		public readonly etag!: pulumi.Output<string>;
-		constructor(
-			name: string,
-			args: Record<string, unknown>,
-			opts?: pulumi.CustomResourceOptions,
-		) {
-			super("sector7:r2:R2Object", name, { etag: undefined, ...args }, opts);
-		}
-	},
-}));
-
 type MockResource = {
 	type: string;
 	name: string;
@@ -317,36 +297,6 @@ describe("WorkerSite", () => {
 		).toThrow("zoneId is required because WorkersCustomDomain depends on it");
 	});
 
-	it("passes AccountToken resource scopes as a string for asset uploads", async () => {
-		const site = new WorkerSite("asset-site", {
-			accountId: "account-123",
-			zoneId: "zone-123",
-			name: "asset-site",
-			domains: ["assets.example.com"],
-			r2Bucket: { bucketName: "asset-site-assets" },
-			assets: {
-				files: [
-					{
-						key: "index.html",
-						filePath: "/tmp/index.html",
-						contentType: "text/html; charset=utf-8",
-					},
-				],
-			},
-		});
-
-		await resolveOutput(site.worker.id);
-		await resolveOutput(site.uploadedAssets[0].id);
-
-		const token = byName("-r2-token")[0];
-		const policies = token.inputs.policies as Array<Record<string, unknown>>;
-		const resourcesInput = policies[0].resources as pulumi.Input<string>;
-
-		expect(await resolveOutput(resourcesInput)).toBe(
-			'{"com.cloudflare.edge.r2.bucket.account-123_default_asset-site-assets":"*"}',
-		);
-	});
-
 	it("allows overriding worker observability settings", async () => {
 		const site = new WorkerSite("observability-site", {
 			accountId: "account-123",
@@ -489,9 +439,7 @@ describe("WorkerSite", () => {
 			name: "no-idp-site",
 			domains: ["no-idp.example.com"],
 			r2Bucket: { bucketName: "no-idp-assets" },
-			paths: [
-				{ pattern: "/", access: "bypass" },
-			],
+			paths: [{ pattern: "/", access: "bypass" }],
 		});
 
 		await resolveOutput(site.worker.id);
