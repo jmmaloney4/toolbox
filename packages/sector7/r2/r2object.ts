@@ -632,7 +632,7 @@ export function uploadAssets(
 		const file = args.files[index];
 		const safeKey = file.key.replace(/[^a-zA-Z0-9-_]/g, "-");
 		const r2obj = new R2Object(
-			`${name}-asset-${index}-${safeKey}`,
+			`${name}-asset-${safeKey}`,
 			{
 				accountId: args.accountId,
 				bucketName: args.bucketName,

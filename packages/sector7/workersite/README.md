@@ -71,6 +71,8 @@ const site = new WorkerSite("docs-site", {
 
 uploadStaticAssets("docs-site", {
   accountId: "your-cloudflare-account-id",
+  // When r2Bucket.create is true, use site.bucket!.name.
+  // When binding an existing bucket, pass the same bucketName string directly.
   bucketName: site.bucket!.name,
   basePath: "/absolute/path/to/dist",
   files: [
