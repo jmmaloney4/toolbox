@@ -18,9 +18,37 @@ NAMESPACE="${INPUT_NAMESPACE}"
 PACKAGE="${INPUT_PACKAGE_NAME}"
 SYSTEM="${INPUT_SYSTEM:-x86_64-linux}"
 TAGS="${INPUT_TAGS}"
-# Use GITHUB_ACTOR if username not provided
-USERNAME="${INPUT_REGISTRY_USERNAME:-${GITHUB_ACTOR:-}}"
-PASSWORD="${INPUT_REGISTRY_PASSWORD}"
+
+# Determine authentication method
+if [ "${INPUT_USE_GCP_AUTH:-false}" = "true" ]; then
+  echo "🔐 Using GCP OIDC authentication"
+  
+  # Verify gcloud is available
+  if ! command -v gcloud &> /dev/null; then
+    echo "❌ Error: gcloud CLI not found but GCP auth requested" >&2
+    echo "   Ensure the gcp-auth action ran before this step" >&2
+    exit 1
+  fi
+  
+  # Get access token from gcloud
+  USERNAME="oauth2accesstoken"
+  if ! PASSWORD="$(gcloud auth print-access-token 2>&1)"; then
+    echo "❌ Error: Failed to get GCP access token" >&2
+    echo "   Output: $PASSWORD" >&2
+    exit 1
+  fi
+  
+  echo "✅ Successfully obtained GCP access token"
+else
+  echo "🔐 Using username/password authentication"
+  USERNAME="${INPUT_REGISTRY_USERNAME:-${GITHUB_ACTOR:-}}"
+  PASSWORD="${INPUT_REGISTRY_PASSWORD}"
+  
+  if [ -z "$PASSWORD" ]; then
+    echo "❌ Error: No registry password provided" >&2
+    exit 1
+  fi
+fi
 
 # Determine image name
 if [ -n "${INPUT_IMAGE_NAME:-}" ]; then
