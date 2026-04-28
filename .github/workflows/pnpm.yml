@@ -37,7 +37,7 @@ jobs:
           ref: ${{ inputs.ref }}
       - name: Analyze packages (GHCR + semver)
         id: analyze
-        uses: jmmaloney4/toolbox/.github/actions/analyze-pnpm-packages@bc7846003f39ec61654d70f5cfd1413046b3b763 # main
+        uses: jmmaloney4/toolbox/.github/actions/analyze-pnpm-packages@164b0bf115f15c511ebb883d7e8149eef47eca84 # main
         with:
           dry_run: ${{ inputs.dry_run }}
         env:
@@ -62,7 +62,7 @@ jobs:
         with:
           repository: ${{ inputs.repository }}
           ref: ${{ inputs.ref }}
-      - uses: jmmaloney4/toolbox/.github/actions/nix-setup@bc7846003f39ec61654d70f5cfd1413046b3b763 # main
+      - uses: jmmaloney4/toolbox/.github/actions/nix-setup@164b0bf115f15c511ebb883d7e8149eef47eca84 # main
         with:
           runs-on: ${{ inputs.runs-on }}
           cache: ${{ !contains(inputs.runs-on, 'self-hosted') }}
@@ -85,7 +85,7 @@ jobs:
         with:
           repository: ${{ inputs.repository }}
           ref: ${{ inputs.ref }}
-      - uses: jmmaloney4/toolbox/.github/actions/nix-setup@bc7846003f39ec61654d70f5cfd1413046b3b763 # main
+      - uses: jmmaloney4/toolbox/.github/actions/nix-setup@164b0bf115f15c511ebb883d7e8149eef47eca84 # main
         with:
           runs-on: ${{ inputs.runs-on }}
           cache: ${{ !contains(inputs.runs-on, 'self-hosted') }}
