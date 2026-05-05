@@ -26,6 +26,8 @@ export interface NixImageArgs {
 	 * - "ghcr": uses GITHUB_USER + GITHUB_TOKEN env vars for GitHub Container Registry
 	 */
 	authMode?: "gcloud" | "ghcr";
+	/** Extra environment variables to pass to the build-push command. */
+	env?: Record<string, pulumi.Input<string>>;
 }
 
 export class NixImage extends pulumi.ComponentResource {
@@ -81,6 +83,7 @@ export class NixImage extends pulumi.ComponentResource {
 					RESULT_LINK: `result-${name}`,
 					COMMAND_LOG_STEM: commandLogStem,
 					AUTH_MODE: authMode,
+					...(args.env ?? {}),
 				},
 				triggers: [args.imageTag, ...(args.triggers ?? [])],
 			}, { parent: this });
