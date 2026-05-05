@@ -1,6 +1,11 @@
 import * as cloudflare from "@pulumi/cloudflare";
 import * as pulumi from "@pulumi/pulumi";
 import {
+	AccessGate,
+	type AccessGithubOAuthConfig,
+	type AccessPathConfig,
+} from "../access/access-gate.ts";
+import {
 	generateWorkerScript,
 	type RedirectRule,
 } from "./worker-site-script.ts";
@@ -8,21 +13,7 @@ import {
 /**
  * Path access configuration.
  */
-export interface PathConfig {
-	/**
-	 * Path pattern (e.g., "/blog/*", "/research/*").
-	 * Supports wildcards.
-	 */
-	pattern: pulumi.Input<string>;
-
-	/**
-	 * Access level for this path.
-	 * - "public": Allow everyone (visitors still complete the Cloudflare Zero Trust login flow)
-	 * - "bypass": Bypass authentication entirely — requests go directly to the Worker with no login prompt
-	 * - "github-org": Require GitHub organization membership
-	 */
-	access: "public" | "bypass" | "github-org";
-}
+export type PathConfig = AccessPathConfig;
 
 /**
  * Configuration for providing a custom pre-built Worker script.
@@ -70,18 +61,7 @@ export interface WorkerScriptConfig {
  * GitHub Settings → Developer settings → OAuth Apps.
  * The callback URL should be `https://<your-team>.cloudflareaccess.com/cdn-cgi/access/callback`.
  */
-export interface GithubOAuthConfig {
-	/**
-	 * GitHub OAuth App client ID.
-	 */
-	clientId: pulumi.Input<string>;
-
-	/**
-	 * GitHub OAuth App client secret.
-	 * This value will be stored as a Pulumi secret.
-	 */
-	clientSecret: pulumi.Input<string>;
-}
+export type GithubOAuthConfig = AccessGithubOAuthConfig;
 
 /**
  * Configuration for Cloudflare Worker observability.
@@ -400,50 +380,30 @@ export class WorkerSite extends pulumi.ComponentResource {
 			);
 		}
 
-		if (args.githubOAuthConfig && args.githubIdentityProviderId) {
-			throw new Error(
-				"githubOAuthConfig and githubIdentityProviderId are mutually exclusive",
-			);
-		}
-
-		const githubOrgPaths = (args.paths ?? []).filter(
-			(p) => p.access === "github-org",
-		);
-		if (githubOrgPaths.length > 0) {
-			if (!args.githubIdentityProviderId && !args.githubOAuthConfig) {
-				throw new Error(
-					"githubIdentityProviderId or githubOAuthConfig is required when using github-org access",
-				);
-			}
-			if (!args.githubOrganizations || args.githubOrganizations.length === 0) {
-				throw new Error(
-					"githubOrganizations must not be empty when using github-org access",
-				);
-			}
-		}
-
 		const resourceOpts = { parent: this };
 
-		// 0. Auto-create GitHub Identity Provider if requested
+		// 0. Delegate Access provisioning to AccessGate (ADR-016)
+		let accessGate: AccessGate | undefined;
+		this.accessApplications = [];
 		this.githubIdp = undefined;
-		let githubIdentityProviderId: pulumi.Input<string> | undefined =
-			args.githubIdentityProviderId;
 
-		if (args.githubOAuthConfig) {
-			this.githubIdp = new cloudflare.ZeroTrustAccessIdentityProvider(
-				`${name}-github-idp`,
+		if (args.paths && args.paths.length > 0) {
+			accessGate = new AccessGate(
+				name,
 				{
 					accountId: args.accountId,
-					name: pulumi.interpolate`${args.name} GitHub`,
-					type: "github",
-					config: {
-						clientId: args.githubOAuthConfig.clientId,
-						clientSecret: args.githubOAuthConfig.clientSecret,
-					},
+					zoneId: args.zoneId,
+					name: args.name,
+					domains: args.domains,
+					paths: args.paths,
+					githubIdentityProviderId: args.githubIdentityProviderId,
+					githubOAuthConfig: args.githubOAuthConfig,
+					githubOrganizations: args.githubOrganizations,
 				},
 				resourceOpts,
 			);
-			githubIdentityProviderId = this.githubIdp.id;
+			this.accessApplications = accessGate.accessApplications;
+			this.githubIdp = accessGate.githubIdp;
 		}
 
 		// 1. Create or reference R2 bucket
@@ -580,71 +540,7 @@ export class WorkerSite extends pulumi.ComponentResource {
 			this.workerDomains.push(workerDomain);
 		}
 
-		// 5. Create Zero Trust Access Applications (optional)
-		this.accessApplications = [];
-
-		if (args.paths && args.paths.length > 0) {
-			for (let domainIdx = 0; domainIdx < args.domains.length; domainIdx++) {
-				const domain = args.domains[domainIdx];
-
-				for (let pathIdx = 0; pathIdx < args.paths.length; pathIdx++) {
-					const pathConfig = args.paths[pathIdx];
-
-					const policyIncludes =
-						pathConfig.access === "public" || pathConfig.access === "bypass"
-							? [{ everyone: {} }]
-							: pulumi
-									.all([
-										pulumi.all(args.githubOrganizations ?? []),
-										githubIdentityProviderId ?? "",
-									])
-									.apply(
-										([orgs, idpId]: [string[], string]) =>
-											orgs.map((org: string) => ({
-												githubOrganization: {
-													identityProviderId: idpId,
-													name: org,
-												},
-											})) as cloudflare.types.input.ZeroTrustAccessApplicationPolicyInclude[],
-									);
-
-					const app = new cloudflare.ZeroTrustAccessApplication(
-						`${name}-app-d${domainIdx}-p${pathIdx}`,
-						{
-							accountId: args.accountId,
-							zoneId: args.zoneId,
-							name: pulumi
-								.all([args.name, domain, pathConfig.pattern])
-								.apply(
-									([n, d, p]: [string, string, string]) =>
-										`${n}-${d}-${p.replace(/\//g, "-").replace(/\*/g, "all")}`,
-								),
-							domain: pulumi.interpolate`${domain}${pathConfig.pattern}`,
-							type: "self_hosted",
-							sessionDuration: "24h",
-							policies: [
-								{
-									name: {
-										bypass: "Bypass for public path",
-										public: "Allow everyone",
-										"github-org": "GitHub org members",
-									}[pathConfig.access],
-									decision: {
-										bypass: "bypass",
-										public: "allow",
-										"github-org": "allow",
-									}[pathConfig.access],
-									precedence: 1,
-									includes: policyIncludes,
-								},
-							],
-						},
-						resourceOpts,
-					);
-					this.accessApplications.push(app);
-				}
-			}
-		}
+		// 5. Access Applications are created by AccessGate (step 0)
 
 		// Outputs
 		this.boundDomains = pulumi.output(args.domains);
