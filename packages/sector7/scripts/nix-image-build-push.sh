@@ -26,6 +26,13 @@ echo "=== Building ${IMAGE_NAME}:${IMAGE_TAG} ==="
 echo "NIX_ATTR: ${NIX_ATTR}"
 echo "REPO_ROOT: ${REPO_ROOT}"
 
+# Create temp files early so they can be cleaned up by the trap
+DIGEST_FILE=$(mktemp)
+
+# Set up cleanup trap for temp files
+AUTH_FILE=***
+trap 'rm -f "${AUTH_FILE}" "${RESULT_LINK}" "${DIGEST_FILE}"' EXIT
+
 # Build the image
 echo "--- nix build ---"
 nix build "${REPO_ROOT}#${NIX_ATTR}" -o "${RESULT_LINK}" -L
@@ -35,8 +42,6 @@ FULL_TAG="${ARTIFACT_REGISTRY_URL}/${IMAGE_NAME}:${IMAGE_TAG}"
 
 # Authenticate
 echo "--- authenticating ---"
-AUTH_FILE=$(mktemp)
-trap 'rm -f "${AUTH_FILE}" "${RESULT_LINK}"' EXIT
 gcloud auth print-access-token \
   | nix run github:nlewo/nix2container#skopeo-nix2container -- \
       login -u oauth2accesstoken --password-stdin \
@@ -45,7 +50,6 @@ gcloud auth print-access-token \
 
 # Push the image
 echo "--- skopeo copy ---"
-DIGEST_FILE=$(mktemp)
 nix run github:nlewo/nix2container#skopeo-nix2container -- \
   copy --digestfile "${DIGEST_FILE}" \
   --authfile "${AUTH_FILE}" \
@@ -53,7 +57,6 @@ nix run github:nlewo/nix2container#skopeo-nix2container -- \
   "docker://${FULL_TAG}"
 
 DIGEST=$(cat "${DIGEST_FILE}")
-rm -f "${DIGEST_FILE}"
 
 echo "=== Pushed ${FULL_TAG} ==="
 echo "=== Digest: ${DIGEST} ==="

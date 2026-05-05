@@ -12,8 +12,8 @@ export interface NixImageArgs {
 	/** Registry URL (e.g. "us-east1-docker.pkg.dev/addenda-dev/addenda") */
 	artifactRegistryUrl: pulumi.Input<string>;
 	/** Absolute path to the repo root containing the flake */
-	repoRoot: string;
-	/** Additional trigger values (default: [imageTag]) */
+	repoRoot: pulumi.Input<string>;
+	/** Additional trigger values (added alongside imageTag) */
 	triggers?: pulumi.Input<string>[];
 	/**
 	 * "build" = build+push the image (default)
@@ -33,7 +33,17 @@ export class NixImage extends pulumi.ComponentResource {
 		args: NixImageArgs,
 		opts?: pulumi.ComponentResourceOptions,
 	) {
-		super("sector7:nix:NixImage", name, {}, opts);
+		// Build resource aliases: add URN alias when parented so the child
+		// resource is adopted correctly under the parent.
+		const aliases: pulumi.Alias[] = [];
+		if (opts?.parent) {
+			aliases.push({ parent: opts.parent });
+		}
+
+		super("sector7:nix:NixImage", name, args, {
+			...opts,
+			aliases: [...aliases, ...(opts?.aliases ?? [])],
+		});
 
 		const scriptPath = getScriptPath("nix-image-build-push.sh");
 		const commandLogStem = `.pulumi/command-logs/${name}`;
@@ -45,16 +55,16 @@ export class NixImage extends pulumi.ComponentResource {
 			const fullTag = pulumi.interpolate`${args.artifactRegistryUrl}/${args.imageName}:${args.imageTag}`;
 
 			const resolveCmd = new command.local.Command(`${name}-resolve`, {
-				create: pulumi.interpolate`nix run github:nlewo/nix2container#skopeo-nix2container -- inspect --override-os linux docker://${fullTag} 2>/dev/null | grep -o '"digest":"[^"]*"' | cut -d'"' -f4`,
-				triggers: args.triggers ?? [args.imageTag],
+				create: pulumi.interpolate`nix run github:nlewo/nix2container#skopeo-nix2container -- inspect --format '{{.Digest}}' --override-os linux docker://${fullTag}`,
+				triggers: [args.imageTag, ...(args.triggers ?? [])],
 			}, { parent: this });
 
-			this.digest = resolveCmd.stdout;
+			this.digest = resolveCmd.stdout.apply((stdout: string) => stdout.trim());
 			this.imageRef = pulumi.interpolate`${args.artifactRegistryUrl}/${args.imageName}@${this.digest}`;
 		} else {
 			// Build + push
 			const buildCmd = new command.local.Command(`${name}-build-push`, {
-				create: pulumi.interpolate`bash ${scriptPath}`,
+				create: pulumi.interpolate`bash "${scriptPath}"`,
 				environment: {
 					NIX_ATTR: args.nixAttr,
 					IMAGE_NAME: args.imageName,
@@ -64,7 +74,7 @@ export class NixImage extends pulumi.ComponentResource {
 					RESULT_LINK: `result-${name}`,
 					COMMAND_LOG_STEM: commandLogStem,
 				},
-				triggers: args.triggers ?? [args.imageTag],
+				triggers: [args.imageTag, ...(args.triggers ?? [])],
 			}, { parent: this });
 
 			// Parse DIGEST_OUTPUT: from stdout

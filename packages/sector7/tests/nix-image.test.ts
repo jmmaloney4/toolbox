@@ -25,9 +25,9 @@ beforeAll(() => {
 					(state as Record<string, unknown>).stdout =
 						"=== Pushed registry/example:dev ===\n=== Digest: sha256:abc123def456 ===\nDIGEST_OUTPUT:sha256:abc123def456\n";
 				} else if (create?.includes("inspect")) {
-					// Resolve mode: simulate skopeo inspect output
+					// Resolve mode: simulate skopeo inspect --format output
 					(state as Record<string, unknown>).stdout =
-						"sha256:abc123def456";
+						"sha256:abc123def456\n";
 				}
 			}
 
@@ -111,6 +111,7 @@ describe("NixImage", () => {
 
 		const createCmd = cmd.inputs.create as string;
 		expect(createCmd).toContain("inspect");
+		expect(createCmd).toContain("--format");
 		expect(createCmd).toContain("my-image");
 		expect(createCmd).toContain("v1.0.0");
 	});
@@ -143,7 +144,7 @@ describe("NixImage", () => {
 		);
 	});
 
-	it("uses default triggers [imageTag] when no triggers specified", async () => {
+	it("uses additive triggers with imageTag first when no triggers specified", async () => {
 		const img = new NixImage("test-triggers-default", {
 			nixAttr: "packages.x86_64-linux.my-image",
 			imageName: "my-image",
@@ -161,7 +162,7 @@ describe("NixImage", () => {
 		expect(triggers).toEqual(["dev"]);
 	});
 
-	it("uses custom triggers when specified", async () => {
+	it("uses additive triggers: imageTag plus custom triggers", async () => {
 		const img = new NixImage("test-triggers-custom", {
 			nixAttr: "packages.x86_64-linux.my-image",
 			imageName: "my-image",
@@ -177,10 +178,10 @@ describe("NixImage", () => {
 		expect(cmds).toHaveLength(1);
 
 		const triggers = cmds[0].inputs.triggers as string[];
-		expect(triggers).toEqual(["custom-trigger-1", "custom-trigger-2"]);
+		expect(triggers).toEqual(["dev", "custom-trigger-1", "custom-trigger-2"]);
 	});
 
-	it("uses resolve mode default triggers [imageTag]", async () => {
+	it("uses resolve mode additive triggers with imageTag first", async () => {
 		const img = new NixImage("test-resolve-triggers", {
 			nixAttr: "packages.x86_64-linux.my-image",
 			imageName: "my-image",
@@ -213,6 +214,21 @@ describe("NixImage", () => {
 		expect(imageRef).toBe(
 			"us-east1-docker.pkg.dev/my-project/my-repo/my-image@sha256:abc123def456",
 		);
+	});
+
+	it("trims trailing newline from resolve stdout", async () => {
+		const img = new NixImage("test-resolve-trim", {
+			nixAttr: "packages.x86_64-linux.my-image",
+			imageName: "my-image",
+			imageTag: "v1.0.0",
+			artifactRegistryUrl: "us-east1-docker.pkg.dev/my-project/my-repo",
+			repoRoot: "/home/user/my-repo",
+			mode: "resolve",
+		});
+
+		const digest = await resolveOutput(img.digest);
+		expect(digest).toBe("sha256:abc123def456");
+		expect(digest).not.toContain("\n");
 	});
 
 	it("registers outputs imageRef and digest", async () => {
