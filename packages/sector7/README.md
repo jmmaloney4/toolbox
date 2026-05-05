@@ -7,13 +7,13 @@ Reusable Pulumi components for infrastructure management.
 You can install this package directly from GitHub using pnpm:
 
 ```bash
-pnpm add "git+https://github.com/jmmaloney4/toolbox.git#path:/packages/toolbox"
+pnpm add "git+https://github.com/jmmaloney4/sector7.git#path:/packages/sector7"
 ```
 
 Or pin to a specific version/commit:
 
 ```bash
-pnpm add "git+https://github.com/jmmaloney4/toolbox.git#path:/packages/toolbox#v0.1.0"
+pnpm add "git+https://github.com/jmmaloney4/sector7.git#path:/packages/sector7#v0.1.0"
 ```
 
 ## Components
@@ -78,7 +78,7 @@ on:
 
 jobs:
   pulumi:
-    uses: jmmaloney4/toolbox/.github/workflows/pulumi.yml@main
+    uses: jmmaloney4/sector7/.github/workflows/pulumi.yml@main
     with:
       runs-on: ubuntu-latest
       repository: ${{ github.repository }}

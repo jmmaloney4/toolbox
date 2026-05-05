@@ -9,7 +9,7 @@ tags: [design, adr, pulumi, gcp, iam]
 supersedes: []
 superseded_by: []
 links:
-  - https://github.com/jmmaloney4/toolbox/pull/74
+  - https://github.com/jmmaloney4/sector7/pull/74
   - https://cloud.google.com/iam/docs/understanding-roles
 ---
 
@@ -181,8 +181,8 @@ function sanitizeRoleForResourceName(role: string): string {
 
 # References
 
-- PR #74: https://github.com/jmmaloney4/toolbox/pull/74
-- Review comment: https://github.com/jmmaloney4/toolbox/pull/74#discussion_r2659215657
+- PR #74: https://github.com/jmmaloney4/sector7/pull/74
+- Review comment: https://github.com/jmmaloney4/sector7/pull/74#discussion_r2659215657
 - GCP IAM Roles documentation: https://cloud.google.com/iam/docs/understanding-roles
 - GCP Custom Roles: https://cloud.google.com/iam/docs/creating-custom-roles
 - ADR-004 (Jest Testing Infrastructure): `docs/internal/designs/004-jest-testing-infrastructure.md`

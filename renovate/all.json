@@ -2,12 +2,12 @@
 	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
 	"description": "Aggregate preset that composes all presets in this repository",
 	"extends": [
-		"github>jmmaloney4/toolbox//renovate/default.json",
-		"github>jmmaloney4/toolbox//renovate/major-updates.json",
-		"github>jmmaloney4/toolbox//renovate/minor-patch-automerge.json",
-		"github>jmmaloney4/toolbox//renovate/security.json",
-		"github>jmmaloney4/toolbox//renovate/pulumi.json",
-		"github>jmmaloney4/toolbox//renovate/nix.json",
-		"github>jmmaloney4/toolbox//renovate/lock-maintenance.json"
+		"github>jmmaloney4/sector7//renovate/default.json",
+		"github>jmmaloney4/sector7//renovate/major-updates.json",
+		"github>jmmaloney4/sector7//renovate/minor-patch-automerge.json",
+		"github>jmmaloney4/sector7//renovate/security.json",
+		"github>jmmaloney4/sector7//renovate/pulumi.json",
+		"github>jmmaloney4/sector7//renovate/nix.json",
+		"github>jmmaloney4/sector7//renovate/lock-maintenance.json"
 	]
 }

@@ -38,8 +38,8 @@
 	},
 	"packageRules": [
 		{
-			"description": "Skip stability days for internal toolbox actions (own repo)",
-			"matchPackageNames": ["jmmaloney4/toolbox"],
+			"description": "Skip stability days for internal sector7 actions (own repo)",
+			"matchPackageNames": ["jmmaloney4/sector7"],
 			"minimumReleaseAge": null
 		}
 	]

@@ -12,8 +12,8 @@ date: 2026-04-24
 
 **Related PRs:**
 
-- Initial implementation: https://github.com/jmmaloney4/toolbox/pull/160
-- Superseded draft: https://github.com/jmmaloney4/toolbox/pull/156
+- Initial implementation: https://github.com/jmmaloney4/sector7/pull/160
+- Superseded draft: https://github.com/jmmaloney4/sector7/pull/156
 
 ## Context
 

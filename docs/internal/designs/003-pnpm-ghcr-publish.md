@@ -43,7 +43,7 @@ Create a reusable GitHub Actions workflow (`.github/workflows/pnpm-publish.yml`)
 - Path: `.github/actions/analyze-pnpm-packages/`
 - Invocation (from reusable workflow):
   - Use repository path with pinned ref, not local path (for cross-repo reuse).
-  - Example: `uses: jmmaloney4/toolbox/.github/actions/analyze-pnpm-packages@<ref>`
+  - Example: `uses: jmmaloney4/sector7/.github/actions/analyze-pnpm-packages@<ref>`
 - Inputs: `dry_run`, `registry` (default `https://npm.pkg.github.com`), `root` (default `.`), optional `scope`.
 - Env: `NODE_AUTH_TOKEN` required for private package metadata; workflow sets `packages: read`.
 - Responsibilities:
