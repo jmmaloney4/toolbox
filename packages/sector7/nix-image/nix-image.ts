@@ -59,31 +59,44 @@ export class NixImage extends pulumi.ComponentResource {
 		const mode = args.mode ?? "build";
 		const authMode = args.authMode ?? "gcloud";
 
-		if (mode === "resolve") {
-			// Resolve-only: inspect the already-pushed image to get its digest
-			const fullTag = pulumi.interpolate`${args.artifactRegistryUrl}/${args.imageName}:${args.imageTag}`;
+		const baseEnv: Record<string, pulumi.Input<string>> = {
+			IMAGE_NAME: args.imageName,
+			IMAGE_TAG: args.imageTag,
+			ARTIFACT_REGISTRY_URL: args.artifactRegistryUrl,
+			AUTH_MODE: authMode,
+			COMMAND_LOG_STEM: commandLogStem,
+			...(args.env ?? {}),
+		};
 
+		if (mode === "resolve") {
+			// Resolve-only: authenticate and inspect the already-pushed image
 			const resolveCmd = new command.local.Command(`${name}-resolve`, {
-				create: pulumi.interpolate`nix run github:nlewo/nix2container#skopeo-nix2container -- inspect --format '{{.Digest}}' --override-os linux docker://${fullTag}`,
+				create: pulumi.interpolate`bash "${scriptPath}"`,
+				environment: {
+					...baseEnv,
+					SCRIPT_MODE: "resolve",
+				},
 				triggers: [args.imageTag, ...(args.triggers ?? [])],
 			}, { parent: this });
 
-			this.digest = resolveCmd.stdout.apply((stdout: string) => stdout.trim());
+			this.digest = resolveCmd.stdout.apply((stdout: string) => {
+				const match = stdout.match(/DIGEST_OUTPUT:(sha256:[a-f0-9]+)/);
+				if (!match) {
+					throw new Error(`Could not parse DIGEST_OUTPUT from resolve output for ${name}`);
+				}
+				return match[1];
+			});
 			this.imageRef = pulumi.interpolate`${args.artifactRegistryUrl}/${args.imageName}@${this.digest}`;
 		} else {
 			// Build + push
 			const buildCmd = new command.local.Command(`${name}-build-push`, {
 				create: pulumi.interpolate`bash "${scriptPath}"`,
 				environment: {
+					...baseEnv,
+					SCRIPT_MODE: "build",
 					NIX_ATTR: args.nixAttr,
-					IMAGE_NAME: args.imageName,
-					IMAGE_TAG: args.imageTag,
-					ARTIFACT_REGISTRY_URL: args.artifactRegistryUrl,
 					REPO_ROOT: args.repoRoot,
 					RESULT_LINK: `result-${name}`,
-					COMMAND_LOG_STEM: commandLogStem,
-					AUTH_MODE: authMode,
-					...(args.env ?? {}),
 				},
 				triggers: [args.imageTag, ...(args.triggers ?? [])],
 			}, { parent: this });
