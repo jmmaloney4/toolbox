@@ -197,7 +197,13 @@ export class AccessGate extends pulumi.ComponentResource {
 			throw new Error("AccessGate requires at least one path");
 		}
 
-		const resourceOpts = { parent: this };
+		// When AccessGate is used as a child of another component (e.g. WorkerSite),
+		// alias resources back to the parent to preserve existing URNs from before
+		// the extraction (ADR-016). Standalone usage has no parent, so no alias needed.
+		const resourceOpts: pulumi.CustomResourceOptions = {
+			parent: this,
+			aliases: opts?.parent ? [{ parent: opts.parent }] : undefined,
+		};
 		const sessionDuration = args.sessionDuration ?? "24h";
 		const appType = args.type ?? "self_hosted";
 
@@ -226,11 +232,16 @@ export class AccessGate extends pulumi.ComponentResource {
 		// Create Zero Trust Access Applications
 		this.accessApplications = [];
 
-		for (let domainIdx = 0; domainIdx < args.domains.length; domainIdx++) {
-			const domain = args.domains[domainIdx];
-
-			for (let pathIdx = 0; pathIdx < args.paths.length; pathIdx++) {
-				const pathConfig = args.paths[pathIdx];
+		for (const domain of args.domains) {
+			for (const pathConfig of args.paths) {
+				// NOTE: logical names use array indices rather than domain/path
+				// slugs because Pulumi requires resource names to be plain strings
+				// known at plan time, while args.domains is typed as
+				// pulumi.Input<string>[]. If a caller passes Output<string>
+				// values, we cannot extract a string synchronously for the name.
+				// Reordering is unlikely in practice since configs are static.
+				const domainIdx = args.domains.indexOf(domain);
+				const pathIdx = args.paths.indexOf(pathConfig);
 
 				const policyIncludes =
 					pathConfig.access === "public" || pathConfig.access === "bypass"
@@ -250,8 +261,8 @@ export class AccessGate extends pulumi.ComponentResource {
 										})) as cloudflare.types.input.ZeroTrustAccessApplicationPolicyInclude[],
 								);
 
-				const app = new cloudflare.ZeroTrustAccessApplication(
-					`${name}-app-d${domainIdx}-p${pathIdx}`,
+			const app = new cloudflare.ZeroTrustAccessApplication(
+				`${name}-app-d${domainIdx}-p${pathIdx}`,
 					{
 						accountId: args.accountId,
 						zoneId: args.zoneId,

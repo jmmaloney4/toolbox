@@ -131,9 +131,10 @@ ADR-014, and the internal refactoring is low-risk.
 ## Negative
 
 - One more sub-path export to maintain in package.json.
-- WorkerSite internals change (delegation to AccessGate) — behavior should be
-  identical, but the resource names may differ. Aliases should be used if
-  existing state needs migration.
+- WorkerSite internals change (delegation to AccessGate) — behavior is
+  identical, but the parent component changes from WorkerSite to AccessGate.
+  AccessGate uses `aliases: [{ parent: opts.parent }]` to preserve existing
+  URNs when delegated from WorkerSite.
 
 # Security / Privacy / Compliance
 
@@ -144,10 +145,15 @@ ADR-014, and the internal refactoring is low-risk.
 
 # Operational Notes
 
-- Existing WorkerSite deployments will see no change in provisioned resources
-  if the internal delegation preserves resource naming and configuration.
-- If resource names change (e.g., Access Application Pulumi URNs), aliases
-  must be added to avoid destroy-and-recreate.
+- Existing WorkerSite deployments will see no change in provisioned resources.
+  AccessGate adds `aliases: [{ parent: opts.parent }]` so that when WorkerSite
+  delegates, the child resources retain their old URNs (parented under
+  WorkerSite). No destroy-and-recreate.
+- Standalone AccessGate usage (no parent) creates resources with AccessGate as
+  parent — no alias needed since there is no prior state.
+- Resource logical names use array indices (`app-d0-p0`) because Pulumi
+  requires resource names to be plain strings known at plan time. The
+  Cloudflare display names already include domain + path for readability.
 
 # Status Transitions
 
