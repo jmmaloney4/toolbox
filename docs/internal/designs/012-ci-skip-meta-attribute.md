@@ -10,7 +10,7 @@ date: 2026-04-15
 *Date:* 2026-04-15
 *Status:* proposed
 
-**Related PR:** https://github.com/jmmaloney4/toolbox/pull/147
+**Related PR:** https://github.com/jmmaloney4/sector7/pull/147
 
 This ADR is currently being developed in linked pull request above.
 Please refer to that PR for current content and discussion.

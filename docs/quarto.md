@@ -97,7 +97,7 @@ on:
 
 jobs:
   deploy:
-    uses: jmmaloney4/toolbox/.github/workflows/quarto.yml@main
+    uses: jmmaloney4/sector7/.github/workflows/quarto.yml@main
     with:
       runs-on: ubuntu-latest
       repository: ${{ github.repository }}
@@ -124,7 +124,7 @@ Multi-site example:
 ```yaml
 jobs:
   deploy:
-    uses: jmmaloney4/toolbox/.github/workflows/quarto.yml@main
+    uses: jmmaloney4/sector7/.github/workflows/quarto.yml@main
     with:
       runs-on: ubuntu-latest
       repository: ${{ github.repository }}

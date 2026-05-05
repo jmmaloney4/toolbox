@@ -18,7 +18,7 @@ Use our reusable workflows in your repository:
 # Rust CI
 jobs:
   rust:
-    uses: jmmaloney4/toolbox/.github/workflows/rust.yml@main
+    uses: jmmaloney4/sector7/.github/workflows/rust.yml@main
     with:
       runs-on: ubuntu-latest
       repository: ${{ github.repository }}
@@ -27,7 +27,7 @@ jobs:
 # Nix builds
 jobs:
   nix-build:
-    uses: jmmaloney4/toolbox/.github/workflows/nix.yml@main
+    uses: jmmaloney4/sector7/.github/workflows/nix.yml@main
     with:
       runs-on: ubuntu-latest
       repository: ${{ github.repository }}
@@ -46,7 +46,7 @@ jobs:
             runs-on: '["self-hosted","linux","x64"]'
           - name: darwin
             runs-on: '["self-hosted","macos","arm64"]'
-    uses: jmmaloney4/toolbox/.github/workflows/nix.yml@main
+    uses: jmmaloney4/sector7/.github/workflows/nix.yml@main
     with:
       runs-on: ${{ matrix.runs-on }}
       repository: ${{ github.repository }}
@@ -81,7 +81,7 @@ Configure Renovate with our presets:
 ```json
 {
   "extends": [
-    "github>jmmaloney4/toolbox//renovate/all.json"
+    "github>jmmaloney4/sector7//renovate/all.json"
   ]
 }
 ```

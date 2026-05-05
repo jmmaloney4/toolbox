@@ -31,7 +31,7 @@ permissions:
 
 jobs:
   rust:
-    uses: jmmaloney4/toolbox/.github/workflows/rust.yml@main
+    uses: jmmaloney4/sector7/.github/workflows/rust.yml@main
     with:
       repository: ${{ github.repository }}
       ref: ${{ github.ref }}
@@ -63,7 +63,7 @@ permissions:
 
 jobs:
   nix:
-    uses: jmmaloney4/toolbox/.github/workflows/nix.yml@main
+    uses: jmmaloney4/sector7/.github/workflows/nix.yml@main
     with:
       repository: ${{ github.repository }}
       ref: ${{ github.ref }}
@@ -81,7 +81,7 @@ jobs:
             runs-on: '["self-hosted","linux","x64"]'
           - name: darwin
             runs-on: '["self-hosted","macos","arm64"]'
-    uses: jmmaloney4/toolbox/.github/workflows/nix.yml@main
+    uses: jmmaloney4/sector7/.github/workflows/nix.yml@main
     with:
       runs-on: ${{ matrix.runs-on }}
       repository: ${{ github.repository }}
@@ -117,7 +117,7 @@ permissions:
 
 jobs:
   pnpm:
-    uses: jmmaloney4/toolbox/.github/workflows/pnpm.yml@main
+    uses: jmmaloney4/sector7/.github/workflows/pnpm.yml@main
     with:
       repository: ${{ github.repository }}
       ref: ${{ github.ref }}
@@ -166,7 +166,7 @@ permissions:
 
 jobs:
   pulumi:
-    uses: jmmaloney4/toolbox/.github/workflows/pulumi.yml@main
+    uses: jmmaloney4/sector7/.github/workflows/pulumi.yml@main
     with:
       repository: ${{ github.repository }}
       ref: ${{ github.ref }}
@@ -239,7 +239,7 @@ jobs:
         (contains(github.event.issue.title, '@claude') || contains(github.event.issue.title, '@Claude') || contains(github.event.issue.title, '@CLAUDE'))) &&
        !((contains(github.event.issue.body, 'claude review') || contains(github.event.issue.body, 'Claude review') || contains(github.event.issue.body, 'CLAUDE REVIEW')) ||
          (contains(github.event.issue.title, 'claude review') || contains(github.event.issue.title, 'Claude review') || contains(github.event.issue.title, 'CLAUDE REVIEW'))))
-    uses: jmmaloney4/toolbox/.github/workflows/claude.yml@main
+    uses: jmmaloney4/sector7/.github/workflows/claude.yml@main
     with:
       repository: ${{ github.repository }}
       ref: ${{ github.ref }}
@@ -293,7 +293,7 @@ jobs:
        !contains(github.event.comment.body, 'disable claude review') &&
        !contains(github.event.comment.body, 'claude review is not needed'))
 
-    uses: jmmaloney4/toolbox/.github/workflows/claude-review.yml@main
+    uses: jmmaloney4/sector7/.github/workflows/claude-review.yml@main
     with:
       repository: ${{ github.repository }}
       ref: ${{ github.ref }}
@@ -332,7 +332,7 @@ permissions:
 jobs:
   adr-management:
     if: github.actor != 'github-actions[bot]'
-    uses: jmmaloney4/toolbox/.github/workflows/adr-management.yml@main
+    uses: jmmaloney4/sector7/.github/workflows/adr-management.yml@main
     with:
       runs-on: ubuntu-latest
       repository: ${{ github.repository }}
