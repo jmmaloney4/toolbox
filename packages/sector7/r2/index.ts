@@ -8,4 +8,6 @@ export {
 	type UploadStaticAssetsArgs,
 	uploadAssets,
 	uploadStaticAssets,
+	purgeZoneCache,
+	type PurgeZoneCacheArgs,
 } from "./r2object.ts";

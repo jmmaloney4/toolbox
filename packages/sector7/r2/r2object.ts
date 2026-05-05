@@ -696,3 +696,167 @@ export function uploadStaticAssets(
 		opts,
 	);
 }
+
+// ---------------------------------------------------------------------------
+// Cloudflare zone cache purge
+// ---------------------------------------------------------------------------
+
+/**
+ * Arguments for `purgeZoneCache`.
+ */
+export interface PurgeZoneCacheArgs {
+	/** Cloudflare zone ID to purge. */
+	zoneId: Input<string>;
+	/**
+	 * Cloudflare API token with Zone Cache Purge permission.
+	 * Use the same token that manages the WorkerSite resources.
+	 */
+	apiToken: Input<string>;
+	/**
+	 * A value that changes on every deployment (e.g. asset hash, timestamp).
+	 * Forces Pulumi to call `update` (and thus re-purge) even when zoneId
+	 * and apiToken stay the same across deploys.
+	 */
+	trigger: Input<string>;
+	/** Resource dependencies — purge runs after these complete. */
+	dependsOn?: Input<Input<Resource>[]>;
+}
+
+/**
+ * Purge the Cloudflare edge cache for an entire zone after a deploy.
+ *
+ * Uses a Pulumi dynamic resource to call the Cloudflare Purge Cache API.
+ * The `trigger` input changes on every deployment (e.g. a hash of uploaded
+ * assets), so Pulumi detects a diff and calls `update` each time, ensuring
+ * the cache is purged after every asset upload.
+ *
+ * The dynamic provider uses native `fetch()` — no external HTTP client
+ * dependency required.
+ */
+const zoneCachePurgeProvider: dynamic.ResourceProvider = {
+	async check(
+		_olds: Record<string, unknown>,
+		news: Record<string, unknown>,
+	): Promise<dynamic.CheckResult> {
+		const failures: dynamic.CheckFailure[] = [];
+		for (const p of ["zoneId", "apiToken", "trigger"]) {
+			if (typeof news[p] !== "string" || !news[p]) {
+				failures.push({ property: p, reason: p + " is required and must be a non-empty string" });
+			}
+		}
+		return { inputs: news, failures };
+	},
+
+	async diff(
+		_id: string,
+		olds: Record<string, unknown>,
+		news: Record<string, unknown>,
+	): Promise<dynamic.DiffResult> {
+		const replaces: string[] = [];
+		if (olds.zoneId !== news.zoneId) replaces.push("zoneId");
+		return {
+			replaces,
+			changes: replaces.length > 0 || olds.trigger !== news.trigger || olds.apiToken !== news.apiToken,
+		};
+	},
+
+	async create(inputs: {
+		zoneId: string;
+		apiToken: string;
+		trigger: string;
+	}): Promise<dynamic.CreateResult> {
+		await purgeZoneCacheApi(inputs.zoneId, inputs.apiToken);
+		return {
+			id: `purge-${inputs.zoneId}-${inputs.trigger.slice(0, 12)}`,
+			outs: { ...inputs },
+		};
+	},
+
+	async update(
+		_id: string,
+		_olds: Record<string, unknown>,
+		news: { zoneId: string; apiToken: string; trigger: string },
+	): Promise<dynamic.UpdateResult> {
+		await purgeZoneCacheApi(news.zoneId, news.apiToken);
+		return { outs: { ...news } };
+	},
+
+	async delete(_id: string, _props: Record<string, unknown>): Promise<void> {
+		// No-op: purging cache on resource deletion is unnecessary.
+	},
+};
+
+async function purgeZoneCacheApi(
+	zoneId: string,
+	apiToken: string,
+): Promise<void> {
+	const response = await fetch(
+		`https://api.cloudflare.com/client/v4/zones/${zoneId}/purge_cache`,
+		{
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${apiToken}`,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({ purge_everything: true }),
+		},
+	);
+
+	if (!response.ok) {
+		const text = await response.text();
+		throw new Error(
+			`Cloudflare cache purge failed for zone ${zoneId}: ${response.status} ${response.statusText}\n${text}`,
+		);
+	}
+}
+
+/**
+ * A Pulumi dynamic resource that purges the Cloudflare zone cache.
+ *
+ * Triggers on create and update (whenever inputs change). Delete is a no-op
+ * since there's nothing to undo — the cache will naturally repopulate.
+ */
+class ZoneCachePurge extends dynamic.Resource {
+	constructor(
+		name: string,
+		args: PurgeZoneCacheArgs,
+		opts?: CustomResourceOptions,
+	) {
+		// Merge dependsOn from both args and opts so caller-provided
+		// dependencies aren't silently dropped.
+		const mergedOpts = pulumi.mergeOptions(opts ?? {}, {
+			dependsOn: args.dependsOn,
+		});
+
+		super(
+			zoneCachePurgeProvider,
+			name,
+			{
+				zoneId: args.zoneId,
+				apiToken: args.apiToken,
+				trigger: args.trigger,
+			},
+			mergedOpts,
+		);
+	}
+}
+
+/**
+ * Purge the Cloudflare zone cache as a Pulumi-managed resource.
+ *
+ * Place this after `uploadAssets` (or any R2 asset upload) to
+ * ensure newly deployed content is immediately visible at the edge.
+ * The purge runs as a dynamic resource, so it executes during
+ * `pulumi up` and is tracked in state.
+ *
+ * @param name - Pulumi resource name.
+ * @param args - Zone cache purge configuration.
+ * @param opts - Pulumi custom resource options.
+ */
+export function purgeZoneCache(
+	name: string,
+	args: PurgeZoneCacheArgs,
+	opts?: CustomResourceOptions,
+): ZoneCachePurge {
+	return new ZoneCachePurge(name, args, opts);
+}
