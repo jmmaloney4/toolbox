@@ -30,7 +30,7 @@ echo "REPO_ROOT: ${REPO_ROOT}"
 DIGEST_FILE=$(mktemp)
 
 # Set up cleanup trap for temp files
-AUTH_FILE=***
+AUTH_FILE=$(mktemp)
 trap 'rm -f "${AUTH_FILE}" "${RESULT_LINK}" "${DIGEST_FILE}"' EXIT
 
 # Build the image
