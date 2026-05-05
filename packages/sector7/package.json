@@ -15,6 +15,10 @@
 			"types": "./index.ts",
 			"default": "./index.ts"
 		},
+		"./access": {
+			"types": "./access/index.ts",
+			"default": "./access/index.ts"
+		},
 		"./iam": {
 			"types": "./iam/index.ts",
 			"default": "./iam/index.ts"
@@ -30,6 +34,7 @@
 	},
 	"files": [
 		"index.ts",
+		"access",
 		"iam",
 		"workersite",
 		"r2"
