@@ -20,6 +20,12 @@ export interface NixImageArgs {
 	 * "resolve" = skip build, just resolve the digest of the already-pushed tag
 	 */
 	mode?: "build" | "resolve";
+	/**
+	 * Authentication mode for pushing images.
+	 * - "gcloud" (default): uses `gcloud auth print-access-token` for GCP Artifact Registry
+	 * - "ghcr": uses GITHUB_USER + GITHUB_TOKEN env vars for GitHub Container Registry
+	 */
+	authMode?: "gcloud" | "ghcr";
 }
 
 export class NixImage extends pulumi.ComponentResource {
@@ -49,6 +55,7 @@ export class NixImage extends pulumi.ComponentResource {
 		const commandLogStem = `.pulumi/command-logs/${name}`;
 
 		const mode = args.mode ?? "build";
+		const authMode = args.authMode ?? "gcloud";
 
 		if (mode === "resolve") {
 			// Resolve-only: inspect the already-pushed image to get its digest
@@ -73,6 +80,7 @@ export class NixImage extends pulumi.ComponentResource {
 					REPO_ROOT: args.repoRoot,
 					RESULT_LINK: `result-${name}`,
 					COMMAND_LOG_STEM: commandLogStem,
+					AUTH_MODE: authMode,
 				},
 				triggers: [args.imageTag, ...(args.triggers ?? [])],
 			}, { parent: this });
