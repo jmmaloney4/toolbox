@@ -89,7 +89,10 @@ esac
 # Use base64-encoded auth field — nix-built skopeo ignores separate
 # username/password fields and treats them as empty credentials.
 REGISTRY_HOST="${ARTIFACT_REGISTRY_URL%%/*}"
-AUTH_B64=$(printf '%s:%s' "${USERNAME}" "${PASSWORD}" | base64 | tr -d '\n')
+# Use Nix-supplied GNU coreutils base64 for platform-independent output.
+# macOS /usr/bin/base64 wraps output differently from GNU base64, and wrapped
+# base64 embedded in JSON produces an invalid authfile.
+AUTH_B64=$(printf '%s:%s' "${USERNAME}" "${PASSWORD}" | nix shell nixpkgs#coreutils -c base64 --wrap=0)
 printf '{"auths":{"%s":{"auth":"%s"}}}' \
   "${REGISTRY_HOST}" "${AUTH_B64}" > "${AUTH_FILE}"
 
