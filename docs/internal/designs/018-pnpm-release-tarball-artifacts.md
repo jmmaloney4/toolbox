@@ -1,7 +1,7 @@
 ---
 id: ADR-018
 title: pnpm Package Release Tarball Artifacts
-status: Proposed
+status: Accepted
 date: 2026-05-06
 deciders: [jmmaloney4]
 consulted: [addendalabs/yard]
@@ -9,7 +9,7 @@ tags: [design, adr, pnpm, release-artifacts, nix]
 supersedes: [ADR-003]
 superseded_by: []
 links:
-  - ADR-003
+  - "[ADR-003](./003-pnpm-ghcr-publish.md)"
   - https://github.com/addendalabs/yard/pull/1145
   - https://github.com/jmmaloney4/sector7/releases/tag/sector7-v0.6.0-a27687e
 ---
@@ -250,6 +250,11 @@ Sector7, but the consumed artifact should remain a normal npm package tarball.
 - Main or release-triggered runs should create/upload missing artifacts.
 - The workflow should fail loudly if a package version already has a release asset
   whose contents do not match the newly packed artifact.
+- Asset naming follows standard `npm pack` convention (`scope-name-version.tgz`)
+  without the commit SHA. The release tag carries the SHA for provenance
+  (`slug-vN.N.N-shortsha`). This means repacking the same version from a different
+  commit produces an identically named asset. The workflow enforces a 1:1 mapping
+  by checking for existing assets before uploading.
 - Consumers should verify runtime package shape after dependency updates, not just
   lockfile resolution. For Sector7 subpath exports, that means checking imports
   such as `@jmmaloney4/sector7/nix-image` from the consuming package.
@@ -282,7 +287,7 @@ Sector7, but the consumed artifact should remain a normal npm package tarball.
 
 # References
 
-- ADR-003: pnpm Package Publishing to GHCR
+- [ADR-003: pnpm Package Publishing to GHCR](./003-pnpm-ghcr-publish.md)
 - Yard PR using release asset dependency: https://github.com/addendalabs/yard/pull/1145
 - Initial Sector7 release tarball asset: https://github.com/jmmaloney4/sector7/releases/tag/sector7-v0.6.0-a27687e
 - pnpm GitHub monorepo subpackage issue: https://github.com/pnpm/pnpm/issues/8243
