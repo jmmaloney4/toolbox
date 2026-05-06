@@ -61,23 +61,21 @@ Install the Pulumi package:
 pnpm add @jmmaloney4/sector7
 ```
 
-Until the package is published to a registry, pin a GitHub codeload tarball instead of using pnpm's `github:` shorthand:
+Until automated package release publishing lands, prefer a packed GitHub Release tarball over pnpm's `github:` shorthand or GitHub Packages:
 
 ```json
 {
   "dependencies": {
-    "@jmmaloney4/sector7": "https://codeload.github.com/jmmaloney4/sector7/tar.gz/<commit>#path:/packages/sector7"
+    "@jmmaloney4/sector7": "https://github.com/jmmaloney4/sector7/releases/download/sector7-v0.6.0-a27687e/jmmaloney4-sector7-0.6.0.tgz"
   }
 }
 ```
 
-Avoid specs like `github:jmmaloney4/sector7#<commit>&path:/packages/sector7` in Nix-backed pnpm workspaces. pnpm may lock those as `git+ssh` or `git+https` dependencies and then invoke `git clone` during the Nix `node_modules` build. That makes otherwise hermetic builds fail with missing `git`, missing `ssh`, or unavailable credentials. The codeload tarball form keeps the dependency pinned while resolving through pnpm's tarball fetch path.
+This artifact is created with `npm pack` / `pnpm pack` from `packages/sector7`, so it has the same package root, `exports`, files, and dependency metadata that pnpm expects from a normal npm package.
 
-For commits from before the repository rename, use the old repository name in the tarball URL:
+Avoid specs like `github:jmmaloney4/sector7#<commit>&path:/packages/sector7` in Nix-backed pnpm workspaces. pnpm may lock those as `git+ssh` or `git+https` dependencies and then invoke `git clone` during the Nix `node_modules` build. That makes otherwise hermetic builds fail with missing `git`, missing `ssh`, or unavailable credentials.
 
-```text
-https://codeload.github.com/jmmaloney4/toolbox/tar.gz/<commit>#path:/packages/sector7
-```
+Also avoid relying on GitHub codeload source archives for runtime monorepo subpackages. They avoid `git`, but can install the repository root instead of the subpackage root, which breaks subpath exports such as `@jmmaloney4/sector7/nix-image`. [ADR-018](docs/internal/designs/018-pnpm-release-tarball-artifacts.md) documents the release-tarball artifact decision.
 
 Use the GitHubOidcResource component:
 
