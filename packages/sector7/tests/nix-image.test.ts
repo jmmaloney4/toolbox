@@ -85,6 +85,8 @@ describe("NixImage", () => {
 			IMAGE_NAME: "my-image",
 			IMAGE_TAG: "dev",
 			ARTIFACT_REGISTRY_URL: "us-east1-docker.pkg.dev/my-project/my-repo",
+			AUTH_MODE: "gcloud",
+			SCRIPT_MODE: "build",
 			REPO_ROOT: "/home/user/my-repo",
 			RESULT_LINK: "result-test-build",
 			COMMAND_LOG_STEM: ".pulumi/command-logs/test-build",
@@ -110,10 +112,15 @@ describe("NixImage", () => {
 		expect(cmd.type).toBe("command:local:Command");
 
 		const createCmd = cmd.inputs.create as string;
-		expect(createCmd).toContain("inspect");
-		expect(createCmd).toContain("--format");
-		expect(createCmd).toContain("my-image");
-		expect(createCmd).toContain("v1.0.0");
+		expect(createCmd).toContain("nix-image-build-push.sh");
+		expect(cmd.inputs.environment).toMatchObject({
+			IMAGE_NAME: "my-image",
+			IMAGE_TAG: "v1.0.0",
+			ARTIFACT_REGISTRY_URL: "us-east1-docker.pkg.dev/my-project/my-repo",
+			AUTH_MODE: "gcloud",
+			SCRIPT_MODE: "resolve",
+			COMMAND_LOG_STEM: ".pulumi/command-logs/test-resolve",
+		});
 	});
 
 	it("parses DIGEST_OUTPUT marker from stdout correctly", async () => {

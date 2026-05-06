@@ -74,7 +74,7 @@ jobs:
           fi
       - name: Analyze packages (target=${{ inputs.target }})
         id: analyze
-        uses: jmmaloney4/sector7/.github/actions/analyze-pnpm-packages@bc7846003f39ec61654d70f5cfd1413046b3b763 # main
+        uses: jmmaloney4/sector7/.github/actions/analyze-pnpm-packages@2ba648fa404abb5104961d55e27b3ae1a26ea3a4 # main
         with:
           dry_run: ${{ inputs.dry_run }}
           target: ${{ inputs.target }}
@@ -157,6 +157,36 @@ jobs:
           echo "Packed artifacts:"
           ls -la *.tgz
         working-directory: ${{ matrix.package_path }}
+
+      - name: Verify compiled package tarball
+        if: inputs.dry_run != true && matrix.action == 'publish' && matrix.target == 'release'
+        shell: bash
+        working-directory: ${{ matrix.package_path }}
+        run: |
+          ASSET="${{ matrix.asset_name }}"
+          if [[ ! -f "$ASSET" ]]; then
+            echo "❌ Expected packed tarball not found: $ASSET"
+            exit 1
+          fi
+
+          tar -tzf "$ASSET" > /tmp/sector7-tarball-contents.txt
+
+          if awk '/^package\/.*\.ts$/ && $0 !~ /\.d\.ts$/ { print; found=1 } END { exit found ? 0 : 1 }' /tmp/sector7-tarball-contents.txt; then
+            echo "❌ Tarball contains raw TypeScript source files. Published packages must ship compiled JavaScript plus declarations."
+            exit 1
+          fi
+
+          if ! grep -qx 'package/dist/index.js' /tmp/sector7-tarball-contents.txt; then
+            echo "❌ Tarball is missing package/dist/index.js"
+            exit 1
+          fi
+
+          if ! grep -qx 'package/dist/index.d.ts' /tmp/sector7-tarball-contents.txt; then
+            echo "❌ Tarball is missing package/dist/index.d.ts"
+            exit 1
+          fi
+
+          echo "✅ Tarball contains compiled JavaScript and declarations only"
 
       - name: Resolve short SHA
         if: inputs.dry_run != true && matrix.action == 'publish' && matrix.target == 'release'

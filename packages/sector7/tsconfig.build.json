@@ -1,0 +1,24 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"noEmit": false,
+		"declaration": true,
+		"declarationMap": true,
+		"sourceMap": true,
+		"outDir": "dist",
+		"rootDir": ".",
+		"rewriteRelativeImportExtensions": true,
+		"inlineSources": true
+	},
+	"include": [
+		"**/*.ts"
+	],
+	"exclude": [
+		"dist/**",
+		"node_modules/**",
+		"tests/**/*.ts",
+		"examples/**/*.ts",
+		"vitest.config.ts",
+		"**/barrel-guard.ts"
+	]
+}
