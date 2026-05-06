@@ -6,10 +6,10 @@ const outputDir = join("dist", "scripts");
 
 mkdirSync(outputDir, { recursive: true });
 
-for (const file of readdirSync(sourceDir)) {
-	if (!file.endsWith(".sh")) {
+for (const entry of readdirSync(sourceDir, { withFileTypes: true })) {
+	if (!entry.isFile() || !entry.name.endsWith(".sh")) {
 		continue;
 	}
 
-	copyFileSync(join(sourceDir, file), join(outputDir, file));
+	copyFileSync(join(sourceDir, entry.name), join(outputDir, entry.name));
 }
