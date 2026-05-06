@@ -50,6 +50,7 @@ mkdir -p "${LOG_DIR}"
 LOG_FILE="${LOG_DIR}/$(date +%Y%m%d-%H%M%S)-${IMAGE_NAME}-${SCRIPT_MODE}.log"
 exec > >(tee -a "${LOG_FILE}") 2>&1
 
+ARTIFACT_REGISTRY_URL="${ARTIFACT_REGISTRY_URL#*://}"
 FULL_TAG="${ARTIFACT_REGISTRY_URL}/${IMAGE_NAME}:${IMAGE_TAG}"
 
 echo "=== ${SCRIPT_MODE} ${IMAGE_NAME}:${IMAGE_TAG} ==="
@@ -60,25 +61,24 @@ DIGEST_FILE=$(mktemp)
 AUTH_FILE=$(mktemp)
 trap 'rm -f "${AUTH_FILE}" "${RESULT_LINK}" "${DIGEST_FILE}"' EXIT
 
-# Authenticate (needed for both build+push and resolve on private registries)
+# Authenticate by writing authfile directly.
+# nix run does not reliably forward stdin to the child process (it must
+# resolve the flake first), so skopeo login --password-stdin fails with
+# a truncated/empty authfile.  Writing the JSON authfile directly avoids
+# the issue entirely.
 echo "--- authenticating (${AUTH_MODE}) ---"
 case "${AUTH_MODE}" in
   gcloud)
-    gcloud auth print-access-token \
-      | nix run github:nlewo/nix2container#skopeo-nix2container -- \
-          login -u oauth2accesstoken --password-stdin \
-          --authfile "${AUTH_FILE}" \
-          "${ARTIFACT_REGISTRY_URL}"
+    PASSWORD=$(gcloud auth print-access-token)
+    USERNAME="oauth2accesstoken"
     ;;
   ghcr)
     if [ -z "${GITHUB_TOKEN:-}" ] || [ -z "${GITHUB_USER:-}" ]; then
       echo "ERROR: GITHUB_TOKEN and GITHUB_USER env vars required for ghcr auth mode" >&2
       exit 1
     fi
-    nix run github:nlewo/nix2container#skopeo-nix2container -- \
-      login -u "${GITHUB_USER}" --password-stdin \
-      --authfile "${AUTH_FILE}" \
-      "${ARTIFACT_REGISTRY_URL}" <<< "${GITHUB_TOKEN}"
+    PASSWORD="${GITHUB_TOKEN}"
+    USERNAME="${GITHUB_USER}"
     ;;
   *)
     echo "ERROR: Unknown AUTH_MODE '${AUTH_MODE}' (expected 'gcloud' or 'ghcr')" >&2
@@ -86,11 +86,20 @@ case "${AUTH_MODE}" in
     ;;
 esac
 
+# Extract registry host (first path component before the next /).
+# Use base64-encoded auth field — nix-built skopeo ignores separate
+# username/password fields and treats them as empty credentials.
+REGISTRY_HOST="${ARTIFACT_REGISTRY_URL%%/*}"
+AUTH_B64=$(printf '%s:%s' "${USERNAME}" "${PASSWORD}" | base64 | tr -d '\n')
+printf '{"auths":{"%s":{"auth":"%s"}}}' \
+  "${REGISTRY_HOST}" "${AUTH_B64}" > "${AUTH_FILE}"
+chmod 600 "${AUTH_FILE}"
+
 if [ "${SCRIPT_MODE}" = "resolve" ]; then
   # Resolve-only: inspect the already-pushed image to get its digest
   echo "--- resolving digest ---"
   nix run github:nlewo/nix2container#skopeo-nix2container -- \
-    inspect --format '{{.Digest}}' \
+    --insecure-policy inspect --format '{{.Digest}}' \
     --authfile "${AUTH_FILE}" \
     docker://"${FULL_TAG}" \
     | tr -d '\n' \
@@ -107,7 +116,7 @@ else
   # Push the image
   echo "--- skopeo copy ---"
   nix run github:nlewo/nix2container#skopeo-nix2container -- \
-    copy --digestfile "${DIGEST_FILE}" \
+    --insecure-policy copy --digestfile "${DIGEST_FILE}" \
     --authfile "${AUTH_FILE}" \
     "${IMAGE_PATH}" \
     "docker://${FULL_TAG}"
