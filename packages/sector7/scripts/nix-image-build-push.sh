@@ -85,10 +85,13 @@ case "${AUTH_MODE}" in
     ;;
 esac
 
-# Extract registry host (first path component before the next /)
+# Extract registry host (first path component before the next /).
+# Use base64-encoded auth field — nix-built skopeo ignores separate
+# username/password fields and treats them as empty credentials.
 REGISTRY_HOST="${ARTIFACT_REGISTRY_URL%%/*}"
-printf '{"auths":{"%s":{"username":"%s","password":"%s"}}}' \
-  "${REGISTRY_HOST}" "${USERNAME}" "${PASSWORD}" > "${AUTH_FILE}"
+AUTH_B64=$(printf '%s:%s' "${USERNAME}" "${PASSWORD}" | base64)
+printf '{"auths":{"%s":{"auth":"%s"}}}' \
+  "${REGISTRY_HOST}" "${AUTH_B64}" > "${AUTH_FILE}"
 
 if [ "${SCRIPT_MODE}" = "resolve" ]; then
   # Resolve-only: inspect the already-pushed image to get its digest
