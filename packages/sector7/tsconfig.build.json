@@ -7,21 +7,18 @@
 		"sourceMap": true,
 		"outDir": "dist",
 		"rootDir": ".",
-		"rewriteRelativeImportExtensions": true
+		"rewriteRelativeImportExtensions": true,
+		"inlineSources": true
 	},
 	"include": [
-		"index.ts",
-		"access/**/*.ts",
-		"iam/**/*.ts",
-		"workersite/**/*.ts",
-		"r2/**/*.ts",
-		"nix-image/**/*.ts",
-		"scripts/**/*.ts"
+		"**/*.ts"
 	],
 	"exclude": [
+		"dist/**",
 		"node_modules/**",
 		"tests/**/*.ts",
 		"examples/**/*.ts",
+		"vitest.config.ts",
 		"**/barrel-guard.ts"
 	]
 }
