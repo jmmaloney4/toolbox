@@ -1,0 +1,27 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"noEmit": false,
+		"declaration": true,
+		"declarationMap": true,
+		"sourceMap": true,
+		"outDir": "dist",
+		"rootDir": ".",
+		"rewriteRelativeImportExtensions": true
+	},
+	"include": [
+		"index.ts",
+		"access/**/*.ts",
+		"iam/**/*.ts",
+		"workersite/**/*.ts",
+		"r2/**/*.ts",
+		"nix-image/**/*.ts",
+		"scripts/**/*.ts"
+	],
+	"exclude": [
+		"node_modules/**",
+		"tests/**/*.ts",
+		"examples/**/*.ts",
+		"**/barrel-guard.ts"
+	]
+}

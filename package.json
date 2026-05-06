@@ -8,9 +8,9 @@
 		"packages/*"
 	],
 	"scripts": {
-		"build": "pnpm -r --if-present run build",
-		"test": "pnpm -r --if-present run test",
-		"clean": "pnpm -r --if-present run clean"
+		"build": "pnpm --filter './packages/*' -r --if-present run build",
+		"test": "pnpm --filter './packages/*' -r --if-present run test",
+		"clean": "pnpm --filter './packages/*' -r --if-present run clean"
 	},
 	"devDependencies": {
 		"typescript": "5.9.3",

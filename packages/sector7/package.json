@@ -12,44 +12,42 @@
 	},
 	"exports": {
 		".": {
-			"types": "./index.ts",
-			"default": "./index.ts"
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
 		},
 		"./access": {
-			"types": "./access/index.ts",
-			"default": "./access/index.ts"
+			"types": "./dist/access/index.d.ts",
+			"default": "./dist/access/index.js"
 		},
 		"./iam": {
-			"types": "./iam/index.ts",
-			"default": "./iam/index.ts"
+			"types": "./dist/iam/index.d.ts",
+			"default": "./dist/iam/index.js"
 		},
 		"./workersite": {
-			"types": "./workersite/index.ts",
-			"default": "./workersite/index.ts"
+			"types": "./dist/workersite/index.d.ts",
+			"default": "./dist/workersite/index.js"
 		},
 		"./r2": {
-			"types": "./r2/index.ts",
-			"default": "./r2/index.ts"
+			"types": "./dist/r2/index.d.ts",
+			"default": "./dist/r2/index.js"
 		},
 		"./nix-image": {
-			"types": "./nix-image/index.ts",
-			"default": "./nix-image/index.ts"
+			"types": "./dist/nix-image/index.d.ts",
+			"default": "./dist/nix-image/index.js"
 		},
 		"./scripts": {
-			"types": "./scripts/index.ts",
-			"default": "./scripts/index.ts"
+			"types": "./dist/scripts/index.d.ts",
+			"default": "./dist/scripts/index.js"
 		}
 	},
 	"files": [
-		"index.ts",
-		"access",
-		"iam",
-		"workersite",
-		"r2",
-		"nix-image",
-		"scripts"
+		"dist",
+		"README.md"
 	],
 	"scripts": {
+		"build": "pnpm run clean && tsc -p tsconfig.build.json && cp scripts/*.sh dist/scripts/",
+		"clean": "rimraf dist",
+		"prepack": "pnpm run build",
 		"test": "vitest run",
 		"test:watch": "vitest"
 	},
