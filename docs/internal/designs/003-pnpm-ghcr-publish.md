@@ -1,8 +1,10 @@
 # ADR-003: pnpm Package Publishing to GHCR
 
-**Status:** Accepted\
+**Status:** Superseded by ADR-018\
 **Date:** 2024-12-19\
 **Context:** Provide a reusable workflow to publish pnpm packages in `packages/*` to GitHub's npm registry (GHCR), with a dry‑run analysis mode that reports what would be published and why.
+
+> Superseded: ADR-018 changes the default Sector7 package distribution path from GitHub Packages publishing to packed npm tarballs uploaded as GitHub Release assets. This ADR remains historical context for the original analyzer and reusable workflow shape.
 
 ## Decision
 
