@@ -61,6 +61,24 @@ Install the Pulumi package:
 pnpm add @jmmaloney4/sector7
 ```
 
+Until the package is published to a registry, pin a GitHub codeload tarball instead of using pnpm's `github:` shorthand:
+
+```json
+{
+  "dependencies": {
+    "@jmmaloney4/sector7": "https://codeload.github.com/jmmaloney4/sector7/tar.gz/<commit>#path:/packages/sector7"
+  }
+}
+```
+
+Avoid specs like `github:jmmaloney4/sector7#<commit>&path:/packages/sector7` in Nix-backed pnpm workspaces. pnpm may lock those as `git+ssh` or `git+https` dependencies and then invoke `git clone` during the Nix `node_modules` build. That makes otherwise hermetic builds fail with missing `git`, missing `ssh`, or unavailable credentials. The codeload tarball form keeps the dependency pinned while resolving through pnpm's tarball fetch path.
+
+For commits from before the repository rename, use the old repository name in the tarball URL:
+
+```text
+https://codeload.github.com/jmmaloney4/toolbox/tar.gz/<commit>#path:/packages/sector7
+```
+
 Use the GitHubOidcResource component:
 
 ```typescript
