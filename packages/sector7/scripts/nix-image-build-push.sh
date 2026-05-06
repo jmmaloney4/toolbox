@@ -60,31 +60,35 @@ DIGEST_FILE=$(mktemp)
 AUTH_FILE=$(mktemp)
 trap 'rm -f "${AUTH_FILE}" "${RESULT_LINK}" "${DIGEST_FILE}"' EXIT
 
-# Authenticate (needed for both build+push and resolve on private registries)
+# Authenticate by writing authfile directly.
+# nix run does not reliably forward stdin to the child process (it must
+# resolve the flake first), so skopeo login --password-stdin fails with
+# a truncated/empty authfile.  Writing the JSON authfile directly avoids
+# the issue entirely.
 echo "--- authenticating (${AUTH_MODE}) ---"
 case "${AUTH_MODE}" in
   gcloud)
-    GCLOUD_TOKEN=$(gcloud auth print-access-token)
-    nix run github:nlewo/nix2container#skopeo-nix2container -- \
-      login -u oauth2accesstoken --password-stdin \
-      --authfile "${AUTH_FILE}" \
-      "${ARTIFACT_REGISTRY_URL}" <<< "${GCLOUD_TOKEN}"
+    PASSWORD=$(gcloud auth print-access-token)
+    USERNAME="oauth2accesstoken"
     ;;
   ghcr)
     if [ -z "${GITHUB_TOKEN:-}" ] || [ -z "${GITHUB_USER:-}" ]; then
       echo "ERROR: GITHUB_TOKEN and GITHUB_USER env vars required for ghcr auth mode" >&2
       exit 1
     fi
-    nix run github:nlewo/nix2container#skopeo-nix2container -- \
-      login -u "${GITHUB_USER}" --password-stdin \
-      --authfile "${AUTH_FILE}" \
-      "${ARTIFACT_REGISTRY_URL}" <<< "${GITHUB_TOKEN}"
+    PASSWORD="${GITHUB_TOKEN}"
+    USERNAME="${GITHUB_USER}"
     ;;
   *)
     echo "ERROR: Unknown AUTH_MODE '${AUTH_MODE}' (expected 'gcloud' or 'ghcr')" >&2
     exit 1
     ;;
 esac
+
+# Extract registry host (first path component before the next /)
+REGISTRY_HOST="${ARTIFACT_REGISTRY_URL%%/*}"
+printf '{"auths":{"%s":{"username":"%s","password":"%s"}}}' \
+  "${REGISTRY_HOST}" "${USERNAME}" "${PASSWORD}" > "${AUTH_FILE}"
 
 if [ "${SCRIPT_MODE}" = "resolve" ]; then
   # Resolve-only: inspect the already-pushed image to get its digest
