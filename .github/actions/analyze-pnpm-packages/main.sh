@@ -74,12 +74,14 @@ compare_versions() {
 }
 
 # Check if a GitHub Release asset already exists for this package+version.
+# The publish step creates tags like "${slug}-v${version}-${short_sha}",
+# so we match by prefix.
 # Returns "found" or "Not found".
 check_release_asset() {
   local name="$1" version="$2"
   local slug
   slug="$(pkg_slug "$name")"
-  local tag="${slug}-v${version}"
+  local tag_prefix="${slug}-v${version}"
   local stem
   stem="$(tarball_stem "$name")"
   local asset_name="${stem}-${version}.tgz"
@@ -89,26 +91,30 @@ check_release_asset() {
     return
   fi
 
-  # Query GitHub Releases API for the tag
-  local resp
-  resp="$(curl -sfL \
+  # List releases for this repo and find one whose tag starts with our prefix.
+  local releases
+  releases="$(curl -sfL \
     -H "Authorization: Bearer ${NODE_AUTH_TOKEN:-}" \
     -H "Accept: application/vnd.github+json" \
-    "https://api.github.com/repos/${GITHUB_REPO}/releases/tags/${tag}" 2>/dev/null || echo "")"
+    "https://api.github.com/repos/${GITHUB_REPO}/releases?per_page=100" 2>/dev/null || echo "")"
 
-  if [[ -z "$resp" ]]; then
+  if [[ -z "$releases" || "$releases" == "[]" ]]; then
     echo "Not found"
     return
   fi
 
-  # Check if the expected asset exists in the release
-  local asset_count
-  asset_count="$(echo "$resp" | jq --arg name "$asset_name" '.assets | map(select(.name == $name)) | length')"
+  # Find a release whose tag_name starts with our prefix and has the expected asset.
+  local match
+  match="$(echo "$releases" | jq --arg prefix "$tag_prefix" --arg asset "$asset_name" '
+    map(select(.tag_name | startswith($prefix)))
+    | map(select(.assets | map(.name) | contains([$asset])))
+    | .[0] // null
+  ')"
 
-  if [[ "$asset_count" -gt 0 ]]; then
-    echo "found"
-  else
+  if [[ "$match" == "null" || -z "$match" ]]; then
     echo "Not found"
+  else
+    echo "found"
   fi
 }
 
