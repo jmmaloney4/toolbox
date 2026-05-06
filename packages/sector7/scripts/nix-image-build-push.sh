@@ -50,6 +50,7 @@ mkdir -p "${LOG_DIR}"
 LOG_FILE="${LOG_DIR}/$(date +%Y%m%d-%H%M%S)-${IMAGE_NAME}-${SCRIPT_MODE}.log"
 exec > >(tee -a "${LOG_FILE}") 2>&1
 
+ARTIFACT_REGISTRY_URL="${ARTIFACT_REGISTRY_URL#*://}"
 FULL_TAG="${ARTIFACT_REGISTRY_URL}/${IMAGE_NAME}:${IMAGE_TAG}"
 
 echo "=== ${SCRIPT_MODE} ${IMAGE_NAME}:${IMAGE_TAG} ==="
@@ -86,11 +87,9 @@ case "${AUTH_MODE}" in
 esac
 
 # Extract registry host (first path component before the next /).
-# Strip any protocol prefix defensively.
 # Use base64-encoded auth field — nix-built skopeo ignores separate
 # username/password fields and treats them as empty credentials.
-REGISTRY_HOST="${ARTIFACT_REGISTRY_URL#*://}"
-REGISTRY_HOST="${REGISTRY_HOST%%/*}"
+REGISTRY_HOST="${ARTIFACT_REGISTRY_URL%%/*}"
 AUTH_B64=$(printf '%s:%s' "${USERNAME}" "${PASSWORD}" | base64 | tr -d '\n')
 printf '{"auths":{"%s":{"auth":"%s"}}}' \
   "${REGISTRY_HOST}" "${AUTH_B64}" > "${AUTH_FILE}"
