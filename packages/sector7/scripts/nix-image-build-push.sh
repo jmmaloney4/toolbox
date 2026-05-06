@@ -64,11 +64,11 @@ trap 'rm -f "${AUTH_FILE}" "${RESULT_LINK}" "${DIGEST_FILE}"' EXIT
 echo "--- authenticating (${AUTH_MODE}) ---"
 case "${AUTH_MODE}" in
   gcloud)
-    gcloud auth print-access-token \
-      | nix run github:nlewo/nix2container#skopeo-nix2container -- \
-          login -u oauth2accesstoken --password-stdin \
-          --authfile "${AUTH_FILE}" \
-          "${ARTIFACT_REGISTRY_URL}"
+    GCLOUD_TOKEN=$(gcloud auth print-access-token)
+    nix run github:nlewo/nix2container#skopeo-nix2container -- \
+      login -u oauth2accesstoken --password-stdin \
+      --authfile "${AUTH_FILE}" \
+      "${ARTIFACT_REGISTRY_URL}" <<< "${GCLOUD_TOKEN}"
     ;;
   ghcr)
     if [ -z "${GITHUB_TOKEN:-}" ] || [ -z "${GITHUB_USER:-}" ]; then
