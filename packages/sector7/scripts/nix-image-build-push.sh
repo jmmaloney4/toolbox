@@ -89,7 +89,7 @@ esac
 # Use base64-encoded auth field — nix-built skopeo ignores separate
 # username/password fields and treats them as empty credentials.
 REGISTRY_HOST="${ARTIFACT_REGISTRY_URL%%/*}"
-AUTH_B64=$(printf '%s:%s' "${USERNAME}" "${PASSWORD}" | base64)
+AUTH_B64=$(printf '%s:%s' "${USERNAME}" "${PASSWORD}" | base64 | tr -d '\n')
 printf '{"auths":{"%s":{"auth":"%s"}}}' \
   "${REGISTRY_HOST}" "${AUTH_B64}" > "${AUTH_FILE}"
 
@@ -97,7 +97,7 @@ if [ "${SCRIPT_MODE}" = "resolve" ]; then
   # Resolve-only: inspect the already-pushed image to get its digest
   echo "--- resolving digest ---"
   nix run github:nlewo/nix2container#skopeo-nix2container -- \
-    inspect --format '{{.Digest}}' \
+    --insecure-policy inspect --format '{{.Digest}}' \
     --authfile "${AUTH_FILE}" \
     docker://"${FULL_TAG}" \
     | tr -d '\n' \
@@ -114,7 +114,7 @@ else
   # Push the image
   echo "--- skopeo copy ---"
   nix run github:nlewo/nix2container#skopeo-nix2container -- \
-    copy --digestfile "${DIGEST_FILE}" \
+    --insecure-policy copy --digestfile "${DIGEST_FILE}" \
     --authfile "${AUTH_FILE}" \
     "${IMAGE_PATH}" \
     "docker://${FULL_TAG}"
