@@ -1,12 +1,25 @@
 name: Analyze pnpm packages
-description: Detect packages, query GHCR for published versions, semver compare, emit matrix and summary
+description: >
+  Detect packages under packages/*, check whether they need publishing,
+  and emit a JSON matrix and summary. Supports multiple publish targets:
+  release (GitHub Release tarball assets), ghcr (GitHub Packages npm registry),
+  npm (npmjs.org), and gcp (Google Artifact Registry npm).
 inputs:
   dry_run:
     description: Run in dry-run mode
     required: false
     default: "false"
+  target:
+    description: >
+      Publish target: release (GitHub Release tarball), ghcr (GitHub Packages),
+      npm (npmjs.org), gcp (Google Artifact Registry).
+    required: false
+    default: "release"
   registry:
-    description: npm registry URL (GHCR)
+    description: >
+      npm registry URL for ghcr/npm/gcp targets.
+      Defaults to https://npm.pkg.github.com for ghcr.
+      Ignored when target=release.
     required: false
     default: "https://npm.pkg.github.com"
   root:
@@ -16,6 +29,12 @@ inputs:
   scope:
     description: npm scope filter (e.g., @jmmaloney4); if set, only include scoped packages
     required: false
+  github_repository:
+    description: >
+      Owner/repository for GitHub Release asset checks when target=release.
+      Defaults to ${{ github.repository }}.
+    required: false
+    default: ""
 outputs:
   matrix:
     description: JSON matrix of packages and actions
@@ -30,8 +49,10 @@ runs:
       shell: bash
       env:
         A_DRY_RUN: ${{ inputs.dry_run }}
+        A_TARGET: ${{ inputs.target }}
         A_REGISTRY: ${{ inputs.registry }}
         A_ROOT: ${{ inputs.root }}
         A_SCOPE: ${{ inputs.scope }}
+        A_GITHUB_REPOSITORY: ${{ inputs.github_repository }}
         NODE_AUTH_TOKEN: ${{ env.NODE_AUTH_TOKEN }}
       run: $GITHUB_ACTION_PATH/main.sh

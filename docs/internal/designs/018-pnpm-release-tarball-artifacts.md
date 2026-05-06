@@ -76,9 +76,21 @@ to creating release tarball artifacts:
 - report release asset URLs in the workflow summary;
 - support dry-run mode for PRs and callers that only want an audit report.
 
-GitHub Packages and other npm-compatible registries MAY still be used when a
-consumer explicitly wants registry semantics, private package distribution, or
-semver/dist-tag behavior. They are not the default path for Sector7 packages.
+The reusable pnpm workflow MUST support multiple publish targets, configurable
+via a `target` input:
+
+- `release` (default): packed tarball uploaded as a GitHub Release asset.
+- `ghcr`: published to GitHub Packages npm registry.
+- `npm`: published to npmjs.org.
+- `gcp`: published to a Google Artifact Registry npm endpoint.
+
+Callers select the target at invocation. The analyze step checks for existing
+versions/assets using the appropriate mechanism for the selected target. The
+publish step dispatches to target-specific upload logic.
+
+This makes the workflow a general-purpose pnpm package publisher with release
+tarballs as the default distribution mechanism, while preserving registry
+publishing for repos or packages that need it.
 
 The release tag convention SHOULD include package identity, version, and source
 commit while package versioning discipline matures. Example:
@@ -252,15 +264,21 @@ Sector7, but the consumed artifact should remain a normal npm package tarball.
 
 # Implementation Notes
 
-1. Update `.github/workflows/pnpm.yml` to replace the GitHub Packages publish job
-   with a release-tarball upload job.
-2. Update `.github/actions/analyze-pnpm-packages` so analysis checks GitHub
-   Release tags/assets instead of GitHub Packages versions for the default path.
-3. Keep dry-run output so callers can see which package artifacts would be
+1. Updated `.github/workflows/pnpm.yml` to support configurable `target` input
+   (`release`, `ghcr`, `npm`, `gcp`) with `release` as default. Publish job
+   dispatches to target-specific logic: release tarball upload via `gh release
+   create`, or registry publish via `pnpm publish` with appropriate `.npmrc`.
+2. Updated `.github/actions/analyze-pnpm-packages` with a `target` input. For
+   `release`, it queries the GitHub Releases API for existing assets. For
+   registry targets, it queries the npm registry endpoint. The matrix includes
+   `target`, `slug`, `release_tag`, and `asset_name` fields.
+3. Updated `.github/workflows/_dogfood-pnpm.yml` to pass `target: release`
+   explicitly and grant `contents: write` permission for release uploads.
+4. Keep dry-run output so callers can see which package artifacts would be
    created.
-4. Update Sector7 README package-consumption guidance to prefer packed release
+5. Update Sector7 README package-consumption guidance to prefer packed release
    asset URLs over codeload `#path` URLs for runtime monorepo subpackages.
-5. Update downstream consumers, including Yard, to depend on release asset URLs.
+6. Update downstream consumers, including Yard, to depend on release asset URLs.
 
 # References
 

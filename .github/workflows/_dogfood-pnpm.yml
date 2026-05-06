@@ -7,7 +7,7 @@ on:
     tags:
       - 'v*'
 permissions:
-  contents: read
+  contents: write
   packages: write
 jobs:
   pnpm:
@@ -16,3 +16,4 @@ jobs:
       repository: ${{ github.repository }}
       ref: ${{ github.ref }}
       dry_run: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+      target: release
