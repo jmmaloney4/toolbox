@@ -173,6 +173,26 @@ describe("ZoneCachePurge provider", () => {
 			]);
 		});
 
+		it("rejects files array exceeding 30 items", async () => {
+			const result = await provider!.check({}, {
+				...baseArgs,
+				files: Array.from({ length: 31 }, (_, i) => `https://example.com/${i}`),
+			});
+			expect(result.failures).toEqual([
+				{ property: "files", reason: "files must not exceed 30 items (Cloudflare API limit)" },
+			]);
+		});
+
+		it("rejects hosts array exceeding 30 items", async () => {
+			const result = await provider!.check({}, {
+				...baseArgs,
+				hosts: Array.from({ length: 31 }, (_, i) => `host${i}.example.com`),
+			});
+			expect(result.failures).toEqual([
+				{ property: "hosts", reason: "hosts must not exceed 30 items (Cloudflare API limit)" },
+			]);
+		});
+
 		it("rejects files and hosts provided together", async () => {
 			const result = await provider!.check({}, {
 				...baseArgs,

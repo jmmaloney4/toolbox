@@ -772,19 +772,25 @@ const zoneCachePurgeProvider: dynamic.ResourceProvider = {
 			}
 		}
 		// Validate files: accept non-empty string[] or undefined; reject non-array, non-string elements, or empty.
+		// Cloudflare limits purge requests to 30 URLs.
 		if (news.files !== undefined) {
 			if (!Array.isArray(news.files) || news.files.some((f: unknown) => typeof f !== "string" || !f)) {
 				failures.push({ property: "files", reason: "files must be an array of non-empty URL strings" });
 			} else if (news.files.length === 0) {
 				failures.push({ property: "files", reason: "files must not be empty — omit the property to purge the entire zone" });
+			} else if (news.files.length > 30) {
+				failures.push({ property: "files", reason: "files must not exceed 30 items (Cloudflare API limit)" });
 			}
 		}
 		// Validate hosts: accept non-empty string[] or undefined; reject non-array, non-string elements, or empty.
+		// Cloudflare limits purge requests to 30 hostnames.
 		if (news.hosts !== undefined) {
 			if (!Array.isArray(news.hosts) || news.hosts.some((h: unknown) => typeof h !== "string" || !h)) {
 				failures.push({ property: "hosts", reason: "hosts must be an array of non-empty hostname strings" });
 			} else if (news.hosts.length === 0) {
 				failures.push({ property: "hosts", reason: "hosts must not be empty — omit the property to purge the entire zone" });
+			} else if (news.hosts.length > 30) {
+				failures.push({ property: "hosts", reason: "hosts must not exceed 30 items (Cloudflare API limit)" });
 			}
 		}
 		// files and hosts are mutually exclusive.
