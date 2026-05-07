@@ -718,12 +718,30 @@ export interface PurgeZoneCacheArgs {
 	 * and apiToken stay the same across deploys.
 	 */
 	trigger: Input<string>;
+	/**
+	 * Specific URLs to purge instead of purging the entire zone.
+	 * Each entry must be a full URL (e.g. `https://dev.example.com/index.html`).
+	 * When omitted or empty, the entire zone cache is purged via `purge_everything`.
+	 * Useful when multiple stacks share a single Cloudflare zone — each stack
+	 * can scope its purge to its own hostname without invalidating the other.
+	 */
+	files?: Input<Input<string>[]>;
 	/** Resource dependencies — purge runs after these complete. */
 	dependsOn?: Input<Input<Resource>[]>;
 }
 
 /**
- * Purge the Cloudflare edge cache for an entire zone after a deploy.
+ * Normalized inputs stored in Pulumi state for ZoneCachePurge.
+ */
+interface ZoneCachePurgeInputs {
+	zoneId: string;
+	apiToken: string;
+	trigger: string;
+	files?: string[];
+}
+
+/**
+ * Purge the Cloudflare edge cache for an entire zone (or specific URLs) after a deploy.
  *
  * Uses a Pulumi dynamic resource to call the Cloudflare Purge Cache API.
  * The `trigger` input changes on every deployment (e.g. a hash of uploaded
@@ -744,6 +762,10 @@ const zoneCachePurgeProvider: dynamic.ResourceProvider = {
 				failures.push({ property: p, reason: p + " is required and must be a non-empty string" });
 			}
 		}
+		// Normalize files: accept string[] or undefined; reject non-array.
+		if (news.files !== undefined && !Array.isArray(news.files)) {
+			failures.push({ property: "files", reason: "files must be an array of URL strings" });
+		}
 		return { inputs: news, failures };
 	},
 
@@ -754,18 +776,20 @@ const zoneCachePurgeProvider: dynamic.ResourceProvider = {
 	): Promise<dynamic.DiffResult> {
 		const replaces: string[] = [];
 		if (olds.zoneId !== news.zoneId) replaces.push("zoneId");
+		const filesChanged =
+			JSON.stringify(olds.files ?? []) !== JSON.stringify(news.files ?? []);
 		return {
 			replaces,
-			changes: replaces.length > 0 || olds.trigger !== news.trigger || olds.apiToken !== news.apiToken,
+			changes:
+				replaces.length > 0 ||
+				olds.trigger !== news.trigger ||
+				olds.apiToken !== news.apiToken ||
+				filesChanged,
 		};
 	},
 
-	async create(inputs: {
-		zoneId: string;
-		apiToken: string;
-		trigger: string;
-	}): Promise<dynamic.CreateResult> {
-		await purgeZoneCacheApi(inputs.zoneId, inputs.apiToken);
+	async create(inputs: ZoneCachePurgeInputs): Promise<dynamic.CreateResult> {
+		await purgeZoneCacheApi(inputs.zoneId, inputs.apiToken, inputs.files);
 		return {
 			id: `purge-${inputs.zoneId}-${inputs.trigger.slice(0, 12)}`,
 			outs: { ...inputs },
@@ -775,9 +799,9 @@ const zoneCachePurgeProvider: dynamic.ResourceProvider = {
 	async update(
 		_id: string,
 		_olds: Record<string, unknown>,
-		news: { zoneId: string; apiToken: string; trigger: string },
+		news: ZoneCachePurgeInputs,
 	): Promise<dynamic.UpdateResult> {
-		await purgeZoneCacheApi(news.zoneId, news.apiToken);
+		await purgeZoneCacheApi(news.zoneId, news.apiToken, news.files);
 		return { outs: { ...news } };
 	},
 
@@ -789,7 +813,12 @@ const zoneCachePurgeProvider: dynamic.ResourceProvider = {
 async function purgeZoneCacheApi(
 	zoneId: string,
 	apiToken: string,
+	files?: string[],
 ): Promise<void> {
+	const body =
+		files && files.length > 0
+			? { files }
+			: { purge_everything: true };
 	const response = await fetch(
 		`https://api.cloudflare.com/client/v4/zones/${zoneId}/purge_cache`,
 		{
@@ -798,7 +827,7 @@ async function purgeZoneCacheApi(
 				Authorization: `Bearer ${apiToken}`,
 				"Content-Type": "application/json",
 			},
-			body: JSON.stringify({ purge_everything: true }),
+			body: JSON.stringify(body),
 		},
 	);
 
@@ -813,6 +842,8 @@ async function purgeZoneCacheApi(
 /**
  * A Pulumi dynamic resource that purges the Cloudflare zone cache.
  *
+ * When `files` is provided, only the specified URLs are purged.
+ * Otherwise the entire zone cache is purged.
  * Triggers on create and update (whenever inputs change). Delete is a no-op
  * since there's nothing to undo — the cache will naturally repopulate.
  */
@@ -835,6 +866,7 @@ class ZoneCachePurge extends dynamic.Resource {
 				zoneId: args.zoneId,
 				apiToken: args.apiToken,
 				trigger: args.trigger,
+				files: args.files,
 			},
 			mergedOpts,
 		);
