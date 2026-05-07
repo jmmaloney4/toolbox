@@ -771,13 +771,17 @@ const zoneCachePurgeProvider: dynamic.ResourceProvider = {
 				failures.push({ property: p, reason: p + " is required and must be a non-empty string" });
 			}
 		}
-		// Normalize files: accept string[] or undefined; reject non-array.
-		if (news.files !== undefined && !Array.isArray(news.files)) {
-			failures.push({ property: "files", reason: "files must be an array of URL strings" });
+		// Validate files: accept string[] or undefined; reject non-array or non-string elements.
+		if (news.files !== undefined) {
+			if (!Array.isArray(news.files) || news.files.some((f: unknown) => typeof f !== "string" || !f)) {
+				failures.push({ property: "files", reason: "files must be an array of non-empty URL strings" });
+			}
 		}
-		// Normalize hosts: accept string[] or undefined; reject non-array.
-		if (news.hosts !== undefined && !Array.isArray(news.hosts)) {
-			failures.push({ property: "hosts", reason: "hosts must be an array of hostname strings" });
+		// Validate hosts: accept string[] or undefined; reject non-array or non-string elements.
+		if (news.hosts !== undefined) {
+			if (!Array.isArray(news.hosts) || news.hosts.some((h: unknown) => typeof h !== "string" || !h)) {
+				failures.push({ property: "hosts", reason: "hosts must be an array of non-empty hostname strings" });
+			}
 		}
 		// files and hosts are mutually exclusive.
 		if (Array.isArray(news.files) && news.files.length > 0 && Array.isArray(news.hosts) && news.hosts.length > 0) {
@@ -867,8 +871,8 @@ async function purgeZoneCacheApi(
 /**
  * A Pulumi dynamic resource that purges the Cloudflare zone cache.
  *
- * When `files` is provided, only the specified URLs are purged.
- * Otherwise the entire zone cache is purged.
+ * When `files` or `hosts` are provided, only the specified URLs or hostnames
+ * are purged. Otherwise the entire zone cache is purged.
  * Triggers on create and update (whenever inputs change). Delete is a no-op
  * since there's nothing to undo — the cache will naturally repopulate.
  */

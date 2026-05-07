@@ -109,7 +109,27 @@ describe("ZoneCachePurge provider", () => {
 				files: "not-an-array",
 			});
 			expect(result.failures).toEqual([
-				{ property: "files", reason: "files must be an array of URL strings" },
+				{ property: "files", reason: "files must be an array of non-empty URL strings" },
+			]);
+		});
+
+		it("rejects files array with non-string elements", async () => {
+			const result = await provider!.check({}, {
+				...baseArgs,
+				files: ["https://example.com", 123 as unknown as string],
+			});
+			expect(result.failures).toEqual([
+				{ property: "files", reason: "files must be an array of non-empty URL strings" },
+			]);
+		});
+
+		it("rejects files array with empty strings", async () => {
+			const result = await provider!.check({}, {
+				...baseArgs,
+				files: ["https://example.com", ""],
+			});
+			expect(result.failures).toEqual([
+				{ property: "files", reason: "files must be an array of non-empty URL strings" },
 			]);
 		});
 
@@ -119,7 +139,17 @@ describe("ZoneCachePurge provider", () => {
 				hosts: "not-an-array",
 			});
 			expect(result.failures).toEqual([
-				{ property: "hosts", reason: "hosts must be an array of hostname strings" },
+				{ property: "hosts", reason: "hosts must be an array of non-empty hostname strings" },
+			]);
+		});
+
+		it("rejects hosts array with non-string elements", async () => {
+			const result = await provider!.check({}, {
+				...baseArgs,
+				hosts: ["dev.example.com", null as unknown as string],
+			});
+			expect(result.failures).toEqual([
+				{ property: "hosts", reason: "hosts must be an array of non-empty hostname strings" },
 			]);
 		});
 
@@ -194,7 +224,7 @@ describe("ZoneCachePurge provider", () => {
 		it("treats undefined and empty files array as equivalent", async () => {
 			const result = await provider!.diff("id", baseArgs, {
 				...baseArgs,
-				files: undefined,
+				files: [],
 			});
 			expect(result.changes).toBe(false);
 		});
@@ -202,7 +232,7 @@ describe("ZoneCachePurge provider", () => {
 		it("treats undefined and empty hosts array as equivalent", async () => {
 			const result = await provider!.diff("id", baseArgs, {
 				...baseArgs,
-				hosts: undefined,
+				hosts: [],
 			});
 			expect(result.changes).toBe(false);
 		});
