@@ -776,7 +776,7 @@ const zoneCachePurgeProvider: dynamic.ResourceProvider = {
 			if (!Array.isArray(news.files) || news.files.some((f: unknown) => typeof f !== "string" || !f)) {
 				failures.push({ property: "files", reason: "files must be an array of non-empty URL strings" });
 			} else if (news.files.length === 0) {
-				failures.push({ property: "files", reason: "files must not be empty — use purgeEverything instead" });
+				failures.push({ property: "files", reason: "files must not be empty — omit the property to purge the entire zone" });
 			}
 		}
 		// Validate hosts: accept non-empty string[] or undefined; reject non-array, non-string elements, or empty.
@@ -784,7 +784,7 @@ const zoneCachePurgeProvider: dynamic.ResourceProvider = {
 			if (!Array.isArray(news.hosts) || news.hosts.some((h: unknown) => typeof h !== "string" || !h)) {
 				failures.push({ property: "hosts", reason: "hosts must be an array of non-empty hostname strings" });
 			} else if (news.hosts.length === 0) {
-				failures.push({ property: "hosts", reason: "hosts must not be empty — use purgeEverything instead" });
+				failures.push({ property: "hosts", reason: "hosts must not be empty — omit the property to purge the entire zone" });
 			}
 		}
 		// files and hosts are mutually exclusive.

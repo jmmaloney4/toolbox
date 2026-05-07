@@ -139,7 +139,7 @@ describe("ZoneCachePurge provider", () => {
 				files: [],
 			});
 			expect(result.failures).toEqual([
-				{ property: "files", reason: "files must not be empty — use purgeEverything instead" },
+				{ property: "files", reason: "files must not be empty — omit the property to purge the entire zone" },
 			]);
 		});
 
@@ -169,7 +169,7 @@ describe("ZoneCachePurge provider", () => {
 				hosts: [],
 			});
 			expect(result.failures).toEqual([
-				{ property: "hosts", reason: "hosts must not be empty — use purgeEverything instead" },
+				{ property: "hosts", reason: "hosts must not be empty — omit the property to purge the entire zone" },
 			]);
 		});
 
