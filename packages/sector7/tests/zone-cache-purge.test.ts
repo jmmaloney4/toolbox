@@ -95,6 +95,14 @@ describe("ZoneCachePurge provider", () => {
 			expect(result.failures).toEqual([]);
 		});
 
+		it("accepts optional hosts array", async () => {
+			const result = await provider!.check({}, {
+				...baseArgs,
+				hosts: ["dev.example.com"],
+			});
+			expect(result.failures).toEqual([]);
+		});
+
 		it("rejects non-array files value", async () => {
 			const result = await provider!.check({}, {
 				...baseArgs,
@@ -105,10 +113,32 @@ describe("ZoneCachePurge provider", () => {
 			]);
 		});
 
-		it("accepts undefined files", async () => {
+		it("rejects non-array hosts value", async () => {
+			const result = await provider!.check({}, {
+				...baseArgs,
+				hosts: "not-an-array",
+			});
+			expect(result.failures).toEqual([
+				{ property: "hosts", reason: "hosts must be an array of hostname strings" },
+			]);
+		});
+
+		it("rejects files and hosts provided together", async () => {
+			const result = await provider!.check({}, {
+				...baseArgs,
+				files: ["https://dev.example.com/index.html"],
+				hosts: ["dev.example.com"],
+			});
+			expect(result.failures).toEqual([
+				{ property: "files", reason: "files and hosts are mutually exclusive" },
+			]);
+		});
+
+		it("accepts undefined files and hosts", async () => {
 			const result = await provider!.check({}, {
 				...baseArgs,
 				files: undefined,
+				hosts: undefined,
 			});
 			expect(result.failures).toEqual([]);
 		});
@@ -153,10 +183,26 @@ describe("ZoneCachePurge provider", () => {
 			expect(result.changes).toBe(true);
 		});
 
+		it("detects hosts change", async () => {
+			const result = await provider!.diff("id", baseArgs, {
+				...baseArgs,
+				hosts: ["dev.example.com"],
+			});
+			expect(result.changes).toBe(true);
+		});
+
 		it("treats undefined and empty files array as equivalent", async () => {
 			const result = await provider!.diff("id", baseArgs, {
 				...baseArgs,
 				files: undefined,
+			});
+			expect(result.changes).toBe(false);
+		});
+
+		it("treats undefined and empty hosts array as equivalent", async () => {
+			const result = await provider!.diff("id", baseArgs, {
+				...baseArgs,
+				hosts: undefined,
 			});
 			expect(result.changes).toBe(false);
 		});
@@ -168,10 +214,18 @@ describe("ZoneCachePurge provider", () => {
 			}, baseArgs);
 			expect(result.changes).toBe(true);
 		});
+
+		it("detects change from hosts array to undefined", async () => {
+			const result = await provider!.diff("id", {
+				...baseArgs,
+				hosts: ["dev.example.com"],
+			}, baseArgs);
+			expect(result.changes).toBe(true);
+		});
 	});
 
 	describe("create", () => {
-		it("calls purgeZoneCacheApi with purge_everything when no files", async () => {
+		it("calls purgeZoneCacheApi with purge_everything when no files or hosts", async () => {
 			await provider!.create(baseArgs);
 
 			expect(mockFetch).toHaveBeenCalledTimes(1);
@@ -192,8 +246,35 @@ describe("ZoneCachePurge provider", () => {
 			expect(JSON.parse(opts.body)).toEqual({ files });
 		});
 
+		it("calls purgeZoneCacheApi with hosts when provided", async () => {
+			const hosts = ["dev.example.com"];
+			await provider!.create({ ...baseArgs, hosts });
+
+			expect(mockFetch).toHaveBeenCalledTimes(1);
+			const [_url, opts] = mockFetch.mock.calls[0];
+			expect(JSON.parse(opts.body)).toEqual({ hosts });
+		});
+
+		it("prefers hosts over files when both are provided", async () => {
+			const hosts = ["dev.example.com"];
+			const files = ["https://dev.example.com/index.html"];
+			await provider!.create({ ...baseArgs, files, hosts });
+
+			expect(mockFetch).toHaveBeenCalledTimes(1);
+			const [_url, opts] = mockFetch.mock.calls[0];
+			expect(JSON.parse(opts.body)).toEqual({ hosts });
+		});
+
 		it("uses purge_everything when files is empty array", async () => {
 			await provider!.create({ ...baseArgs, files: [] });
+
+			expect(mockFetch).toHaveBeenCalledTimes(1);
+			const [_url, opts] = mockFetch.mock.calls[0];
+			expect(JSON.parse(opts.body)).toEqual({ purge_everything: true });
+		});
+
+		it("uses purge_everything when hosts is empty array", async () => {
+			await provider!.create({ ...baseArgs, hosts: [] });
 
 			expect(mockFetch).toHaveBeenCalledTimes(1);
 			const [_url, opts] = mockFetch.mock.calls[0];
@@ -216,6 +297,15 @@ describe("ZoneCachePurge provider", () => {
 			expect(mockFetch).toHaveBeenCalledTimes(1);
 			const [_url, opts] = mockFetch.mock.calls[0];
 			expect(JSON.parse(opts.body)).toEqual({ files });
+		});
+
+		it("calls purgeZoneCacheApi with new hosts", async () => {
+			const hosts = ["prod.example.com"];
+			await provider!.update("id", baseArgs, { ...baseArgs, hosts });
+
+			expect(mockFetch).toHaveBeenCalledTimes(1);
+			const [_url, opts] = mockFetch.mock.calls[0];
+			expect(JSON.parse(opts.body)).toEqual({ hosts });
 		});
 
 		it("returns new outs", async () => {

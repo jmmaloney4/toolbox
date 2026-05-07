@@ -721,11 +721,19 @@ export interface PurgeZoneCacheArgs {
 	/**
 	 * Specific URLs to purge instead of purging the entire zone.
 	 * Each entry must be a full URL (e.g. `https://dev.example.com/index.html`).
-	 * When omitted or empty, the entire zone cache is purged via `purge_everything`.
-	 * Useful when multiple stacks share a single Cloudflare zone — each stack
-	 * can scope its purge to its own hostname without invalidating the other.
+	 * When provided, sends `{"files": [...]}` to the Cloudflare API.
+	 * Mutually exclusive with `hosts`.
 	 */
 	files?: Input<Input<string>[]>;
+	/**
+	 * Hostnames to purge instead of purging the entire zone.
+	 * Each entry is a bare hostname (e.g. `"dev.example.com"`).
+	 * When provided, sends `{"hosts": [...]}` to the Cloudflare API.
+	 * This purges all cached resources for that hostname — ideal when
+	 * multiple stacks share a single Cloudflare zone.
+	 * Mutually exclusive with `files`.
+	 */
+	hosts?: Input<Input<string>[]>;
 	/** Resource dependencies — purge runs after these complete. */
 	dependsOn?: Input<Input<Resource>[]>;
 }
@@ -738,6 +746,7 @@ interface ZoneCachePurgeInputs {
 	apiToken: string;
 	trigger: string;
 	files?: string[];
+	hosts?: string[];
 }
 
 /**
@@ -766,6 +775,14 @@ const zoneCachePurgeProvider: dynamic.ResourceProvider = {
 		if (news.files !== undefined && !Array.isArray(news.files)) {
 			failures.push({ property: "files", reason: "files must be an array of URL strings" });
 		}
+		// Normalize hosts: accept string[] or undefined; reject non-array.
+		if (news.hosts !== undefined && !Array.isArray(news.hosts)) {
+			failures.push({ property: "hosts", reason: "hosts must be an array of hostname strings" });
+		}
+		// files and hosts are mutually exclusive.
+		if (Array.isArray(news.files) && news.files.length > 0 && Array.isArray(news.hosts) && news.hosts.length > 0) {
+			failures.push({ property: "files", reason: "files and hosts are mutually exclusive" });
+		}
 		return { inputs: news, failures };
 	},
 
@@ -778,18 +795,21 @@ const zoneCachePurgeProvider: dynamic.ResourceProvider = {
 		if (olds.zoneId !== news.zoneId) replaces.push("zoneId");
 		const filesChanged =
 			JSON.stringify(olds.files ?? []) !== JSON.stringify(news.files ?? []);
+		const hostsChanged =
+			JSON.stringify(olds.hosts ?? []) !== JSON.stringify(news.hosts ?? []);
 		return {
 			replaces,
 			changes:
 				replaces.length > 0 ||
 				olds.trigger !== news.trigger ||
 				olds.apiToken !== news.apiToken ||
-				filesChanged,
+				filesChanged ||
+				hostsChanged,
 		};
 	},
 
 	async create(inputs: ZoneCachePurgeInputs): Promise<dynamic.CreateResult> {
-		await purgeZoneCacheApi(inputs.zoneId, inputs.apiToken, inputs.files);
+		await purgeZoneCacheApi(inputs.zoneId, inputs.apiToken, inputs.files, inputs.hosts);
 		return {
 			id: `purge-${inputs.zoneId}-${inputs.trigger.slice(0, 12)}`,
 			outs: { ...inputs },
@@ -801,7 +821,7 @@ const zoneCachePurgeProvider: dynamic.ResourceProvider = {
 		_olds: Record<string, unknown>,
 		news: ZoneCachePurgeInputs,
 	): Promise<dynamic.UpdateResult> {
-		await purgeZoneCacheApi(news.zoneId, news.apiToken, news.files);
+		await purgeZoneCacheApi(news.zoneId, news.apiToken, news.files, news.hosts);
 		return { outs: { ...news } };
 	},
 
@@ -814,11 +834,16 @@ async function purgeZoneCacheApi(
 	zoneId: string,
 	apiToken: string,
 	files?: string[],
+	hosts?: string[],
 ): Promise<void> {
-	const body =
-		files && files.length > 0
-			? { files }
-			: { purge_everything: true };
+	let body: Record<string, unknown>;
+	if (hosts && hosts.length > 0) {
+		body = { hosts };
+	} else if (files && files.length > 0) {
+		body = { files };
+	} else {
+		body = { purge_everything: true };
+	}
 	const response = await fetch(
 		`https://api.cloudflare.com/client/v4/zones/${zoneId}/purge_cache`,
 		{
@@ -867,6 +892,7 @@ class ZoneCachePurge extends dynamic.Resource {
 				apiToken: args.apiToken,
 				trigger: args.trigger,
 				files: args.files,
+				hosts: args.hosts,
 			},
 			mergedOpts,
 		);
