@@ -133,6 +133,16 @@ describe("ZoneCachePurge provider", () => {
 			]);
 		});
 
+		it("rejects empty files array", async () => {
+			const result = await provider!.check({}, {
+				...baseArgs,
+				files: [],
+			});
+			expect(result.failures).toEqual([
+				{ property: "files", reason: "files must not be empty — use purgeEverything instead" },
+			]);
+		});
+
 		it("rejects non-array hosts value", async () => {
 			const result = await provider!.check({}, {
 				...baseArgs,
@@ -150,6 +160,16 @@ describe("ZoneCachePurge provider", () => {
 			});
 			expect(result.failures).toEqual([
 				{ property: "hosts", reason: "hosts must be an array of non-empty hostname strings" },
+			]);
+		});
+
+		it("rejects empty hosts array", async () => {
+			const result = await provider!.check({}, {
+				...baseArgs,
+				hosts: [],
+			});
+			expect(result.failures).toEqual([
+				{ property: "hosts", reason: "hosts must not be empty — use purgeEverything instead" },
 			]);
 		});
 
@@ -221,7 +241,7 @@ describe("ZoneCachePurge provider", () => {
 			expect(result.changes).toBe(true);
 		});
 
-		it("treats undefined and empty files array as equivalent", async () => {
+		it("treats undefined and empty files array as equivalent in diff", async () => {
 			const result = await provider!.diff("id", baseArgs, {
 				...baseArgs,
 				files: [],
@@ -229,7 +249,7 @@ describe("ZoneCachePurge provider", () => {
 			expect(result.changes).toBe(false);
 		});
 
-		it("treats undefined and empty hosts array as equivalent", async () => {
+		it("treats undefined and empty hosts array as equivalent in diff", async () => {
 			const result = await provider!.diff("id", baseArgs, {
 				...baseArgs,
 				hosts: [],
@@ -243,6 +263,28 @@ describe("ZoneCachePurge provider", () => {
 				files: ["https://dev.example.com/index.html"],
 			}, baseArgs);
 			expect(result.changes).toBe(true);
+		});
+
+		it("treats reordered files array as equivalent", async () => {
+			const result = await provider!.diff("id", {
+				...baseArgs,
+				files: ["https://a.com", "https://b.com"],
+			}, {
+				...baseArgs,
+				files: ["https://b.com", "https://a.com"],
+			});
+			expect(result.changes).toBe(false);
+		});
+
+		it("treats reordered hosts array as equivalent", async () => {
+			const result = await provider!.diff("id", {
+				...baseArgs,
+				hosts: ["a.example.com", "b.example.com"],
+			}, {
+				...baseArgs,
+				hosts: ["b.example.com", "a.example.com"],
+			});
+			expect(result.changes).toBe(false);
 		});
 
 		it("detects change from hosts array to undefined", async () => {

@@ -771,16 +771,20 @@ const zoneCachePurgeProvider: dynamic.ResourceProvider = {
 				failures.push({ property: p, reason: p + " is required and must be a non-empty string" });
 			}
 		}
-		// Validate files: accept string[] or undefined; reject non-array or non-string elements.
+		// Validate files: accept non-empty string[] or undefined; reject non-array, non-string elements, or empty.
 		if (news.files !== undefined) {
 			if (!Array.isArray(news.files) || news.files.some((f: unknown) => typeof f !== "string" || !f)) {
 				failures.push({ property: "files", reason: "files must be an array of non-empty URL strings" });
+			} else if (news.files.length === 0) {
+				failures.push({ property: "files", reason: "files must not be empty — use purgeEverything instead" });
 			}
 		}
-		// Validate hosts: accept string[] or undefined; reject non-array or non-string elements.
+		// Validate hosts: accept non-empty string[] or undefined; reject non-array, non-string elements, or empty.
 		if (news.hosts !== undefined) {
 			if (!Array.isArray(news.hosts) || news.hosts.some((h: unknown) => typeof h !== "string" || !h)) {
 				failures.push({ property: "hosts", reason: "hosts must be an array of non-empty hostname strings" });
+			} else if (news.hosts.length === 0) {
+				failures.push({ property: "hosts", reason: "hosts must not be empty — use purgeEverything instead" });
 			}
 		}
 		// files and hosts are mutually exclusive.
@@ -798,9 +802,11 @@ const zoneCachePurgeProvider: dynamic.ResourceProvider = {
 		const replaces: string[] = [];
 		if (olds.zoneId !== news.zoneId) replaces.push("zoneId");
 		const filesChanged =
-			JSON.stringify(olds.files ?? []) !== JSON.stringify(news.files ?? []);
+			JSON.stringify([...((olds.files as string[] | undefined) ?? [])].sort()) !==
+			JSON.stringify([...((news.files as string[] | undefined) ?? [])].sort());
 		const hostsChanged =
-			JSON.stringify(olds.hosts ?? []) !== JSON.stringify(news.hosts ?? []);
+			JSON.stringify([...((olds.hosts as string[] | undefined) ?? [])].sort()) !==
+			JSON.stringify([...((news.hosts as string[] | undefined) ?? [])].sort());
 		return {
 			replaces,
 			changes:
