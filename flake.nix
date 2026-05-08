@@ -1,22 +1,12 @@
 {
   inputs = {
-    ### Nixpkgs ###
-    # nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
-    nixpkgs.url = "github:nixos/nixpkgs/70801e06d9730c4f1704fbd3bbf5b8e11c03a2a7"; # https://github.com/NixOS/nixpkgs/issues/483584
+    ### Primary — jackpkgs owns the pin versions ###
+    jackpkgs.url = "github:jmmaloney4/jackpkgs";
 
-    jackpkgs = {
-      url = "github:jmmaloney4/jackpkgs";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.flake-parts.follows = "flake-parts";
-      inputs.systems.follows = "systems";
-    };
-
-    ### Flake / Project Inputs ###
-    flake-parts = {
-      url = "github:hercules-ci/flake-parts";
-    };
-
-    systems.url = "github:nix-systems/default";
+    ### Follow jackpkgs inputs wherever we also declare them ###
+    nixpkgs.follows = "jackpkgs/nixpkgs"; # https://github.com/NixOS/nixpkgs/issues/483584
+    flake-parts.follows = "jackpkgs/flake-parts";
+    systems.follows = "jackpkgs/systems";
   };
 
   outputs = {
