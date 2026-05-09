@@ -6,6 +6,7 @@ PR_URL="${PR_URL:?PR_URL env var is required}"
 BASE_BRANCH="${BASE_BRANCH:-main}"
 PR_NUMBER="${PR_NUMBER:-}"
 COMMIT_MESSAGE="${COMMIT_MESSAGE:-}"
+created_numbers=()
 
 if [ ! -f "$ADR_FILES" ]; then
   echo "Error: ADR_FILES '$ADR_FILES' does not exist" >&2
@@ -84,7 +85,7 @@ done < "$ADR_FILES"
 if git diff --cached --quiet; then
   echo "No changes to commit"
 else
-  # Join numbers with commas for commit message
+  # Join ADR numbers with commas for commit message
   joined_numbers=$(IFS=, ; echo "${created_numbers[*]}")
 
   if [ -z "$COMMIT_MESSAGE" ]; then
