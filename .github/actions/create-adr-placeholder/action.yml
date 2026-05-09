@@ -11,7 +11,7 @@ inputs:
     description: The pull request number (optional, used for commit message)
     required: false
   commit_message:
-    description: Custom commit message (optional). Use {{adr_numbers}} placeholder.
+    description: Custom commit message (optional). Use {{adr_numbers}}, {{pr_number}}, and {{pr_url}} placeholders.
     required: false
   base_branch:
     description: Base branch to reserve ADR numbers on (e.g., main)

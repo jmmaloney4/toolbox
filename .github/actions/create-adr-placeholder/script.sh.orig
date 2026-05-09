@@ -6,7 +6,6 @@ PR_URL="${PR_URL:?PR_URL env var is required}"
 BASE_BRANCH="${BASE_BRANCH:-main}"
 PR_NUMBER="${PR_NUMBER:-}"
 COMMIT_MESSAGE="${COMMIT_MESSAGE:-}"
-created_numbers=()
 
 if [ ! -f "$ADR_FILES" ]; then
   echo "Error: ADR_FILES '$ADR_FILES' does not exist" >&2
@@ -85,9 +84,8 @@ done < "$ADR_FILES"
 if git diff --cached --quiet; then
   echo "No changes to commit"
 else
-  # Join ADR numbers with commas for commit message
-  joined_numbers=$(printf ", %s" "${created_numbers[@]}")
-  joined_numbers="${joined_numbers:2}"
+  # Join numbers with commas for commit message
+  joined_numbers=$(IFS=, ; echo "${created_numbers[*]}")
 
   if [ -z "$COMMIT_MESSAGE" ]; then
     # Generate conventional commit message
@@ -102,10 +100,8 @@ else
 
 Related PR: ${PR_URL}"
   else
-    # Replace placeholders in custom message
-    COMMIT_MESSAGE="${COMMIT_MESSAGE//{{adr_numbers}}/$joined_numbers}"
-    COMMIT_MESSAGE="${COMMIT_MESSAGE//{{pr_number}}/$PR_NUMBER}"
-    COMMIT_MESSAGE="${COMMIT_MESSAGE//{{pr_url}}/$PR_URL}"
+    # Replace {{adr_numbers}} placeholder in custom message
+    COMMIT_MESSAGE="${COMMIT_MESSAGE//\{\{adr_numbers\}\}/$joined_numbers}"
   fi
 
   git commit -m "$COMMIT_MESSAGE"
