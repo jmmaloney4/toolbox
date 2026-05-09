@@ -4,6 +4,9 @@ set -euo pipefail
 ADR_FILES="${ADR_FILES:?ADR_FILES env var is required}"
 PR_URL="${PR_URL:?PR_URL env var is required}"
 BASE_BRANCH="${BASE_BRANCH:-main}"
+PR_NUMBER="${PR_NUMBER:-}"
+COMMIT_MESSAGE="${COMMIT_MESSAGE:-}"
+created_numbers=()
 
 if [ ! -f "$ADR_FILES" ]; then
   echo "Error: ADR_FILES '$ADR_FILES' does not exist" >&2
@@ -44,6 +47,9 @@ while IFS= read -r adr_file; do
     echo "Warning: Could not extract ADR number from $adr_filename, skipping"
     continue
   fi
+  
+  created_numbers+=("$adr_number")
+  
   # Extract title from filename (e.g., 001-my-title.md -> My Title)
   if [[ "$adr_filename" =~ ^[0-9]{3}-(.*)\.md$ ]] && [ -n "${BASH_REMATCH[1]}" ]; then
     slug="${BASH_REMATCH[1]}"
@@ -79,9 +85,30 @@ done < "$ADR_FILES"
 if git diff --cached --quiet; then
   echo "No changes to commit"
 else
-  git commit -m "Reserve ADR number(s) for PR
+  # Join ADR numbers with commas for commit message
+  joined_numbers=$(printf ", %s" "${created_numbers[@]}")
+  joined_numbers="${joined_numbers:2}"
+
+  if [ -z "$COMMIT_MESSAGE" ]; then
+    # Generate conventional commit message
+
+    if [ -n "$PR_NUMBER" ]; then
+      subject="chore(docs): reserve ADR ${joined_numbers} for PR #${PR_NUMBER}"
+    else
+      subject="chore(docs): reserve ADR ${joined_numbers}"
+    fi
+
+    COMMIT_MESSAGE="${subject}
 
 Related PR: ${PR_URL}"
+  else
+    # Replace placeholders in custom message
+    COMMIT_MESSAGE="${COMMIT_MESSAGE//{{adr_numbers}}/$joined_numbers}"
+    COMMIT_MESSAGE="${COMMIT_MESSAGE//{{pr_number}}/$PR_NUMBER}"
+    COMMIT_MESSAGE="${COMMIT_MESSAGE//{{pr_url}}/$PR_URL}"
+  fi
+
+  git commit -m "$COMMIT_MESSAGE"
   git push origin "${BASE_BRANCH}-placeholder:${BASE_BRANCH}"
   echo "Pushed placeholder(s) to ${BASE_BRANCH}"
 fi
