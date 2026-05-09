@@ -101,8 +101,10 @@ else
 
 Related PR: ${PR_URL}"
   else
-    # Replace {{adr_numbers}} placeholder in custom message
-    COMMIT_MESSAGE="${COMMIT_MESSAGE//\{\{adr_numbers\}\}/$joined_numbers}"
+    # Replace placeholders in custom message
+    COMMIT_MESSAGE="${COMMIT_MESSAGE//{{adr_numbers}}/$joined_numbers}"
+    COMMIT_MESSAGE="${COMMIT_MESSAGE//{{pr_number}}/$PR_NUMBER}"
+    COMMIT_MESSAGE="${COMMIT_MESSAGE//{{pr_url}}/$PR_URL}"
   fi
 
   git commit -m "$COMMIT_MESSAGE"
