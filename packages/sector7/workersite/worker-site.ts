@@ -440,6 +440,10 @@ export class WorkerSite extends pulumi.ComponentResource {
 		const prefix = args.r2Bucket.prefix
 			? pulumi.output(args.r2Bucket.prefix)
 			: undefined;
+		const cacheKeyVersion = pulumi
+			.output(args.cacheKeyVersion)
+			.apply((version) => version ?? "default");
+
 		// Resolve observability defaults via pulumi.all so that nested flags
 		// cascade from their parent: logs.enabled defaults to observability
 		// enabled, invocationLogs defaults to logs.enabled, etc.  This avoids
@@ -525,7 +529,7 @@ export class WorkerSite extends pulumi.ComponentResource {
 					},
 					{
 						name: "CACHE_KEY_VERSION",
-						text: args.cacheKeyVersion ?? "default",
+						text: cacheKeyVersion,
 						type: "plain_text",
 					},
 					...extraBindings,

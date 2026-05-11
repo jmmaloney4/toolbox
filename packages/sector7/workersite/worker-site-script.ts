@@ -91,11 +91,12 @@ ${redirectBlock ? `\n${redirectBlock}\n` : ""}
 
 			// Shared cache objects used for both lookup (step 3) and storage (step 7)
 			const cache = cacheEnabled ? caches.default : undefined;
-			const cacheUrl = new URL(url.toString());
-			cacheUrl.searchParams.set('__workersite_cache_version', cacheVersion);
-			const cacheKey = cacheEnabled ? new Request(cacheUrl.toString(), { method: 'GET' }) : undefined;
+			let cacheKey;
 
 			if (cacheEnabled) {
+				const cacheUrl = new URL(url.toString());
+				cacheUrl.searchParams.set('__workersite_cache_version', cacheVersion);
+				cacheKey = new Request(cacheUrl.toString(), { method: 'GET' });
 				response = await cache.match(cacheKey);
 
 				if (response) {
