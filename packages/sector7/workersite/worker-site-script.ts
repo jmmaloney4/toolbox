@@ -94,7 +94,7 @@ ${redirectBlock ? `\n${redirectBlock}\n` : ""}
 			let cacheKey;
 
 			if (cacheEnabled) {
-				const cacheUrl = new URL(url.toString());
+				const cacheUrl = new URL(url);
 				cacheUrl.searchParams.set('__workersite_cache_version', cacheVersion);
 				cacheKey = new Request(cacheUrl.toString(), { method: 'GET' });
 				response = await cache.match(cacheKey);
