@@ -243,6 +243,18 @@ export interface WorkerSiteArgs {
 	cacheTtlSeconds?: pulumi.Input<number>;
 
 	/**
+	 * Cache key namespace/version for Worker Cache API entries.
+	 *
+	 * Worker Cache API entries are keyed by URL and are not reliably invalidated
+	 * by Cloudflare zone purges. Pass a deterministic asset-manifest fingerprint
+	 * here when the Worker serves stable filenames from R2, so asset payload or
+	 * metadata changes move requests to a fresh edge-cache namespace.
+	 *
+	 * @default "default"
+	 */
+	cacheKeyVersion?: pulumi.Input<string>;
+
+	/**
 	 * Host-level HTTP redirect rules injected into the generated Worker script.
 	 * Evaluated before R2 serving.  Ignored when `workerScript` is set.
 	 *
@@ -509,6 +521,11 @@ export class WorkerSite extends pulumi.ComponentResource {
 						text: pulumi
 							.output(cacheTtl)
 							.apply((ttl: number) => ttl.toString()),
+						type: "plain_text",
+					},
+					{
+						name: "CACHE_KEY_VERSION",
+						text: args.cacheKeyVersion ?? "default",
 						type: "plain_text",
 					},
 					...extraBindings,
