@@ -42,9 +42,13 @@ describe("generateWorkerScript", () => {
 		const isFingerprintAssetKey = extractFingerprintMatcher(script);
 		expect(isFingerprintAssetKey("assets/index-B_PaUjV8.js")).toBe(true);
 		expect(isFingerprintAssetKey("assets/app.a1b2c3d4.css")).toBe(true);
-		expect(isFingerprintAssetKey("assets/app-a1b2c3d4.js")).toBe(true);
+		expect(isFingerprintAssetKey("assets/app-a1b2c3d4.js")).toBe(false);
 		expect(isFingerprintAssetKey("styles.css")).toBe(false);
 		expect(isFingerprintAssetKey("index.html")).toBe(false);
 		expect(isFingerprintAssetKey("favicon.svg")).toBe(false);
+		expect(isFingerprintAssetKey("my-component.js")).toBe(false);
+		expect(isFingerprintAssetKey("lodash-throttle.js")).toBe(false);
+		expect(isFingerprintAssetKey("inter-variable.woff2")).toBe(false);
+		expect(isFingerprintAssetKey("release-20260511.css")).toBe(false);
 	});
 });

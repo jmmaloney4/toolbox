@@ -189,7 +189,7 @@ function isFingerprintAssetKey(key) {
 	// Treat common bundler output names as content-fingerprinted:
 	// app.a1b2c3d4.css, app-a1b2c3d4.js, index-B_PaUjV8.js.
 	const base = key.substring(key.lastIndexOf('/') + 1);
-	return /(?:[.-])[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9]+$/.test(base);
+	return /(?:\\.[A-Fa-f0-9]{8,}|-(?=[A-Za-z0-9_-]{8,}\\.)(?=[A-Za-z0-9_-]*[0-9])(?=[A-Za-z0-9_-]*[A-Z_])[A-Za-z0-9_-]{8,})\\.[A-Za-z0-9]+$/.test(base);
 }
 
 function guessContentType(key) {
