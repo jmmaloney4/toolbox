@@ -248,6 +248,34 @@ describe("WorkerSite", () => {
 		expect(bucketBinding?.bucketName).toBe("bucket-assets");
 	});
 
+	it("binds cache key version when provided", async () => {
+		const site = new WorkerSite("versioned-cache-site", {
+			accountId: "account-123",
+			zoneId: "zone-123",
+			name: "versioned-cache-site",
+			domains: ["versioned.example.com"],
+			r2Bucket: { bucketName: "versioned-assets" },
+			cacheKeyVersion: "asset-fingerprint-123",
+		});
+
+		await resolveOutput(site.worker.id);
+
+		const worker = byName("-worker").find(
+			(resource) => resource.name === "versioned-cache-site-worker",
+		);
+		expect(worker).toBeDefined();
+		const bindings = worker!.inputs.bindings as Array<Record<string, unknown>>;
+		const cacheKeyBinding = bindings.find(
+			(binding) => binding.name === "CACHE_KEY_VERSION",
+		);
+
+		expect(cacheKeyBinding).toMatchObject({
+			name: "CACHE_KEY_VERSION",
+			text: "asset-fingerprint-123",
+			type: "plain_text",
+		});
+	});
+
 	it("validates github-org access requirements", () => {
 		expect(
 			() =>

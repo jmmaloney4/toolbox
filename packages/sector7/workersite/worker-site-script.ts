@@ -86,13 +86,17 @@ ${redirectBlock ? `\n${redirectBlock}\n` : ""}
 			// 3. Cache API check (requires custom domain)
 			// Skip caching entirely when TTL is 0.
 			const cacheEnabled = env.CACHE_TTL_SECONDS !== '0';
+			const cacheVersion = env.CACHE_KEY_VERSION || 'default';
 			let response;
 
 			// Shared cache objects used for both lookup (step 3) and storage (step 7)
 			const cache = cacheEnabled ? caches.default : undefined;
-			const cacheKey = cacheEnabled ? new Request(url.toString(), { method: 'GET' }) : undefined;
+			let cacheKey;
 
 			if (cacheEnabled) {
+				const cacheUrl = new URL(url);
+				cacheUrl.searchParams.set('__workersite_cache_version', cacheVersion);
+				cacheKey = new Request(cacheUrl.toString(), { method: 'GET' });
 				response = await cache.match(cacheKey);
 
 				if (response) {
