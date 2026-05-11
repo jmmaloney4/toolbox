@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { generateWorkerScript } from "../workersite/worker-site-script.ts";
 
+const extractFingerprintMatcher = (script: string): ((key: string) => boolean) => {
+	const match = script.match(
+		/function isFingerprintAssetKey\(key\) \{[\s\S]*?\n\}/,
+	);
+	expect(match).not.toBeNull();
+	return new Function(`${match![0]}; return isFingerprintAssetKey;`)() as (
+		key: string,
+	) => boolean;
+};
+
 describe("generateWorkerScript", () => {
 	it("produces a basic fetch handler with no prefix or redirects", () => {
 		const script = generateWorkerScript("R2_BUCKET");
@@ -28,7 +38,13 @@ describe("generateWorkerScript", () => {
 			"public, max-age=0, s-maxage=${maxAge}, must-revalidate",
 		);
 		expect(script).toContain("public, max-age=31536000, immutable");
-		expect(script).toContain("return /(?:[.-])[A-Za-z0-9_-]{8,}");
-		expect(script).toContain(".test(base);");
+
+		const isFingerprintAssetKey = extractFingerprintMatcher(script);
+		expect(isFingerprintAssetKey("assets/index-B_PaUjV8.js")).toBe(true);
+		expect(isFingerprintAssetKey("assets/app.a1b2c3d4.css")).toBe(true);
+		expect(isFingerprintAssetKey("assets/app-a1b2c3d4.js")).toBe(true);
+		expect(isFingerprintAssetKey("styles.css")).toBe(false);
+		expect(isFingerprintAssetKey("index.html")).toBe(false);
+		expect(isFingerprintAssetKey("favicon.svg")).toBe(false);
 	});
 });
