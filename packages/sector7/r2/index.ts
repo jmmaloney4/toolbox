@@ -1,6 +1,7 @@
 export {
 	type AssetConfig,
 	type AssetFile,
+	type DynamicResourceOptions,
 	R2Object,
 	type R2ObjectInputs,
 	type StaticAssetFile,

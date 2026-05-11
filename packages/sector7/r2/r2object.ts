@@ -321,15 +321,14 @@ const rejectCloudProviderOptions = (
 ): void => {
 	if (!opts) return;
 
-	const maybeProviderOptions = opts as CustomResourceOptions & {
-		providers?: unknown;
-	};
 	const hasProvider =
-		Object.prototype.hasOwnProperty.call(maybeProviderOptions, "provider") &&
-		maybeProviderOptions.provider !== undefined;
+		Object.prototype.hasOwnProperty.call(opts, "provider") &&
+		opts.provider !== undefined;
+	// `providers` is not on CustomResourceOptions but may be present at runtime
+	// if a ComponentResourceOptions was passed (JS doesn't enforce nominal types).
 	const hasProviders =
-		Object.prototype.hasOwnProperty.call(maybeProviderOptions, "providers") &&
-		maybeProviderOptions.providers !== undefined;
+		Object.prototype.hasOwnProperty.call(opts, "providers") &&
+		(opts as Record<string, unknown>).providers !== undefined;
 	if (!hasProvider && !hasProviders) return;
 
 	throw new Error(
@@ -339,10 +338,15 @@ const rejectCloudProviderOptions = (
 };
 
 const omitCloudProviderOptions = (
-	opts?: ComponentResourceOptions,
+	opts?: CustomResourceOptions,
 ): DynamicResourceOptions | undefined => {
 	if (!opts) return undefined;
-	const { provider: _provider, providers: _providers, ...dynamicOpts } = opts;
+	// Cast to pick both `provider` (on CustomResourceOptions) and `providers`
+	// (may be present at runtime from ComponentResourceOptions).
+	const { provider: _provider, providers: _providers, ...dynamicOpts } =
+		opts as CustomResourceOptions & {
+			providers?: unknown;
+		};
 	return dynamicOpts;
 };
 
