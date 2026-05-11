@@ -11,6 +11,19 @@ import {
 	type Resource,
 } from "@pulumi/pulumi";
 
+/**
+ * Resource options accepted by sector7 dynamic resources.
+ *
+ * Pulumi dynamic resources are executed by the Node.js dynamic provider runtime,
+ * not by a cloud provider plugin. Passing `provider` or `providers` makes Pulumi
+ * route the resource through the wrong provider bridge, which fails with a
+ * misleading `pulumi-nodejs:dynamic:Resource` unknown-token error.
+ */
+export type DynamicResourceOptions = Omit<
+	CustomResourceOptions,
+	"provider" | "providers"
+>;
+
 // ---------------------------------------------------------------------------
 // AWS Signature Version 4 — minimal implementation for S3 PUT/DELETE only.
 // Uses node:crypto (dynamically imported) and global fetch(). No external deps.
@@ -302,6 +315,41 @@ interface R2ObjectState extends R2ObjectArgs {
 	etag: string;
 }
 
+const rejectCloudProviderOptions = (
+	resourceName: string,
+	opts?: CustomResourceOptions,
+): void => {
+	if (!opts) return;
+
+	const hasProvider =
+		Object.prototype.hasOwnProperty.call(opts, "provider") &&
+		opts.provider !== undefined;
+	// `providers` is not on CustomResourceOptions but may be present at runtime
+	// if a ComponentResourceOptions was passed (JS doesn't enforce nominal types).
+	const hasProviders =
+		Object.prototype.hasOwnProperty.call(opts, "providers") &&
+		(opts as Record<string, unknown>).providers !== undefined;
+	if (!hasProvider && !hasProviders) return;
+
+	throw new Error(
+		`${resourceName} is a Pulumi dynamic resource; do not pass provider/providers. ` +
+			"Pass provider options only to cloud provider resources, and use parent/dependsOn for dynamic resource ordering.",
+	);
+};
+
+const omitCloudProviderOptions = (
+	opts?: CustomResourceOptions,
+): DynamicResourceOptions | undefined => {
+	if (!opts) return undefined;
+	// Cast to pick both `provider` (on CustomResourceOptions) and `providers`
+	// (may be present at runtime from ComponentResourceOptions).
+	const { provider: _provider, providers: _providers, ...dynamicOpts } =
+		opts as CustomResourceOptions & {
+			providers?: unknown;
+		};
+	return dynamicOpts;
+};
+
 // ---------------------------------------------------------------------------
 // File helpers
 // ---------------------------------------------------------------------------
@@ -535,8 +583,9 @@ export class R2Object extends dynamic.Resource {
 	constructor(
 		name: string,
 		args: R2ObjectInputs,
-		opts?: CustomResourceOptions,
+		opts?: DynamicResourceOptions,
 	) {
+		rejectCloudProviderOptions("R2Object", opts);
 		super(r2ObjectProvider, name, { etag: undefined, ...args }, opts);
 	}
 }
@@ -568,11 +617,12 @@ export function uploadAssets(
 	args: UploadAssetsArgs,
 	opts?: ComponentResourceOptions,
 ): R2Object[] {
-	// Use caller-provided opts as the base for child resources so that
-	// options like `protect`, `provider`, `aliases` etc. are forwarded.
+	// Use caller-provided opts as the base for Cloudflare resources, but do not
+	// forward cloud-provider options into Pulumi dynamic resources.
 	const tokenOpts = { ...opts };
+	const dynamicOpts = omitCloudProviderOptions(opts);
 	const r2ObjectOpts = {
-		...opts,
+		...dynamicOpts,
 		dependsOn: pulumi
 			.all([opts?.dependsOn ?? [], args.dependsOn ?? []])
 			.apply(([optDep, argDep]) => {
@@ -892,8 +942,9 @@ class ZoneCachePurge extends dynamic.Resource {
 	constructor(
 		name: string,
 		args: PurgeZoneCacheArgs,
-		opts?: CustomResourceOptions,
+		opts?: DynamicResourceOptions,
 	) {
+		rejectCloudProviderOptions("purgeZoneCache", opts);
 		// Merge dependsOn from both args and opts so caller-provided
 		// dependencies aren't silently dropped.
 		const mergedOpts = pulumi.mergeOptions(opts ?? {}, {
@@ -925,12 +976,13 @@ class ZoneCachePurge extends dynamic.Resource {
  *
  * @param name - Pulumi resource name.
  * @param args - Zone cache purge configuration.
- * @param opts - Pulumi custom resource options.
+ * @param opts - Pulumi custom resource options. Do not pass provider/providers;
+ *   this is a Node.js dynamic resource, not a Cloudflare provider resource.
  */
 export function purgeZoneCache(
 	name: string,
 	args: PurgeZoneCacheArgs,
-	opts?: CustomResourceOptions,
+	opts?: DynamicResourceOptions,
 ): ZoneCachePurge {
 	return new ZoneCachePurge(name, args, opts);
 }
