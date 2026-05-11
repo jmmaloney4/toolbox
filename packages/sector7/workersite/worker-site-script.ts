@@ -156,12 +156,19 @@ function createResponse(object, objectKey, status, cacheStatus, env) {
 	// ETag for cache validation
 	headers.set('ETag', object.httpEtag);
 
-	// Cache-Control: no-store when TTL is 0, otherwise public with TTL + immutable
+	// Cache-Control strategy:
+	// - TTL 0 disables both browser and edge caching.
+	// - Fingerprinted assets are safe to cache aggressively in browsers.
+	// - Non-fingerprinted files must revalidate in browsers, but may still use
+	//   shared edge cache through s-maxage. This avoids stale styles/scripts when
+	//   sites use stable names like styles.css.
 	const maxAge = env.CACHE_TTL_SECONDS || '31536000';
 	if (maxAge === '0') {
 		headers.set('Cache-Control', 'no-store');
+	} else if (isFingerprintAssetKey(objectKey)) {
+		headers.set('Cache-Control', 'public, max-age=31536000, immutable');
 	} else {
-		headers.set('Cache-Control', \`public, max-age=\${maxAge}, immutable\`);
+		headers.set('Cache-Control', \`public, max-age=0, s-maxage=\${maxAge}, must-revalidate\`);
 	}
 
 	// Last-Modified
@@ -178,6 +185,13 @@ function createResponse(object, objectKey, status, cacheStatus, env) {
 /**
  * Guess content type from file extension
  */
+function isFingerprintAssetKey(key) {
+	// Treat common bundler output names as content-fingerprinted:
+	// app.a1b2c3d4.css, app-a1b2c3d4.js, index-B_PaUjV8.js.
+	const base = key.substring(key.lastIndexOf('/') + 1);
+	return /(?:\\.[A-Fa-f0-9]{8,}|-(?=[A-Za-z0-9_-]{8,}\\.)(?=[A-Za-z0-9_-]*[0-9])(?=[A-Za-z0-9_-]*[A-Z_])[A-Za-z0-9_-]{8,})\\.[A-Za-z0-9]+$/.test(base);
+}
+
 function guessContentType(key) {
 	// Get the basename (after last '/')
 	const base = key.substring(key.lastIndexOf('/') + 1);
