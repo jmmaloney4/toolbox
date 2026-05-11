@@ -19,4 +19,16 @@ describe("generateWorkerScript", () => {
 		expect(script).toContain('redirectUrl.hostname = "example.com"');
 		expect(script).toContain("Response.redirect");
 	});
+
+	it("uses browser-safe cache headers for non-fingerprinted files", () => {
+		const script = generateWorkerScript("R2_BUCKET");
+
+		expect(script).toContain("isFingerprintAssetKey(objectKey)");
+		expect(script).toContain(
+			"public, max-age=0, s-maxage=${maxAge}, must-revalidate",
+		);
+		expect(script).toContain("public, max-age=31536000, immutable");
+		expect(script).toContain("return /(?:[.-])[A-Za-z0-9_-]{8,}");
+		expect(script).toContain(".test(base);");
+	});
 });
