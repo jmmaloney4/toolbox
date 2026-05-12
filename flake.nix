@@ -59,6 +59,21 @@
 
         renovateConfigPaths = map (path: "${self.outPath}/${path}") renovateConfigFiles;
       in {
+        jackpkgs.just.cut = {
+          enable = true;
+          files = [
+            {
+              type = "npm";
+              path = "packages/sector7/package.json";
+            }
+            {
+              type = "npm";
+              path = "package.json";
+            }
+          ];
+          commitMessage = "release: bump sector7 to {{new_version}}";
+        };
+
         pre-commit.settings.hooks.mypy.enable = lib.mkForce false;
         pre-commit.settings.hooks.tsc.enable = lib.mkForce false;
 

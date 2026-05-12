@@ -192,11 +192,11 @@
         "uv2nix": "uv2nix"
       },
       "locked": {
-        "lastModified": 1778236657,
-        "narHash": "sha256-XbpSftns+XaezVdZKCMI0u/AAawlXTYNyn95zQ1LK78=",
+        "lastModified": 1778552232,
+        "narHash": "sha256-+RyLQJXylSZfh/pQwDqxzMQAdSbPDCB3A+vArsvYKn4=",
         "owner": "jmmaloney4",
         "repo": "jackpkgs",
-        "rev": "c3025ab3dc99b3d72cc10de46840586e1b9fb3b8",
+        "rev": "1e4e3f63a20b2852796a99510834f630cc921d7a",
         "type": "github"
       },
       "original": {
