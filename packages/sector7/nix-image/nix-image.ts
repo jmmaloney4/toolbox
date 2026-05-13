@@ -81,7 +81,7 @@ export class NixImage extends pulumi.ComponentResource {
 			}, { parent: this });
 
 			this.digest = resolveCmd.stdout.apply((stdout: string) => {
-				const match = stdout.match(/DIGEST_OUTPUT:(sha256:[a-f0-9]+)/);
+				const match = stdout.trim().match(/DIGEST_OUTPUT:(sha256:[a-f0-9]+)/);
 				if (!match) {
 					throw new Error(`Could not parse DIGEST_OUTPUT from resolve output for ${name}`);
 				}
@@ -106,11 +106,11 @@ export class NixImage extends pulumi.ComponentResource {
 					SCRIPT_MODE: "push",
 					STORE_PATH: nixOutput.storePath,
 				},
-				triggers: [args.imageTag, ...(args.triggers ?? [])],
-			}, { parent: this });
+				triggers: pulumi.all([args.imageTag, nixOutput.storePath, ...(args.triggers ?? [])]),
+		}, { parent: this });
 
 			this.digest = pushCmd.stdout.apply((stdout: string) => {
-				const match = stdout.match(/DIGEST_OUTPUT:(sha256:[a-f0-9]+)/);
+				const match = stdout.trim().match(/DIGEST_OUTPUT:(sha256:[a-f0-9]+)/);
 				if (!match) {
 					throw new Error(`Could not parse DIGEST_OUTPUT from push output for ${name}`);
 				}

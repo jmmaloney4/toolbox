@@ -84,7 +84,7 @@ export class NixOutput extends pulumi.ComponentResource {
 		}, { parent: this });
 
 		this.storePath = cmd.stdout.apply((stdout: string) => {
-			const match = stdout.match(/STORE_PATH_OUTPUT:(\/nix\/store\/[^\s]+)/);
+			const match = stdout.trim().match(/STORE_PATH_OUTPUT:(\/nix\/store\/[^\s]+)/);
 			if (!match) {
 				throw new Error(
 					`Could not parse STORE_PATH_OUTPUT from output for ${name}`,

@@ -42,7 +42,7 @@ AUTH_MODE="${AUTH_MODE:-gcloud}"
 # Set up logging
 LOG_DIR="${COMMAND_LOG_STEM}"
 mkdir -p "${LOG_DIR}"
-LOG_FILE="${LOG_DIR}/$(date +%Y%m%d-%H%M%S)-${IMAGE_NAME}-${SCRIPT_MODE}.log"
+LOG_FILE="${LOG_DIR}/$(date +%Y%m%d-%H%M%S)-${IMAGE_NAME//\//_}-${SCRIPT_MODE}.log"
 exec > >(tee -a "${LOG_FILE}") 2>&1
 
 ARTIFACT_REGISTRY_URL="${ARTIFACT_REGISTRY_URL#*://}"

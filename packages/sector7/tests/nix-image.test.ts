@@ -185,7 +185,7 @@ describe("NixImage", () => {
 		const pushCmds = byName("test-triggers-default-push");
 		expect(pushCmds).toHaveLength(1);
 		const pushTriggers = pushCmds[0].inputs.triggers as string[];
-		expect(pushTriggers).toEqual(["dev"]);
+		expect(pushTriggers).toEqual(["dev", "/nix/store/abc123-my-image"]);
 	});
 
 	it("uses additive triggers: imageTag plus custom triggers", async () => {
@@ -203,7 +203,7 @@ describe("NixImage", () => {
 		const pushCmds = byName("test-triggers-custom-push");
 		expect(pushCmds).toHaveLength(1);
 		const triggers = pushCmds[0].inputs.triggers as string[];
-		expect(triggers).toEqual(["dev", "custom-trigger-1", "custom-trigger-2"]);
+		expect(triggers).toEqual(["dev", "/nix/store/abc123-my-image", "custom-trigger-1", "custom-trigger-2"]);
 	});
 
 	it("uses resolve mode additive triggers with imageTag first", async () => {
