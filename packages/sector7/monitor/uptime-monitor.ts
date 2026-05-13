@@ -102,6 +102,11 @@ export interface UptimeMonitorArgs {
 	 * The Worker script expects at minimum the columns referenced in the
 	 * default schema.
 	 * @default built-in schema with ts, monitor_id, url, ok, status, latency_ms, error, region_hint
+	 *
+	 * NOTE: The Cloudflare Pulumi provider does not support D1 schema migration.
+	 * You must apply the schema manually (e.g., `wrangler d1 execute <db> --file=schema.sql`)
+	 * before the first cron run. The Worker will fail with a missing-table error if the
+	 * `probe_results` table does not exist.
 	 */
 	d1Schema?: pulumi.Input<string>;
 }
@@ -168,8 +173,10 @@ export class UptimeMonitor extends pulumi.ComponentResource {
 
 	/**
 	 * The KV namespace for failure streak state.
+	 * Present when the component creates the namespace.
+	 * Undefined when `kvNamespaceId` references an existing namespace.
 	 */
-	public readonly kvNamespace: cloudflare.WorkersKvNamespace;
+	public readonly kvNamespace: cloudflare.WorkersKvNamespace | undefined;
 
 	/**
 	 * The KV namespace ID.
@@ -248,8 +255,7 @@ export class UptimeMonitor extends pulumi.ComponentResource {
 		// 2. Create or reference KV namespace
 		if (args.kvNamespaceId) {
 			this.kvNamespaceId = pulumi.output(args.kvNamespaceId);
-			// Reference-only KV namespace (no cloudflare resource created)
-			this.kvNamespace = undefined as unknown as cloudflare.WorkersKvNamespace;
+			this.kvNamespace = undefined;
 		} else {
 			const kvTitle = pulumi
 				.output(args.kvNamespaceTitle ?? args.name)

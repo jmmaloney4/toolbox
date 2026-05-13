@@ -181,6 +181,7 @@ describe("UptimeMonitor", () => {
 
 		// Should NOT create a KV namespace resource
 		expect(findResource("exkv-kv")).toBeUndefined();
+		expect(monitor.kvNamespace).toBeUndefined();
 		expect(await resolveOutput(monitor.kvNamespaceId)).toBe("existing-kv-id");
 	});
 

@@ -51,6 +51,11 @@ export interface MonitorTarget {
  * 2. Inserts a row into D1 for each probe result.
  * 3. Reads/writes failure streak state from KV.
  * 4. Fires webhook alerts on state transitions (healthy -> unhealthy or vice versa).
+ *
+ * Alert logic:
+ * - A monitor transitions to "unhealthy" after ALERT_THRESHOLD consecutive failures.
+ * - A monitor transitions back to "healthy" after RECOVERY_THRESHOLD consecutive successes.
+ * - Webhook fires only on state transitions, not on every probe.
  */
 export function generateMonitorScript(monitors: MonitorTarget[]): string {
 	const monitorsJson = JSON.stringify(
@@ -145,7 +150,6 @@ async function probe(monitor, env) {
 		// Check body content if specified and method is GET
 		if (ok && monitor.expectedBody && monitor.method === "GET") {
 			const text = await response.text();
-			// Only keep first 500 chars for snippet
 			ok = text.includes(monitor.expectedBody);
 		}
 	} catch (e) {
@@ -171,19 +175,29 @@ async function checkAndAlert(result, env, ctx) {
 
 	try {
 		const raw = await env.KV.get(kvKey, "json");
-		state = raw ?? { consecutive_failures: 0, last_status: "healthy", last_ts: null };
+		state = raw ?? { consecutive_failures: 0, consecutive_successes: 0, last_status: "healthy", last_ts: null };
 	} catch {
-		state = { consecutive_failures: 0, last_status: "healthy", last_ts: null };
+		state = { consecutive_failures: 0, consecutive_successes: 0, last_status: "healthy", last_ts: null };
 	}
 
 	if (result.ok) {
 		state.consecutive_failures = 0;
+		state.consecutive_successes++;
 	} else {
 		state.consecutive_failures++;
+		state.consecutive_successes = 0;
 	}
 
 	const previousStatus = state.last_status;
-	state.last_status = result.ok ? "healthy" : "unhealthy";
+
+	// Determine new status based on thresholds
+	// Only transition from healthy -> unhealthy after ALERT_THRESHOLD failures
+	// Only transition from unhealthy -> healthy after RECOVERY_THRESHOLD successes
+	if (previousStatus === "healthy" && state.consecutive_failures >= ALERT_THRESHOLD) {
+		state.last_status = "unhealthy";
+	} else if (previousStatus === "unhealthy" && state.consecutive_successes >= RECOVERY_THRESHOLD) {
+		state.last_status = "healthy";
+	}
 	state.last_ts = result.ts;
 
 	// Write updated state back to KV (non-blocking)
@@ -191,8 +205,7 @@ async function checkAndAlert(result, env, ctx) {
 
 	// Fire webhook on state transitions
 	if (previousStatus !== state.last_status) {
-		// unhealthy -> healthy (recovery)
-		if (state.last_status === "healthy" && previousStatus === "unhealthy") {
+		if (state.last_status === "healthy") {
 			ctx.waitUntil(sendWebhook(env, {
 				type: "recovery",
 				monitor_id: result.monitor_id,
@@ -200,11 +213,10 @@ async function checkAndAlert(result, env, ctx) {
 				ts: result.ts,
 				previous_status: previousStatus,
 				current_status: state.last_status,
-				message: \`Monitor \${result.monitor_id} recovered\`,
+				consecutive_successes: state.consecutive_successes,
+				message: \`Monitor \${result.monitor_id} recovered after \${state.consecutive_successes} consecutive successes\`,
 			}));
-		}
-		// healthy -> unhealthy (alert)
-		else if (state.last_status === "unhealthy" && state.consecutive_failures >= ALERT_THRESHOLD) {
+		} else {
 			ctx.waitUntil(sendWebhook(env, {
 				type: "alert",
 				monitor_id: result.monitor_id,
