@@ -39,6 +39,10 @@
 			"types": "./dist/monitor/index.d.ts",
 			"default": "./dist/monitor/index.js"
 		},
+		"./nix-output": {
+			"types": "./dist/nix-output/index.d.ts",
+			"default": "./dist/nix-output/index.js"
+		},
 		"./scripts": {
 			"types": "./dist/scripts/index.d.ts",
 			"default": "./dist/scripts/index.js"
