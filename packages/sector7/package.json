@@ -35,6 +35,10 @@
 			"types": "./dist/nix-image/index.d.ts",
 			"default": "./dist/nix-image/index.js"
 		},
+		"./monitor": {
+			"types": "./dist/monitor/index.d.ts",
+			"default": "./dist/monitor/index.js"
+		},
 		"./scripts": {
 			"types": "./dist/scripts/index.d.ts",
 			"default": "./dist/scripts/index.js"
