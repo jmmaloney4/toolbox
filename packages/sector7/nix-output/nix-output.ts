@@ -68,13 +68,13 @@ export class NixOutput extends pulumi.ComponentResource {
 		const mode = args.mode ?? "resolve";
 
 		const env: Record<string, pulumi.Input<string>> = {
+			...(args.env ?? {}),
 			NIX_ATTR: args.nixAttr,
 			REPO_ROOT: args.repoRoot,
 			SCRIPT_MODE: mode,
 			COMMAND_LOG_STEM: commandLogStem,
 			...(args.subOutput ? { SUB_OUTPUT: args.subOutput } : {}),
 			...(args.subPath ? { SUB_PATH: args.subPath } : {}),
-			...(args.env ?? {}),
 		};
 
 		const cmd = new command.local.Command(`${name}-resolve`, {

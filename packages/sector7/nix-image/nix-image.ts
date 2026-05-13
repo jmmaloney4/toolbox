@@ -61,12 +61,12 @@ export class NixImage extends pulumi.ComponentResource {
 		const authMode = args.authMode ?? "gcloud";
 
 		const baseEnv: Record<string, pulumi.Input<string>> = {
+			...(args.env ?? {}),
 			IMAGE_NAME: args.imageName,
 			IMAGE_TAG: args.imageTag,
 			ARTIFACT_REGISTRY_URL: args.artifactRegistryUrl,
 			AUTH_MODE: authMode,
 			COMMAND_LOG_STEM: commandLogStem,
-			...(args.env ?? {}),
 		};
 
 		if (mode === "resolve") {
