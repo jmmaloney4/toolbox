@@ -202,9 +202,12 @@ const d1QueryProvider: dynamic.ResourceProvider = {
 		// SQL change triggers replacement (re-run the query)
 		if (olds.sql !== news.sql) replaces.push("sql");
 
-		const changes = replaces.length > 0;
+		// apiToken change triggers update (re-execute with new credentials)
+		const hasTokenChange = olds.apiToken !== news.apiToken;
 
-		return { changes, replaces, deleteBeforeReplace: changes };
+		const changes = replaces.length > 0 || hasTokenChange;
+
+		return { changes, replaces, deleteBeforeReplace: replaces.length > 0 };
 	},
 
 	async create(inputs: D1QueryInputs): Promise<dynamic.CreateResult> {

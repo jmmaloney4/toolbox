@@ -115,6 +115,19 @@ describe("D1Query provider", () => {
 		expect(result.deleteBeforeReplace).toBe(true);
 	});
 
+	it("detects changes when apiToken is rotated", async () => {
+		const sql = "CREATE TABLE t (id INTEGER);";
+		const olds = { ...createArgs(sql), sqlHash: createHash("sha256").update(sql).digest("hex") };
+		const result = await provider!.diff("test-id", olds, {
+			...createArgs(),
+			apiToken: "new-token",
+		});
+		expect(result.changes).toBe(true);
+		// Token change does not trigger replacement, just update
+		expect(result.replaces).toHaveLength(0);
+		expect(result.deleteBeforeReplace).toBe(false);
+	});
+
 	it("rejects cloud provider options", () => {
 		expect(
 			() => new D1Query("bad-opts", createArgs(), cloudProviderOpt as any),
