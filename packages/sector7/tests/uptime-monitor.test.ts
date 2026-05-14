@@ -1,5 +1,24 @@
 import * as pulumi from "@pulumi/pulumi";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+
+// Mock D1Query to avoid V8 closure serialization of the dynamic provider
+// functions during pulumi.runtime.setMocks testing.
+vi.mock("../d1/d1-query.ts", () => {
+	return {
+		D1Query: class extends pulumi.ComponentResource {
+			public readonly sqlHash: pulumi.Output<string>;
+			constructor(
+				_name: string,
+				args: Record<string, unknown>,
+			) {
+				super("sector7:test:D1Query", _name, {}, {});
+				this.sqlHash = pulumi.output("mock-hash");
+				this.registerOutputs({ sqlHash: this.sqlHash });
+			}
+		},
+	};
+});
+
 import { UptimeMonitor } from "../monitor/uptime-monitor.ts";
 
 type MockResource = {
@@ -47,10 +66,15 @@ function findResource(name: string): MockResource | undefined {
 	return resources.find((r) => r.name === name);
 }
 
+const DEFAULT_ARGS = {
+	accountId: "account-123",
+	apiToken: "test-api-token",
+} as const;
+
 describe("UptimeMonitor", () => {
-	it("creates D1, KV, Worker, and cron trigger for a basic monitor", async () => {
+	it("creates D1, KV, Worker, cron trigger, and D1Query for a basic monitor", async () => {
 		const monitor = new UptimeMonitor("basic", {
-			accountId: "account-123",
+			...DEFAULT_ARGS,
 			name: "basic-uptime",
 			monitors: [
 				{ id: "grafana", url: "https://grafana.example.com/healthz" },
@@ -64,6 +88,7 @@ describe("UptimeMonitor", () => {
 		expect(findResource("basic-kv")).toBeDefined();
 		expect(findResource("basic-worker")).toBeDefined();
 		expect(findResource("basic-cron")).toBeDefined();
+		expect(monitor.d1Query).toBeDefined();
 
 		const worker = findResource("basic-worker");
 		const bindings = worker?.inputs.bindings as Array<Record<string, unknown>>;
@@ -80,7 +105,7 @@ describe("UptimeMonitor", () => {
 
 	it("adds a webhook secret binding when webhookUrl is provided", async () => {
 		const monitor = new UptimeMonitor("webhook", {
-			accountId: "account-123",
+			...DEFAULT_ARGS,
 			name: "webhook-uptime",
 			monitors: [
 				{ id: "api", url: "https://api.example.com/healthz" },
@@ -93,7 +118,6 @@ describe("UptimeMonitor", () => {
 		const worker = findResource("webhook-worker");
 		expect(worker).toBeDefined();
 
-		// Bindings may be a Pulumi Output in mocks; resolve if needed
 		const rawBindings = worker!.inputs.bindings;
 		const bindings = await resolveOutput(
 			rawBindings as pulumi.Input<Array<Record<string, unknown>>>,
@@ -108,7 +132,7 @@ describe("UptimeMonitor", () => {
 
 	it("creates a cron trigger with the specified schedule", async () => {
 		const monitor = new UptimeMonitor("scheduled", {
-			accountId: "account-123",
+			...DEFAULT_ARGS,
 			name: "scheduled-uptime",
 			monitors: [
 				{ id: "site", url: "https://example.com/" },
@@ -127,7 +151,7 @@ describe("UptimeMonitor", () => {
 
 	it("defaults to every-minute cron schedule", async () => {
 		const monitor = new UptimeMonitor("defcron", {
-			accountId: "account-123",
+			...DEFAULT_ARGS,
 			name: "defcron-uptime",
 			monitors: [
 				{ id: "site", url: "https://example.com/" },
@@ -145,7 +169,7 @@ describe("UptimeMonitor", () => {
 
 	it("uses existing D1 database when d1DatabaseId is provided", async () => {
 		const monitor = new UptimeMonitor("exd1", {
-			accountId: "account-123",
+			...DEFAULT_ARGS,
 			name: "exd1-uptime",
 			monitors: [
 				{ id: "site", url: "https://example.com/" },
@@ -155,12 +179,11 @@ describe("UptimeMonitor", () => {
 
 		await resolveOutput(monitor.worker.id);
 
-		// Should NOT create a D1 database resource
 		expect(findResource("exd1-d1")).toBeUndefined();
 		expect(monitor.d1Database).toBeUndefined();
 		expect(await resolveOutput(monitor.d1DatabaseId)).toBe("existing-db-id");
+		expect(monitor.d1Query).toBeDefined();
 
-		// Worker should still have the DB binding pointing to the existing database
 		const worker = findResource("exd1-worker");
 		const d1Binding = (worker?.inputs.bindings as Array<Record<string, unknown>>)
 			.find((b) => b.name === "DB");
@@ -169,7 +192,7 @@ describe("UptimeMonitor", () => {
 
 	it("uses existing KV namespace when kvNamespaceId is provided", async () => {
 		const monitor = new UptimeMonitor("exkv", {
-			accountId: "account-123",
+			...DEFAULT_ARGS,
 			name: "exkv-uptime",
 			monitors: [
 				{ id: "site", url: "https://example.com/" },
@@ -179,7 +202,6 @@ describe("UptimeMonitor", () => {
 
 		await resolveOutput(monitor.worker.id);
 
-		// Should NOT create a KV namespace resource
 		expect(findResource("exkv-kv")).toBeUndefined();
 		expect(monitor.kvNamespace).toBeUndefined();
 		expect(await resolveOutput(monitor.kvNamespaceId)).toBe("existing-kv-id");
@@ -189,7 +211,7 @@ describe("UptimeMonitor", () => {
 		expect(
 			() =>
 				new UptimeMonitor("no-monitors", {
-					accountId: "account-123",
+					...DEFAULT_ARGS,
 					name: "no-monitors-uptime",
 					monitors: [],
 				} as unknown as ConstructorParameters<typeof UptimeMonitor>[1]),
@@ -200,7 +222,7 @@ describe("UptimeMonitor", () => {
 		expect(
 			() =>
 				new UptimeMonitor("dup-ids", {
-					accountId: "account-123",
+					...DEFAULT_ARGS,
 					name: "dup-ids-uptime",
 					monitors: [
 						{ id: "site", url: "https://example.com/" },
@@ -212,7 +234,7 @@ describe("UptimeMonitor", () => {
 
 	it("generates Worker script with embedded monitor configuration", async () => {
 		const monitor = new UptimeMonitor("scriptchk", {
-			accountId: "account-123",
+			...DEFAULT_ARGS,
 			name: "scriptchk-uptime",
 			monitors: [
 				{
@@ -235,7 +257,7 @@ describe("UptimeMonitor", () => {
 
 	it("supports multiple monitors", async () => {
 		const monitor = new UptimeMonitor("multi", {
-			accountId: "account-123",
+			...DEFAULT_ARGS,
 			name: "multi-uptime",
 			monitors: [
 				{ id: "grafana", url: "https://grafana.example.com/healthz" },

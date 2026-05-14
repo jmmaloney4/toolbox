@@ -1,5 +1,6 @@
 import * as cloudflare from "@pulumi/cloudflare";
 import * as pulumi from "@pulumi/pulumi";
+import { D1Query, type D1QueryArgs } from "../d1/d1-query.ts";
 import {
 	type MonitorTarget,
 	generateMonitorScript,
@@ -103,12 +104,19 @@ export interface UptimeMonitorArgs {
 	 * default schema.
 	 * @default built-in schema with ts, monitor_id, url, ok, status, latency_ms, error, region_hint
 	 *
-	 * NOTE: The Cloudflare Pulumi provider does not support D1 schema migration.
-	 * You must apply the schema manually (e.g., `wrangler d1 execute <db> --file=schema.sql`)
-	 * before the first cron run. The Worker will fail with a missing-table error if the
-	 * `probe_results` table does not exist.
+	 * Applied automatically during `pulumi up` via the D1 REST API.
+	 * Re-applied when the SQL content changes.
 	 */
 	d1Schema?: pulumi.Input<string>;
+
+	/**
+	 * Cloudflare API token with D1 write permissions.
+	 * Required to apply the D1 schema during `pulumi up`.
+	 *
+	 * Store as a Pulumi secret to avoid leaking it in state:
+	 * `pulumi.secret("...")` or `pulumi.config.requireSecret("cloudflare:apiToken")`.
+	 */
+	apiToken: pulumi.Input<string>;
 }
 
 const DEFAULT_D1_SCHEMA = [
@@ -160,6 +168,12 @@ const DEFAULT_D1_SCHEMA = [
  * ```
  */
 export class UptimeMonitor extends pulumi.ComponentResource {
+	/**
+	 * The D1 schema initialization query resource.
+	 * Present when a D1 database is created or referenced.
+	 */
+	public readonly d1Query: D1Query | undefined;
+
 	/**
 	 * The D1 database storing probe results.
 	 * Present when `createD1Database` is true.
@@ -252,6 +266,18 @@ export class UptimeMonitor extends pulumi.ComponentResource {
 			}
 		}
 
+		// 1b. Apply D1 schema via dynamic provider
+		this.d1Query = new D1Query(
+			`${name}-schema`,
+			{
+				accountId: args.accountId,
+				databaseId: this.d1DatabaseId,
+				sql: args.d1Schema ?? DEFAULT_D1_SCHEMA,
+				apiToken: args.apiToken,
+			},
+			{ parent: this, dependsOn: this.d1Database ? [this.d1Database] : [] },
+		);
+
 		// 2. Create or reference KV namespace
 		if (args.kvNamespaceId) {
 			this.kvNamespaceId = pulumi.output(args.kvNamespaceId);
@@ -308,7 +334,7 @@ export class UptimeMonitor extends pulumi.ComponentResource {
 				mainModule: "worker.js",
 				bindings: baseBindings,
 			},
-			resourceOpts,
+			{ parent: this, dependsOn: this.d1Query ? [this.d1Query] : [] },
 		);
 
 		// 5. Create cron trigger for scheduled execution
@@ -328,6 +354,7 @@ export class UptimeMonitor extends pulumi.ComponentResource {
 		this.registerOutputs({
 			d1Database: this.d1Database,
 			d1DatabaseId: this.d1DatabaseId,
+			d1Query: this.d1Query,
 			kvNamespace: this.kvNamespace,
 			kvNamespaceId: this.kvNamespaceId,
 			worker: this.worker,
