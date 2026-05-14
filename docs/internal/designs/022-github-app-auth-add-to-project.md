@@ -10,6 +10,8 @@ supersedes: []
 superseded_by: []
 links:
   - https://github.com/actions/add-to-project/issues/158
+  - https://github.com/jmmaloney4/sector7/issues/165
+  - https://github.com/actions/create-github-app-token
 ---
 
 # Context
@@ -26,7 +28,7 @@ PAT-based authentication creates operational friction:
   every repo calling this workflow must update its secret.
 - A PAT makes all project modifications appear to come from the token owner,
   not from the automation itself.
-- PATs require periodic manual rotation.
+- PATs require periodic manual rotation. Fine-grained PATs expire after one year.
 
 A GitHub App installation token solves all three: it is org-scoped, identifies
 itself as the app, and requires no periodic rotation (installation tokens are
@@ -34,64 +36,128 @@ short-lived and minted per-workflow-run).
 
 ## Scope
 
-This ADR documents the authentication approach. It does not itself change the
-workflow -- that is a separate implementation step.
+This ADR documents the authentication approach. The implementation plan
+(`2026-05-02-github-app-add-to-project.md`) details the steps. This ADR covers
+the design decision; the plan covers execution.
 
 # Decision
 
-Callers of the `add-to-project` workflow MAY authenticate via a GitHub App
-installation token instead of a PAT, using the `tibdex/github-app-token` action
-to mint the token at runtime.
+The reusable workflow generates a GitHub App installation token itself using
+`actions/create-github-app-token@v2` so callers only need to pass `app-id` and
+`private-key` secrets. The token is then passed to
+`actions/add-to-project` like any other token.
 
-The workflow itself should remain unchanged in its public contract -- it accepts
-a `github-token` secret of any kind. The GitHub App auth step lives in the
-caller workflow, not inside `add-to-project.yml`. This keeps the reusable
-workflow simple and avoids baking a specific token-generation action into its
-surface.
+This keeps the complexity in one place (the reusable workflow) and gives callers
+a simple `secrets:` block to wire up.
 
-## Caller-side pattern
+## Caller workflow
 
 ```yaml
 jobs:
   add-to-project:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Generate GitHub App token
-        id: generate_token
-        uses: tibdex/github-app-token@36464acb844fc53b9b8b2401da68844f6b05ebb0
-        with:
-          app_id: ${{ secrets.APP_ID }}
-          private_key: ${{ secrets.APP_PEM }}
-
-      - name: Add to Project
-        uses: jmmaloney4/sector7/.github/workflows/add-to-project.yml@main
-        with:
-          project-url: https://github.com/orgs/ergodicsystems/projects/1
-        secrets:
-          github-token: ${{ steps.generate_token.outputs.token }}
+    uses: jmmaloney4/sector7/.github/workflows/add-to-project.yml@main
+    secrets:
+      app-id: ${{ secrets.SECTOR7_PROJECT_BOT_APP_ID }}
+      private-key: ${{ secrets.SECTOR7_PROJECT_BOT_PRIVATE_KEY }}
 ```
 
-## Required GitHub App configuration
+## Reusable workflow (target state)
 
-- The app MUST have read/write access to **Organization projects** under
-  Organization permissions.
-- The app MUST be installed on any repository that will call the workflow.
-- After changing permissions in the app settings, the installation must be
-  updated (re-approve access) for the new permissions to take effect.
+```yaml
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        default: 'self-hosted'
+        type: string
+      project_url:
+        default: 'https://github.com/orgs/ergodicsystems/projects/1'
+        type: string
+      labeled:
+        default: ''
+        type: string
+      label-operator:
+        default: OR
+        type: string
+    secrets:
+      app-id:
+        required: false
+      private-key:
+        required: false
+      github-token:
+        description: Fallback PAT secret (legacy)
+        required: false
 
-## Required repository secrets
+permissions:
+  contents: read
 
-| Secret    | Description                        |
-|-----------|------------------------------------|
-| `APP_ID`  | GitHub App numeric ID              |
-| `APP_PEM` | App private key (.pem contents)    |
+jobs:
+  add-to-project:
+    runs-on: ${{ inputs.runs-on }}
+    steps:
+      - name: Generate GitHub App token
+        id: gen_token
+        if: inputs.app-id != '' && inputs.private-key != ''
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ inputs.app-id }}
+          private-key: ${{ inputs.private-key }}
 
-## Known limitation
+      - name: Set fallback token
+        id: fallback
+        if: inputs.app-id == '' || inputs.private-key == ''
+        run: echo "token=${{ secrets.github-token }}" >> "$GITHUB_OUTPUT"
+        shell: bash
 
-GitHub Apps **cannot access user-level V2 projects**. They only work for
-org-level projects. This is a hard limitation confirmed by GitHub Support. The
-workflow's default `project_url` points to an org project, so this is not a
-problem for current use.
+      - name: Use app token or fallback
+        id: token
+        if: inputs.app-id != '' && inputs.private-key != ''
+        run: echo "token=${{ steps.gen_token.outputs.token }}" >> "$GITHUB_OUTPUT"
+        shell: bash
+
+      - name: Add issue or PR to project (no label filter)
+        if: inputs.labeled == ''
+        uses: actions/add-to-project@244f685bbc3b7adfa8466e08b698b5577571133e
+        with:
+          project-url: ${{ inputs.project_url }}
+          github-token: ${{ steps.token.outputs.token }}
+
+      - name: Add issue or PR to project (label filter)
+        if: inputs.labeled != ''
+        uses: actions/add-to-project@244f685bbc3b7adfa8466e08b698b5577571133e
+        with:
+          project-url: ${{ inputs.project_url }}
+          github-token: ${{ steps.token.outputs.token }}
+          labeled: ${{ inputs.labeled }}
+          label-operator: ${{ inputs.label-operator }}
+```
+
+## GitHub App registration
+
+The app should be registered in the target org with these settings:
+
+| Field | Value |
+|---|---|
+| Name | `sector7-project-bot` |
+| Permissions → Organization → Projects | Read and write |
+| Permissions → Repository → Metadata | Read-only |
+| Webhook | Active: unchecked |
+
+The app only needs an org-level installation -- it does not need to be installed
+on individual consumer repos. Its permission to touch org projects comes from the
+org installation itself.
+
+## Required secrets
+
+The app ID and private key should be stored as **organization secrets** on the
+target org (preferred), so all consumer repos reference the same credential:
+
+| Secret | Value |
+|---|---|
+| `SECTOR7_PROJECT_BOT_APP_ID` | App ID (integer) |
+| `SECTOR7_PROJECT_BOT_PRIVATE_KEY` | Full PEM contents |
+
+For repos outside the org, store as repository secrets instead.
 
 # Consequences
 
@@ -101,45 +167,50 @@ problem for current use.
 - Project modifications are attributed to the app, not an individual.
 - No manual token rotation -- installation tokens are minted per run and expire
   after one hour.
-- Finer-grained scoping: the app can be limited to specific repositories.
+- Finer-grained scoping: the app can be limited to org projects.
+- Callers have a simple interface: two secrets, no token generation logic.
 
 ## Negative
 
 - Requires creating and configuring a GitHub App at the org level.
-- Adds a step (`tibdex/github-app-token`) to every caller workflow.
-- Private key storage in `APP_PEM` secret must be rotated if compromised.
+- The reusable workflow now has an additional step and conditional logic.
+- Private key storage in secrets must be rotated if compromised.
 - Does not work for user-level projects.
 
 # Alternatives
 
-- **PAT (current approach)**: Simplest setup, but ties automation to a user,
+- **PAT (current approach)**: Simplest to set up, but ties automation to a user,
   requires manual rotation, and attributes changes to the token owner.
-- **vidavidorra/github-app-token**: Alternative to tibdex for token generation.
-  Functionally equivalent. Tibdex has broader adoption and a pinned SHA in
-  upstream examples.
-- **Bake app token generation into the reusable workflow**: Would simplify
-  callers but couples the workflow to a specific token-generation action and
-  forces all callers to provide `APP_ID` / `APP_PEM` even if they prefer a PAT.
+- **Token generation in caller workflow**: Puts the token minting step in every
+  caller instead of the reusable workflow. This works (see issue #158 workarounds)
+  but replicates the same two steps across all six consumer repos. Chose to
+  centralize instead.
+- **actions/create-github-app-token vs tibdex/github-app-token**: The official
+  action (`actions/create-github-app-token@v2`) is preferred over `tibdex` because
+  it is maintained by GitHub, supports configurable permissions out of the box,
+  and requires no pinned SHA -- the action version is the pin.
 
 # Security / Privacy / Compliance
 
-- The `APP_PEM` secret contains a private RSA key. Store as a repository or
-  org-level secret. Do not log or echo it.
+- The `private-key` secret contains a private RSA key. Store as an org-level
+  secret. Do not log or echo it.
 - Installation tokens expire after one hour, limiting blast radius if leaked.
-- The `tibdex/github-app-token` action is pinned by SHA, not by tag, to prevent
-  supply-chain compromise.
-- Review which repositories have the app installed. The app's token grants
-  permissions across all installed repos.
+- The official `actions/create-github-app-token` action is pinned by version tag
+  in the caller, not by SHA -- this is the recommended pinning method for this
+  action (see its README for security guidance).
+- Review which repos have the app installed. The app's token grants permissions
+  across the org's projects regardless of which repo triggers it.
 
 # Operational Notes
 
-- When creating a new GitHub App for this purpose, pin the app ID and generate
-  a private key immediately. Store both in org-level secrets so all repos in the
-  org can access them.
+- When creating the GitHub App, generate a private key immediately and store it
+  in the org-level secrets. The key is shown only once during creation.
 - The app does not need a webhook URL or public endpoint -- it is used solely
   for token generation.
-- If the private key is rotated, update the `APP_PEM` secret in all repos (or
-  at the org level) before the old key expires.
+- If the private key is rotated, update the org-level secrets before the old key
+  expires. All repos reference the same secret name, so this is a single update.
+- The app's org project permissions take effect immediately -- no re-installation
+  needed after changing permissions in the app settings.
 
 # Status Transitions
 
@@ -147,13 +218,14 @@ None.
 
 # Implementation Notes
 
-To adopt this across repos:
+The implementation plan is at
+`docs/internal/plans/2026-05-02-github-app-add-to-project.md`. It covers:
 
-1. Create a GitHub App in the target org with read/write org project access.
-2. Store `APP_ID` and `APP_PEM` as org-level secrets.
-3. Update caller workflows to mint an installation token before calling
-   `add-to-project`.
-4. Remove the old PAT secret once all callers are migrated.
+1. Register the GitHub App in the org.
+2. Store credentials as org-level secrets.
+3. Update the reusable workflow to generate tokens internally.
+4. Update caller workflows in all six consumer repos.
+5. Verify end-to-end.
 
 Owner: Jack Maloney
 
@@ -165,3 +237,7 @@ Owner: Jack Maloney
   https://github.com/orgs/community/discussions/46681
 - GitHub Docs: Authenticating with GitHub Apps:
   https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app
+- GitHub App registration plan:
+  `docs/internal/plans/2026-05-02-github-app-add-to-project.md`
+- Sector7 issue #165 (tracking):
+  https://github.com/jmmaloney4/sector7/issues/165
