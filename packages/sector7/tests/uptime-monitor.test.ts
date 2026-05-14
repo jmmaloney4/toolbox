@@ -5,13 +5,15 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 // functions during pulumi.runtime.setMocks testing.
 vi.mock("../d1/d1-query.ts", () => {
 	return {
-		D1Query: class {
+		D1Query: class extends pulumi.ComponentResource {
 			public readonly sqlHash: pulumi.Output<string>;
 			constructor(
-				_provider: unknown,
+				_name: string,
 				args: Record<string, unknown>,
 			) {
+				super("sector7:test:D1Query", _name, {}, {});
 				this.sqlHash = pulumi.output("mock-hash");
+				this.registerOutputs({ sqlHash: this.sqlHash });
 			}
 		},
 	};

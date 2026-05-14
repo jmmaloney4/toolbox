@@ -334,7 +334,7 @@ export class UptimeMonitor extends pulumi.ComponentResource {
 				mainModule: "worker.js",
 				bindings: baseBindings,
 			},
-			resourceOpts,
+			{ parent: this, dependsOn: this.d1Query ? [this.d1Query] : [] },
 		);
 
 		// 5. Create cron trigger for scheduled execution
