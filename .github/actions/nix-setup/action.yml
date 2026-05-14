@@ -13,13 +13,13 @@ runs:
   using: composite
   steps:
     - if: ${{ contains(inputs.runs-on, 'runner=') }} && ${{ contains(inputs.runs-on, 's3-cache') }}
-      uses: runs-on/action@742bf56072eb4845a0f94b3394673e4903c90ff0 # v2.1.0
+      uses: runs-on/action@d141ef83eb66d096ce8afc767e09115a65c63b60 # v2.1.2
       with:
         show_costs: true
         sccache: s3
-    - uses: DeterminateSystems/nix-installer-action@4a754ab0c192f4d12cf88b5954b9dd13fd2d612e # main
+    - uses: DeterminateSystems/nix-installer-action@aa0e5400805113bf2d5d8f9ba11ff9148bd372a3 # main
     - if: ${{ inputs.cache == 'true' }}
-      uses: DeterminateSystems/flakehub-cache-action@1f9a51a2959d3e26c7838c6f3bf9f48acae525ea # main
+      uses: DeterminateSystems/flakehub-cache-action@6824bf2b70bf86b7dcb8c7a3d75cd399e4aa6447 # main
       # TODO: Fix this
       # with:
       # use-gha-cache: enabled

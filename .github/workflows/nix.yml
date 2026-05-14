@@ -47,13 +47,13 @@ jobs:
         with:
           repository: ${{ inputs.repository }}
           ref: ${{ inputs.ref }}
-      - uses: jmmaloney4/sector7/.github/actions/nix-setup@5d4e3062f23cc6aef0a7a65e510329ad927ad8e6 # main
+      - uses: jmmaloney4/sector7/.github/actions/nix-setup@9d71ec06b6d6e9204b8df4585e65de5323826c16 # main
         with:
           runs-on: ${{ inputs.runs-on }}
           cache: ${{ !contains(inputs.runs-on, 'self-hosted') }}
       - name: compute build-needed matrix via nix-eval-jobs
         id: compute
-        uses: jmmaloney4/sector7/.github/actions/compute-flake-build-matrix@5d4e3062f23cc6aef0a7a65e510329ad927ad8e6 # main
+        uses: jmmaloney4/sector7/.github/actions/compute-flake-build-matrix@9d71ec06b6d6e9204b8df4585e65de5323826c16 # main
         with:
           probe-timeout-seconds: '180'
       - name: compute images to push
@@ -82,7 +82,7 @@ jobs:
         with:
           repository: ${{ inputs.repository }}
           ref: ${{ inputs.ref }}
-      - uses: jmmaloney4/sector7/.github/actions/nix-setup@5d4e3062f23cc6aef0a7a65e510329ad927ad8e6 # main
+      - uses: jmmaloney4/sector7/.github/actions/nix-setup@9d71ec06b6d6e9204b8df4585e65de5323826c16 # main
         with:
           runs-on: ${{ inputs.runs-on }}
           cache: ${{ !contains(inputs.runs-on, 'self-hosted') }}
@@ -104,7 +104,7 @@ jobs:
       fail-fast: false
       matrix:
         package-name: ${{ fromJson(needs.detect.outputs.images_to_push) }}
-    uses: jmmaloney4/sector7/.github/workflows/push-nix-image.yml@5d4e3062f23cc6aef0a7a65e510329ad927ad8e6 # main
+    uses: jmmaloney4/sector7/.github/workflows/push-nix-image.yml@9d71ec06b6d6e9204b8df4585e65de5323826c16 # main
     with:
       runs-on: ${{ inputs.runs-on }}
       package-name: ${{ matrix.package-name }}

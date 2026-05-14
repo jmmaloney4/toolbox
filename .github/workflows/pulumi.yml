@@ -59,13 +59,13 @@ jobs:
         with:
           repository: ${{ inputs.repository }}
           ref: ${{ inputs.ref }}
-      - uses: jmmaloney4/sector7/.github/actions/nix-setup@5d4e3062f23cc6aef0a7a65e510329ad927ad8e6 # main
+      - uses: jmmaloney4/sector7/.github/actions/nix-setup@9d71ec06b6d6e9204b8df4585e65de5323826c16 # main
         with:
           runs-on: ${{ inputs.runs-on }}
           cache: ${{ !contains(inputs.runs-on, 'self-hosted') }}
       - name: Detect all (project, stack) pairs
         id: set-matrix
-        uses: jmmaloney4/sector7/.github/actions/detect-pulumi-stacks@5d4e3062f23cc6aef0a7a65e510329ad927ad8e6 # main
+        uses: jmmaloney4/sector7/.github/actions/detect-pulumi-stacks@9d71ec06b6d6e9204b8df4585e65de5323826c16 # main
         with:
           ignore_projects: ${{ inputs.ignore_projects }}
   pulumi-preview-and-deploy:
@@ -109,7 +109,7 @@ jobs:
               exit 1
               ;;
           esac
-      - uses: jmmaloney4/sector7/.github/actions/pulumi-setup@5d4e3062f23cc6aef0a7a65e510329ad927ad8e6 # main
+      - uses: jmmaloney4/sector7/.github/actions/pulumi-setup@9d71ec06b6d6e9204b8df4585e65de5323826c16 # main
         with:
           google_workload_identity_provider: ${{ inputs.google_workload_identity_provider }}
           google_service_account_email: ${{ inputs.google_service_account_email }}
@@ -139,7 +139,7 @@ jobs:
       - name: pulumi preview
         id: preview
         continue-on-error: true
-        uses: jmmaloney4/sector7/.github/actions/pulumi-preview@5d4e3062f23cc6aef0a7a65e510329ad927ad8e6 # main
+        uses: jmmaloney4/sector7/.github/actions/pulumi-preview@9d71ec06b6d6e9204b8df4585e65de5323826c16 # main
         with:
           project: ${{ matrix.project }}
           stack: ${{ matrix.stack }}
