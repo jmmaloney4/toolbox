@@ -1,5 +1,5 @@
 ---
-id: ADR-018
+id: ADR-021
 title: NixOutput Component — Declarative Nix Store Path Resolution
 status: Accepted
 date: 2026-05-13
