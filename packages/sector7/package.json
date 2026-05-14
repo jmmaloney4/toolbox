@@ -46,6 +46,10 @@
     "./scripts": {
       "types": "./dist/scripts/index.d.ts",
       "default": "./dist/scripts/index.js"
+    },
+    "./d1": {
+      "types": "./dist/d1/index.d.ts",
+      "default": "./dist/d1/index.js"
     }
   },
   "files": [
