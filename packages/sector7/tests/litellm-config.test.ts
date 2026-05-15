@@ -6,14 +6,13 @@ describe("generateLiteLLMConfig", () => {
 	it("generates grouped model config with fallbacks and env-based secrets", () => {
 		const generated = generateLiteLLMConfig({
 			providers: {
-				anthropic: { apiKey: "anthropic-secret" },
-				openai: { apiKey: "openai-secret", apiBase: "https://api.openai.example/v1" },
+				anthropic: { envVar: "ANTHROPIC_API_KEY" },
+				openai: { envVar: "OPENAI_API_KEY", apiBase: "https://api.openai.example/v1" },
 			},
 			deployments: [
 				{
 					id: "anthropic-smart",
-					modelName: "smart",
-					provider: "anthropic",
+provider: "anthropic",
 					providerModel: "anthropic/claude-sonnet-4-20250514",
 					mode: "chat",
 					accessGroups: ["premium"],
@@ -21,8 +20,7 @@ describe("generateLiteLLMConfig", () => {
 				},
 				{
 					id: "openai-fast",
-					modelName: "fast",
-					provider: "openai",
+provider: "openai",
 					providerModel: "openai/gpt-4o-mini",
 					mode: "chat",
 					rpm: 500,
@@ -81,11 +79,10 @@ describe("generateLiteLLMConfig", () => {
 	it("rejects missing deployment references and multi-replica without redis", () => {
 		expect(() =>
 			generateLiteLLMConfig({
-				providers: { anthropic: { apiKey: "secret" } },
+				providers: { anthropic: {} },
 				deployments: [
 					{
 						id: "dep-1",
-						modelName: "smart",
 						provider: "anthropic",
 						providerModel: "anthropic/claude-sonnet-4-20250514",
 					},
@@ -96,11 +93,10 @@ describe("generateLiteLLMConfig", () => {
 
 		expect(() =>
 			generateLiteLLMConfig({
-				providers: { anthropic: { apiKey: "secret" } },
+				providers: { anthropic: {} },
 				deployments: [
 					{
 						id: "dep-1",
-						modelName: "smart",
 						provider: "anthropic",
 						providerModel: "anthropic/claude-sonnet-4-20250514",
 					},
