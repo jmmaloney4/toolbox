@@ -1,32 +1,50 @@
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import * as random from "@pulumi/random";
-import {
-  generateLiteLLMConfig,
-  getProviderEnvVar,
-} from "./config.ts";
+import { generateLiteLLMConfig, getProviderEnvVar } from "./config.ts";
 import type {
+  LiteLLMModelDeployment,
   LiteLLMProxyArgs,
   LiteLLMProviderConfig,
 } from "./config-types.ts";
+
+type ResolvedProviderConfig = {
+  name: string;
+  envVar: string;
+  apiBase?: string;
+};
+
+type ResolvedDeployment = Omit<LiteLLMModelDeployment, "apiBase"> & {
+  apiBase?: string;
+};
 
 function toSecretKey(envVar: string): string {
   return envVar.toLowerCase();
 }
 
-function buildProviderStringData(
-  providers: Record<string, LiteLLMProviderConfig>,
-): pulumi.Output<Record<string, string>> {
-  const entries = Object.entries(providers);
-  return pulumi.all(entries.map(([, provider]) => provider.apiKey)).apply((values) =>
-    Object.fromEntries(
-      entries.map(([providerName, provider], index) => {
-        const envVar = getProviderEnvVar(providerName, provider);
-        return [toSecretKey(envVar), values[index] as string];
-      }),
-    ),
-  );
+function resolveProviderConfig(
+  providerName: string,
+  provider: LiteLLMProviderConfig,
+): pulumi.Output<ResolvedProviderConfig> {
+  return pulumi
+    .all([pulumi.output(provider.envVar), pulumi.output(provider.apiBase)])
+    .apply(([envVar, apiBase]) => ({
+      name: providerName,
+      envVar: getProviderEnvVar(providerName, { envVar: envVar ?? undefined }),
+      apiBase: apiBase ?? undefined,
+    }));
 }
+
+function resolveDeployment(deployment: LiteLLMModelDeployment): pulumi.Output<ResolvedDeployment> {
+  return pulumi.output(deployment.apiBase).apply((apiBase) => {
+    const { apiBase: _ignored, ...rest } = deployment;
+    return {
+      ...rest,
+      apiBase: apiBase ?? undefined,
+    };
+  });
+}
+
 
 export class LiteLLMProxy extends pulumi.ComponentResource {
   public readonly namespaceResource: k8s.core.v1.Namespace | undefined;
@@ -46,21 +64,57 @@ export class LiteLLMProxy extends pulumi.ComponentResource {
     const createNamespace = args.createNamespace ?? true;
     const namespaceName = pulumi.output(args.namespace ?? name);
     const image = args.image ?? "ghcr.io/berriai/litellm-database:main-stable";
-    const replicas = args.replicas ?? 1;
+    const replicas = pulumi.output(args.replicas ?? 1);
     const servicePort = args.service?.port ?? 4000;
 
-    const generatedConfig = generateLiteLLMConfig({
-      providers: args.providers,
-      deployments: args.deployments,
-      modelGroups: args.modelGroups,
-      observability: args.observability,
-      governance: args.governance,
-      redis: args.redis,
-      router: args.router,
-      replicas,
-    });
+    const resolvedProviderConfigs = pulumi.all(
+      Object.entries(args.providers).map(([providerName, provider]) => resolveProviderConfig(providerName, provider)),
+    );
+    const resolvedProviderSecrets = pulumi.all(
+      Object.entries(args.providers).map(([providerName, provider]) =>
+        pulumi
+          .all([pulumi.output(provider.apiKey), pulumi.output(provider.envVar)])
+          .apply(([apiKey, envVar]) => ({
+            envVar: getProviderEnvVar(providerName, { envVar: envVar ?? undefined }),
+            apiKey,
+          })),
+      ),
+    );
+    const resolvedDeployments = pulumi.all(args.deployments.map((deployment) => resolveDeployment(deployment)));
 
-    this.configYaml = pulumi.output(generatedConfig.configYaml);
+    const providerSecretName = `${name}-provider-keys`;
+
+    const providerStringData = resolvedProviderSecrets.apply((secretProviders) =>
+      Object.fromEntries(secretProviders.map((provider) => [toSecretKey(provider.envVar), provider.apiKey])),
+    );
+
+    const providerEnvVars = resolvedProviderConfigs.apply((providers) => providers.map((provider) => provider.envVar));
+
+    const configYaml = pulumi.all([resolvedProviderConfigs, resolvedDeployments, replicas]).apply(
+      ([providers, deployments, resolvedReplicas]) => {
+        const providerMap = Object.fromEntries(
+          providers.map((provider) => [provider.name, {
+            envVar: provider.envVar,
+            apiBase: provider.apiBase,
+          }]),
+        );
+
+        const generatedConfig = generateLiteLLMConfig({
+          providers: providerMap,
+          deployments,
+          modelGroups: args.modelGroups,
+          observability: args.observability,
+          governance: args.governance,
+          redis: args.redis,
+          router: args.router,
+          replicas: resolvedReplicas,
+        });
+
+        return generatedConfig.configYaml;
+      },
+    );
+
+    this.configYaml = configYaml;
 
     this.namespaceResource = createNamespace
       ? new k8s.core.v1.Namespace(
@@ -87,10 +141,10 @@ export class LiteLLMProxy extends pulumi.ComponentResource {
       `${name}-providers`,
       {
         metadata: {
-          name: `${name}-provider-keys`,
+          name: providerSecretName,
           namespace: this.namespace,
         },
-        stringData: buildProviderStringData(args.providers),
+        stringData: providerStringData,
       },
       parentAndProvider,
     );
@@ -140,38 +194,37 @@ export class LiteLLMProxy extends pulumi.ComponentResource {
       "app.kubernetes.io/instance": name,
     };
 
-    const env = [
-      {
-        name: "LITELLM_MASTER_KEY",
-        valueFrom: {
-          secretKeyRef: {
-            name: this.runtimeSecret.metadata.name,
-            key: "LITELLM_MASTER_KEY",
+    const env = pulumi.all([providerEnvVars, this.runtimeSecret.metadata.name, this.providerSecret.metadata.name]).apply(
+      ([envVars, runtimeSecretName, providerSecretName]) => [
+        {
+          name: "LITELLM_MASTER_KEY",
+          valueFrom: {
+            secretKeyRef: {
+              name: runtimeSecretName,
+              key: "LITELLM_MASTER_KEY",
+            },
           },
         },
-      },
-      {
-        name: "DATABASE_URL",
-        valueFrom: {
-          secretKeyRef: {
-            name: this.runtimeSecret.metadata.name,
-            key: "DATABASE_URL",
+        {
+          name: "DATABASE_URL",
+          valueFrom: {
+            secretKeyRef: {
+              name: runtimeSecretName,
+              key: "DATABASE_URL",
+            },
           },
         },
-      },
-      ...Object.entries(args.providers).map(([providerName, provider]) => {
-        const envVar = getProviderEnvVar(providerName, provider);
-        return {
+        ...envVars.map((envVar) => ({
           name: envVar,
           valueFrom: {
             secretKeyRef: {
-              name: this.providerSecret.metadata.name,
+              name: providerSecretName,
               key: toSecretKey(envVar),
             },
           },
-        };
-      }),
-    ];
+        })),
+      ],
+    );
 
     this.deployment = new k8s.apps.v1.Deployment(
       `${name}-deployment`,

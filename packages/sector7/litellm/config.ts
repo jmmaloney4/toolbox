@@ -5,10 +5,18 @@ import type {
   LiteLLMModelDeployment,
   LiteLLMModelGroup,
   LiteLLMObservabilityPolicy,
-  LiteLLMProviderConfig,
   LiteLLMRedisPolicy,
   LiteLLMRouterPolicy,
 } from "./config-types.ts";
+
+type ResolvedProviderConfig = {
+  envVar?: string;
+  apiBase?: string;
+};
+
+type ResolvedDeploymentConfig = Omit<LiteLLMModelDeployment, "apiBase"> & {
+  apiBase?: string;
+};
 
 const DEFAULT_OBSERVABILITY: Required<
   Pick<
@@ -68,7 +76,7 @@ function toUpperSnakeCase(value: string): string {
 
 export function getProviderEnvVar(
   providerName: string,
-  provider: LiteLLMProviderConfig,
+  provider: ResolvedProviderConfig,
 ): string {
   return provider.envVar ?? `${toUpperSnakeCase(providerName)}_API_KEY`;
 }
@@ -100,22 +108,14 @@ function buildFallbackMap(
 
 export function validateLiteLLMConfig(args: {
   replicas?: number;
-  providers: Record<string, LiteLLMProviderConfig>;
-  deployments: LiteLLMModelDeployment[];
+  providers: Record<string, ResolvedProviderConfig>;
+  deployments: ResolvedDeploymentConfig[];
   modelGroups: LiteLLMModelGroup[];
   redis?: LiteLLMRedisPolicy;
   router?: LiteLLMRouterPolicy;
 }): void {
   const deploymentIds = new Set<string>();
   const groupNames = new Set(args.modelGroups.map((group) => group.name));
-
-  for (const [providerName, provider] of Object.entries(args.providers)) {
-    // Note: apiKey is pulumi.Input<string>; we cannot validate its runtime value here.
-    // This check only ensures the property exists (non‑null/undefined).
-    if (!provider.apiKey) {
-      throw new Error(`LiteLLM provider '${providerName}' is missing apiKey`);
-    }
-  }
 
   for (const deployment of args.deployments) {
     if (deploymentIds.has(deployment.id)) {
@@ -177,8 +177,8 @@ export function validateLiteLLMConfig(args: {
 }
 
 export function generateLiteLLMConfig(args: {
-  providers: Record<string, LiteLLMProviderConfig>;
-  deployments: LiteLLMModelDeployment[];
+  providers: Record<string, ResolvedProviderConfig>;
+  deployments: ResolvedDeploymentConfig[];
   modelGroups: LiteLLMModelGroup[];
   observability?: LiteLLMObservabilityPolicy;
   governance?: LiteLLMGovernancePolicy;
