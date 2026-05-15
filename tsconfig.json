@@ -1,0 +1,9 @@
+{
+	"extends": "./packages/sector7/tsconfig.json",
+	"include": ["packages/sector7/**/*.ts"],
+	"exclude": [
+		"**/dist/**",
+		"**/node_modules/**",
+		"packages/sector7/tests/**/*.ts"
+	]
+}

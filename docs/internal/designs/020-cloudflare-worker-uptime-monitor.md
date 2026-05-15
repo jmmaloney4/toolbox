@@ -85,11 +85,11 @@ D1 is the right default for an open-source tool. BigQuery is the wrong default b
 
 Free-tier capacity at probe scale (validated against Cloudflare docs as of 2026-05-13):
 
-| Metric | Free tier | 10 monitors at 1-min | 50 monitors at 1-min |
-|---|---|---|---|
-| Rows written | 100K/day | ~14.4K/day | ~72K/day |
-| Rows read (alert check) | 5M/day | ~14.4K/day | ~72K/day |
-| Storage | 5 GB | ~10-20 MB/month | ~50-100 MB/month |
+| Metric                  | Free tier | 10 monitors at 1-min | 50 monitors at 1-min |
+| ----------------------- | --------- | -------------------- | -------------------- |
+| Rows written            | 100K/day  | ~14.4K/day           | ~72K/day             |
+| Rows read (alert check) | 5M/day    | ~14.4K/day           | ~72K/day             |
+| Storage                 | 5 GB      | ~10-20 MB/month      | ~50-100 MB/month     |
 
 All within free-tier bounds. Storage, reads, and writes are independent quotas.
 

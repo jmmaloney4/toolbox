@@ -74,10 +74,16 @@ describe("LiteLLMProxy", () => {
 				},
 			],
 			modelGroups: [
-				{ name: "smart", deploymentIds: ["anthropic-smart"], fallbacks: ["fast"] },
+				{
+					name: "smart",
+					deploymentIds: ["anthropic-smart"],
+					fallbacks: ["fast"],
+				},
 				{ name: "fast", deploymentIds: ["openai-fast"] },
 			],
-			databaseUrl: pulumi.secret("postgres://db-user:real-pass@db.internal/litellm"),
+			databaseUrl: pulumi.secret(
+				"postgres://db-user:real-pass@db.internal/litellm",
+			),
 		});
 
 		await Promise.all([
@@ -148,7 +154,9 @@ describe("LiteLLMProxy", () => {
 				},
 			],
 			modelGroups: [{ name: "smart", deploymentIds: ["anthropic-smart"] }],
-			databaseUrl: pulumi.secret("postgres://db-user:real-pass@db.internal/litellm"),
+			databaseUrl: pulumi.secret(
+				"postgres://db-user:real-pass@db.internal/litellm",
+			),
 		});
 
 		await resolveOutput(proxy.proxyUrl);

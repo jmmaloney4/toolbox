@@ -1,5 +1,5 @@
-import * as pulumi from "@pulumi/pulumi";
 import * as command from "@pulumi/command";
+import * as pulumi from "@pulumi/pulumi";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { NixOutput } from "../nix-output/nix-output";
 

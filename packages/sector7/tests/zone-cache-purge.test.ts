@@ -88,128 +88,199 @@ describe("ZoneCachePurge provider", () => {
 		});
 
 		it("accepts optional files array", async () => {
-			const result = await provider!.check({}, {
-				...baseArgs,
-				files: ["https://dev.example.com/index.html"],
-			});
+			const result = await provider!.check(
+				{},
+				{
+					...baseArgs,
+					files: ["https://dev.example.com/index.html"],
+				},
+			);
 			expect(result.failures).toEqual([]);
 		});
 
 		it("accepts optional hosts array", async () => {
-			const result = await provider!.check({}, {
-				...baseArgs,
-				hosts: ["dev.example.com"],
-			});
+			const result = await provider!.check(
+				{},
+				{
+					...baseArgs,
+					hosts: ["dev.example.com"],
+				},
+			);
 			expect(result.failures).toEqual([]);
 		});
 
 		it("rejects non-array files value", async () => {
-			const result = await provider!.check({}, {
-				...baseArgs,
-				files: "not-an-array",
-			});
+			const result = await provider!.check(
+				{},
+				{
+					...baseArgs,
+					files: "not-an-array",
+				},
+			);
 			expect(result.failures).toEqual([
-				{ property: "files", reason: "files must be an array of non-empty URL strings" },
+				{
+					property: "files",
+					reason: "files must be an array of non-empty URL strings",
+				},
 			]);
 		});
 
 		it("rejects files array with non-string elements", async () => {
-			const result = await provider!.check({}, {
-				...baseArgs,
-				files: ["https://example.com", 123 as unknown as string],
-			});
+			const result = await provider!.check(
+				{},
+				{
+					...baseArgs,
+					files: ["https://example.com", 123 as unknown as string],
+				},
+			);
 			expect(result.failures).toEqual([
-				{ property: "files", reason: "files must be an array of non-empty URL strings" },
+				{
+					property: "files",
+					reason: "files must be an array of non-empty URL strings",
+				},
 			]);
 		});
 
 		it("rejects files array with empty strings", async () => {
-			const result = await provider!.check({}, {
-				...baseArgs,
-				files: ["https://example.com", ""],
-			});
+			const result = await provider!.check(
+				{},
+				{
+					...baseArgs,
+					files: ["https://example.com", ""],
+				},
+			);
 			expect(result.failures).toEqual([
-				{ property: "files", reason: "files must be an array of non-empty URL strings" },
+				{
+					property: "files",
+					reason: "files must be an array of non-empty URL strings",
+				},
 			]);
 		});
 
 		it("rejects empty files array", async () => {
-			const result = await provider!.check({}, {
-				...baseArgs,
-				files: [],
-			});
+			const result = await provider!.check(
+				{},
+				{
+					...baseArgs,
+					files: [],
+				},
+			);
 			expect(result.failures).toEqual([
-				{ property: "files", reason: "files must not be empty — omit the property to purge the entire zone" },
+				{
+					property: "files",
+					reason:
+						"files must not be empty — omit the property to purge the entire zone",
+				},
 			]);
 		});
 
 		it("rejects non-array hosts value", async () => {
-			const result = await provider!.check({}, {
-				...baseArgs,
-				hosts: "not-an-array",
-			});
+			const result = await provider!.check(
+				{},
+				{
+					...baseArgs,
+					hosts: "not-an-array",
+				},
+			);
 			expect(result.failures).toEqual([
-				{ property: "hosts", reason: "hosts must be an array of non-empty hostname strings" },
+				{
+					property: "hosts",
+					reason: "hosts must be an array of non-empty hostname strings",
+				},
 			]);
 		});
 
 		it("rejects hosts array with non-string elements", async () => {
-			const result = await provider!.check({}, {
-				...baseArgs,
-				hosts: ["dev.example.com", null as unknown as string],
-			});
+			const result = await provider!.check(
+				{},
+				{
+					...baseArgs,
+					hosts: ["dev.example.com", null as unknown as string],
+				},
+			);
 			expect(result.failures).toEqual([
-				{ property: "hosts", reason: "hosts must be an array of non-empty hostname strings" },
+				{
+					property: "hosts",
+					reason: "hosts must be an array of non-empty hostname strings",
+				},
 			]);
 		});
 
 		it("rejects empty hosts array", async () => {
-			const result = await provider!.check({}, {
-				...baseArgs,
-				hosts: [],
-			});
+			const result = await provider!.check(
+				{},
+				{
+					...baseArgs,
+					hosts: [],
+				},
+			);
 			expect(result.failures).toEqual([
-				{ property: "hosts", reason: "hosts must not be empty — omit the property to purge the entire zone" },
+				{
+					property: "hosts",
+					reason:
+						"hosts must not be empty — omit the property to purge the entire zone",
+				},
 			]);
 		});
 
 		it("rejects files array exceeding 30 items", async () => {
-			const result = await provider!.check({}, {
-				...baseArgs,
-				files: Array.from({ length: 31 }, (_, i) => `https://example.com/${i}`),
-			});
+			const result = await provider!.check(
+				{},
+				{
+					...baseArgs,
+					files: Array.from(
+						{ length: 31 },
+						(_, i) => `https://example.com/${i}`,
+					),
+				},
+			);
 			expect(result.failures).toEqual([
-				{ property: "files", reason: "files must not exceed 30 items (Cloudflare API limit)" },
+				{
+					property: "files",
+					reason: "files must not exceed 30 items (Cloudflare API limit)",
+				},
 			]);
 		});
 
 		it("rejects hosts array exceeding 30 items", async () => {
-			const result = await provider!.check({}, {
-				...baseArgs,
-				hosts: Array.from({ length: 31 }, (_, i) => `host${i}.example.com`),
-			});
+			const result = await provider!.check(
+				{},
+				{
+					...baseArgs,
+					hosts: Array.from({ length: 31 }, (_, i) => `host${i}.example.com`),
+				},
+			);
 			expect(result.failures).toEqual([
-				{ property: "hosts", reason: "hosts must not exceed 30 items (Cloudflare API limit)" },
+				{
+					property: "hosts",
+					reason: "hosts must not exceed 30 items (Cloudflare API limit)",
+				},
 			]);
 		});
 
 		it("rejects files and hosts provided together", async () => {
-			const result = await provider!.check({}, {
-				...baseArgs,
-				files: ["https://dev.example.com/index.html"],
-				hosts: ["dev.example.com"],
-			});
+			const result = await provider!.check(
+				{},
+				{
+					...baseArgs,
+					files: ["https://dev.example.com/index.html"],
+					hosts: ["dev.example.com"],
+				},
+			);
 			expect(result.failures).toEqual([
 				{ property: "files", reason: "files and hosts are mutually exclusive" },
 			]);
 		});
 
 		it("accepts undefined files and hosts", async () => {
-			const result = await provider!.check({}, {
-				...baseArgs,
-				files: undefined,
-				hosts: undefined,
-			});
+			const result = await provider!.check(
+				{},
+				{
+					...baseArgs,
+					files: undefined,
+					hosts: undefined,
+				},
+			);
 			expect(result.failures).toEqual([]);
 		});
 	});
@@ -278,40 +349,56 @@ describe("ZoneCachePurge provider", () => {
 		});
 
 		it("detects change from files array to undefined", async () => {
-			const result = await provider!.diff("id", {
-				...baseArgs,
-				files: ["https://dev.example.com/index.html"],
-			}, baseArgs);
+			const result = await provider!.diff(
+				"id",
+				{
+					...baseArgs,
+					files: ["https://dev.example.com/index.html"],
+				},
+				baseArgs,
+			);
 			expect(result.changes).toBe(true);
 		});
 
 		it("treats reordered files array as equivalent", async () => {
-			const result = await provider!.diff("id", {
-				...baseArgs,
-				files: ["https://a.com", "https://b.com"],
-			}, {
-				...baseArgs,
-				files: ["https://b.com", "https://a.com"],
-			});
+			const result = await provider!.diff(
+				"id",
+				{
+					...baseArgs,
+					files: ["https://a.com", "https://b.com"],
+				},
+				{
+					...baseArgs,
+					files: ["https://b.com", "https://a.com"],
+				},
+			);
 			expect(result.changes).toBe(false);
 		});
 
 		it("treats reordered hosts array as equivalent", async () => {
-			const result = await provider!.diff("id", {
-				...baseArgs,
-				hosts: ["a.example.com", "b.example.com"],
-			}, {
-				...baseArgs,
-				hosts: ["b.example.com", "a.example.com"],
-			});
+			const result = await provider!.diff(
+				"id",
+				{
+					...baseArgs,
+					hosts: ["a.example.com", "b.example.com"],
+				},
+				{
+					...baseArgs,
+					hosts: ["b.example.com", "a.example.com"],
+				},
+			);
 			expect(result.changes).toBe(false);
 		});
 
 		it("detects change from hosts array to undefined", async () => {
-			const result = await provider!.diff("id", {
-				...baseArgs,
-				hosts: ["dev.example.com"],
-			}, baseArgs);
+			const result = await provider!.diff(
+				"id",
+				{
+					...baseArgs,
+					hosts: ["dev.example.com"],
+				},
+				baseArgs,
+			);
 			expect(result.changes).toBe(true);
 		});
 	});

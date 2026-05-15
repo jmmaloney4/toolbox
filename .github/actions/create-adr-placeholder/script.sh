@@ -28,15 +28,15 @@ while IFS= read -r adr_file; do
 
   # Security: Prevent path traversal and validate path
   # 1. Prevent directory traversal (../) anywhere in path
-  if [[ "$adr_file" =~ (^|/)\.\.(/|$) ]]; then
+  if [[ $adr_file =~ (^|/)\.\.(/|$) ]]; then
     printf "Error: Unsafe ADR file path (contains '..'): %s\n" "$adr_file" >&2
     continue
   fi
-  
+
   # 2. Must be a relative path to a markdown file (optionally with directories)
   # Regex allows: 'foo.md', 'dir/foo.md', 'dir/subdir/foo.md'
   # Rejects: '/foo.md' (absolute), 'foo.txt' (wrong extension)
-  if [[ "$adr_file" =~ ^/ ]] || [[ ! "$adr_file" =~ ^([^/].*/)*[^/]+\.md$ ]]; then
+  if [[ $adr_file =~ ^/ ]] || [[ ! $adr_file =~ ^([^/].*/)*[^/]+\.md$ ]]; then
     printf "Error: Invalid ADR file path format: %s\n" "$adr_file" >&2
     printf "Expected: relative path to .md file (e.g., 'docs/adr/001.md')\n" >&2
     continue
@@ -47,11 +47,11 @@ while IFS= read -r adr_file; do
     echo "Warning: Could not extract ADR number from $adr_filename, skipping"
     continue
   fi
-  
+
   created_numbers+=("$adr_number")
-  
+
   # Extract title from filename (e.g., 001-my-title.md -> My Title)
-  if [[ "$adr_filename" =~ ^[0-9]{3}-(.*)\.md$ ]] && [ -n "${BASH_REMATCH[1]}" ]; then
+  if [[ $adr_filename =~ ^[0-9]{3}-(.*)\.md$ ]] && [ -n "${BASH_REMATCH[1]}" ]; then
     slug="${BASH_REMATCH[1]}"
     adr_title=$(echo "$slug" | tr '-' ' ' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)} 1')
   else
@@ -60,7 +60,7 @@ while IFS= read -r adr_file; do
   # Create directory if needed
   mkdir -p "$(dirname "$adr_file")"
   # Create placeholder file
-  cat > "$adr_file" << EOF
+  cat >"$adr_file" <<EOF
 ---
 id: ADR-${adr_number}
 title: "${adr_title}"
@@ -79,7 +79,7 @@ Please refer to that PR for current content and discussion.
 EOF
   git add "$adr_file"
   echo "Created placeholder: $adr_file"
-done < "$ADR_FILES"
+done <"$ADR_FILES"
 
 # Commit and push if there are changes
 if git diff --cached --quiet; then
@@ -103,9 +103,9 @@ else
 Related PR: ${PR_URL}"
   else
     # Replace placeholders in custom message
-    COMMIT_MESSAGE="${COMMIT_MESSAGE//{{adr_numbers}}/$joined_numbers}"
-    COMMIT_MESSAGE="${COMMIT_MESSAGE//{{pr_number}}/$PR_NUMBER}"
-    COMMIT_MESSAGE="${COMMIT_MESSAGE//{{pr_url}}/$PR_URL}"
+    COMMIT_MESSAGE="${COMMIT_MESSAGE//{{adr_numbers/}}/$joined_numbers}"
+    COMMIT_MESSAGE="${COMMIT_MESSAGE//{{pr_number/}}/$PR_NUMBER}"
+    COMMIT_MESSAGE="${COMMIT_MESSAGE//{{pr_url/}}/$PR_URL}"
   fi
 
   git commit -m "$COMMIT_MESSAGE"

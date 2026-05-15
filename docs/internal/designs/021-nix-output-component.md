@@ -133,6 +133,7 @@ This makes `NixImage` a composition pattern — it builds an output and then pus
 Split the existing `nix-image-build-push.sh` into two scripts:
 
 1. **`nix-output-resolve.sh`** (new) — resolves and/or builds a nix attribute.
+
    - Outputs `STORE_PATH_OUTPUT:<storepath>` to stdout.
    - Accepts env vars: `NIX_ATTR`, `REPO_ROOT`, `SCRIPT_MODE` ("resolve" or "build").
    - In "build" mode: `nix build ${REPO_ROOT}#${NIX_ATTR} -L`
@@ -140,6 +141,7 @@ Split the existing `nix-image-build-push.sh` into two scripts:
    - Creates log files under `COMMAND_LOG_STEM`.
 
 2. **`nix-image-push.sh`** (extracted from existing script) — pushes a store path to a registry.
+
    - Outputs `DIGEST_OUTPUT:<sha256:...>` to stdout.
    - Accepts env vars: `IMAGE_NAME`, `IMAGE_TAG`, `ARTIFACT_REGISTRY_URL`, `AUTH_MODE`, `STORE_PATH`, `COMMAND_LOG_STEM`.
    - Does NOT accept `NIX_ATTR` or `REPO_ROOT`.
@@ -174,15 +176,19 @@ For `NixImage`, the default trigger remains `imageTag` since that's the deployme
 ## Alternative names considered
 
 ### `NixDerivation`
+
 Describes the nix concept precisely. But "derivation" is a nix internals term that leaks implementation detail. Not all outputs are top-level derivations — some are sub-output paths from multi-output derivations.
 
 ### `NixPackage`
+
 Concise and common in nix parlance. But "package" implies a specific kind of output (a full derivation result), not the general case of any flake attribute.
 
 ### `NixStorePath`
+
 Explicitly states the output type. A bit verbose and technically descriptive rather than declarative.
 
 ### `NixOutput` (selected)
+
 Balances declarative intent ("output" of the nix system) with generality. An output is whatever the attribute path resolves to. The name doesn't imply a specific nix concept — it's a contract about the result, not the mechanism.
 
 # Security / Privacy / Compliance

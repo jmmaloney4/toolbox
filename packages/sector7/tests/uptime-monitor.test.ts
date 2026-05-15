@@ -7,10 +7,7 @@ vi.mock("../d1/d1-query.ts", () => {
 	return {
 		D1Query: class extends pulumi.ComponentResource {
 			public readonly sqlHash: pulumi.Output<string>;
-			constructor(
-				_name: string,
-				args: Record<string, unknown>,
-			) {
+			constructor(_name: string, args: Record<string, unknown>) {
 				super("sector7:test:D1Query", _name, {}, {});
 				this.sqlHash = pulumi.output("mock-hash");
 				this.registerOutputs({ sqlHash: this.sqlHash });
@@ -76,9 +73,7 @@ describe("UptimeMonitor", () => {
 		const monitor = new UptimeMonitor("basic", {
 			...DEFAULT_ARGS,
 			name: "basic-uptime",
-			monitors: [
-				{ id: "grafana", url: "https://grafana.example.com/healthz" },
-			],
+			monitors: [{ id: "grafana", url: "https://grafana.example.com/healthz" }],
 		});
 
 		await resolveOutput(monitor.worker.id);
@@ -107,9 +102,7 @@ describe("UptimeMonitor", () => {
 		const monitor = new UptimeMonitor("webhook", {
 			...DEFAULT_ARGS,
 			name: "webhook-uptime",
-			monitors: [
-				{ id: "api", url: "https://api.example.com/healthz" },
-			],
+			monitors: [{ id: "api", url: "https://api.example.com/healthz" }],
 			webhookUrl: "https://discord.com/api/webhooks/test",
 		});
 
@@ -134,9 +127,7 @@ describe("UptimeMonitor", () => {
 		const monitor = new UptimeMonitor("scheduled", {
 			...DEFAULT_ARGS,
 			name: "scheduled-uptime",
-			monitors: [
-				{ id: "site", url: "https://example.com/" },
-			],
+			monitors: [{ id: "site", url: "https://example.com/" }],
 			cronSchedule: "*/5 * * * *",
 		});
 
@@ -153,9 +144,7 @@ describe("UptimeMonitor", () => {
 		const monitor = new UptimeMonitor("defcron", {
 			...DEFAULT_ARGS,
 			name: "defcron-uptime",
-			monitors: [
-				{ id: "site", url: "https://example.com/" },
-			],
+			monitors: [{ id: "site", url: "https://example.com/" }],
 		});
 
 		await resolveOutput(monitor.cronTrigger.id);
@@ -171,9 +160,7 @@ describe("UptimeMonitor", () => {
 		const monitor = new UptimeMonitor("exd1", {
 			...DEFAULT_ARGS,
 			name: "exd1-uptime",
-			monitors: [
-				{ id: "site", url: "https://example.com/" },
-			],
+			monitors: [{ id: "site", url: "https://example.com/" }],
 			d1DatabaseId: "existing-db-id",
 		});
 
@@ -185,8 +172,9 @@ describe("UptimeMonitor", () => {
 		expect(monitor.d1Query).toBeDefined();
 
 		const worker = findResource("exd1-worker");
-		const d1Binding = (worker?.inputs.bindings as Array<Record<string, unknown>>)
-			.find((b) => b.name === "DB");
+		const d1Binding = (
+			worker?.inputs.bindings as Array<Record<string, unknown>>
+		).find((b) => b.name === "DB");
 		expect(d1Binding).toBeDefined();
 	});
 
@@ -194,9 +182,7 @@ describe("UptimeMonitor", () => {
 		const monitor = new UptimeMonitor("exkv", {
 			...DEFAULT_ARGS,
 			name: "exkv-uptime",
-			monitors: [
-				{ id: "site", url: "https://example.com/" },
-			],
+			monitors: [{ id: "site", url: "https://example.com/" }],
 			kvNamespaceId: "existing-kv-id",
 		});
 

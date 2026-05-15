@@ -6,16 +6,16 @@ if [ -z "${BASE_REF:-}" ] || [ -z "${HEAD_REF:-}" ] || [ -z "${ADR_GLOB:-}" ] ||
   exit 1
 fi
 
-if ! [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+if ! [[ $PR_NUMBER =~ ^[0-9]+$ ]]; then
   echo "PR_NUMBER must be numeric" >&2
   exit 1
 fi
 
 case "$BASE_REF$HEAD_REF$ADR_GLOB" in
-  *$'\n'*|*$'\r'*)
-    echo "BASE_REF, HEAD_REF, and ADR_GLOB must not contain newlines" >&2
-    exit 1
-    ;;
+*$'\n'* | *$'\r'*)
+  echo "BASE_REF, HEAD_REF, and ADR_GLOB must not contain newlines" >&2
+  exit 1
+  ;;
 esac
 
 # ── Full-tree uniqueness audit (FM-1 / FM-3 fix) ─────────────────────────────
@@ -42,7 +42,7 @@ while IFS= read -r adr_file; do
 
   adr_filename=$(basename "$adr_file")
   adr_number=""
-  if [[ "$adr_filename" =~ ^([0-9]{3})($|[^0-9]) ]]; then
+  if [[ $adr_filename =~ ^([0-9]{3})($|[^0-9]) ]]; then
     adr_number="${BASH_REMATCH[1]}"
   fi
 
@@ -62,7 +62,7 @@ done < <(find . -path "./${ADR_GLOB#./}" -name '*.md' | sed 's|^\./||' | sort)
 conflict_body=""
 for adr_number in $(echo "${!number_to_files[@]}" | tr ' ' '\n' | sort); do
   files_for_number="${number_to_files[$adr_number]}"
-  IFS='|' read -ra files_array <<< "$files_for_number"
+  IFS='|' read -ra files_array <<<"$files_for_number"
   count=${#files_array[@]}
   if [ "$count" -gt 1 ]; then
     echo "CONFLICT: ADR number ${adr_number} is used by ${count} files: ${files_for_number}"
@@ -82,7 +82,7 @@ for adr_number in $(echo "${!number_to_files[@]}" | tr ' ' '\n' | sort); do
 done
 
 if [ "$has_conflict" = "true" ]; then
-  echo "has_conflict=true" >> "$GITHUB_OUTPUT"
+  echo "has_conflict=true" >>"$GITHUB_OUTPUT"
 
   comment_file=$(mktemp)
   trap 'rm -f "$comment_file"' EXIT
@@ -93,7 +93,7 @@ if [ "$has_conflict" = "true" ]; then
     printf '(all files matching `%s` in this PR'\''s tree):\n\n' "$ADR_GLOB"
     printf '%b' "$conflict_body"
     printf 'Please rename the conflicting ADR file(s) to use a unique number and push again.\n'
-  } > "$comment_file"
+  } >"$comment_file"
 
   gh pr comment "$PR_NUMBER" --body-file "$comment_file"
 
@@ -103,4 +103,4 @@ if [ "$has_conflict" = "true" ]; then
 fi
 
 echo "No ADR number conflicts found (full-tree audit passed)"
-echo "has_conflict=false" >> "$GITHUB_OUTPUT"
+echo "has_conflict=false" >>"$GITHUB_OUTPUT"

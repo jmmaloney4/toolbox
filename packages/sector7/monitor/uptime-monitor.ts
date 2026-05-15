@@ -1,10 +1,7 @@
 import * as cloudflare from "@pulumi/cloudflare";
 import * as pulumi from "@pulumi/pulumi";
 import { D1Query, type D1QueryArgs } from "../d1/d1-query.ts";
-import {
-	type MonitorTarget,
-	generateMonitorScript,
-} from "./monitor-script.ts";
+import { generateMonitorScript, type MonitorTarget } from "./monitor-script.ts";
 
 /**
  * A single monitored endpoint.
@@ -228,10 +225,10 @@ export class UptimeMonitor extends pulumi.ComponentResource {
 		const ids = args.monitors.map((m) => m.id);
 		const uniqueIds = new Set(ids);
 		if (ids.length !== uniqueIds.size) {
-			const duplicates = Array.from(new Set(ids.filter((id, i) => ids.indexOf(id) !== i)));
-			throw new Error(
-				`Duplicate monitor IDs: ${duplicates.join(", ")}`,
+			const duplicates = Array.from(
+				new Set(ids.filter((id, i) => ids.indexOf(id) !== i)),
 			);
+			throw new Error(`Duplicate monitor IDs: ${duplicates.join(", ")}`);
 		}
 
 		const resourceOpts = { parent: this };
@@ -285,9 +282,7 @@ export class UptimeMonitor extends pulumi.ComponentResource {
 		} else {
 			const kvTitle = pulumi
 				.output(args.kvNamespaceTitle ?? args.name)
-				.apply((n: string) =>
-					n.endsWith("-state") ? n : `${n}-state`,
-				);
+				.apply((n: string) => (n.endsWith("-state") ? n : `${n}-state`));
 
 			this.kvNamespace = new cloudflare.WorkersKvNamespace(
 				`${name}-kv`,

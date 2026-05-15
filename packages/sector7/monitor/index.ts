@@ -1,1 +1,5 @@
-export { UptimeMonitor, type UptimeMonitorArgs, type MonitorConfig } from "./uptime-monitor.ts";
+export {
+	type MonitorConfig,
+	UptimeMonitor,
+	type UptimeMonitorArgs,
+} from "./uptime-monitor.ts";

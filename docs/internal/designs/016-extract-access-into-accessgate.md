@@ -78,9 +78,11 @@ or are replaced by direct references to the access module types).
 ### 1. Copy Access logic at each call site
 
 Pros:
+
 - No new abstraction, no package changes.
 
 Cons:
+
 - Duplicated validation, IDP creation, and policy wiring.
 - Divergent behavior across call sites.
 - Every new consumer reimplements the same Cloudflare Access API patterns.
@@ -92,9 +94,11 @@ drift.
 ### 2. Keep Access on WorkerSite, add a "null Worker" mode
 
 Pros:
+
 - Single component, no new sub-path.
 
 Cons:
+
 - `WorkerSite` would need to accept optional Worker/R2 config, making its API
   confusing and its validation complex.
 - The component name ("WorkerSite") would be misleading for non-Worker origins.
@@ -106,12 +110,14 @@ its clarity.
 ### 3. Extract into `@jmmaloney4/sector7/access` (accepted)
 
 Pros:
+
 - Reusable for any Cloudflare-hosted origin (Workers, Tunnels, Pages, etc.).
 - Clean dependency boundary — Access consumers don't pull Worker/R2 types.
 - Follows the ADR-014 pattern (sibling sub-path export).
 - WorkerSite delegates internally, preserving its public API.
 
 Cons:
+
 - Requires package export and barrel-guard updates.
 - WorkerSite constructor gains one internal delegation step.
 

@@ -36,7 +36,7 @@ get_pkg_json_field() {
 # unscoped-package -> unscoped-package
 pkg_slug() {
   local name="$1"
-  if [[ "$name" == @* ]]; then
+  if [[ $name == @* ]]; then
     echo "$name" | sed 's|^@[^/]*/||'
   else
     echo "$name"
@@ -54,7 +54,7 @@ tarball_stem() {
 
 compare_versions() {
   local local_ver="$1" published_ver="$2"
-  if [[ "$published_ver" == "Not found" ]]; then
+  if [[ $published_ver == "Not found" ]]; then
     echo "initial"
   else
     jq -n --arg local "$local_ver" --arg published "$published_ver" '
@@ -86,7 +86,7 @@ check_release_asset() {
   stem="$(tarball_stem "$name")"
   local asset_name="${stem}-${version}.tgz"
 
-  if [[ -z "$GITHUB_REPO" ]]; then
+  if [[ -z $GITHUB_REPO ]]; then
     echo "Not found"
     return
   fi
@@ -98,7 +98,7 @@ check_release_asset() {
     -H "Accept: application/vnd.github+json" \
     "https://api.github.com/repos/${GITHUB_REPO}/releases?per_page=100" 2>/dev/null || echo "")"
 
-  if [[ -z "$releases" || "$releases" == "[]" ]]; then
+  if [[ -z $releases || $releases == "[]" ]]; then
     echo "Not found"
     return
   fi
@@ -111,7 +111,7 @@ check_release_asset() {
     | .[0] // null
   ')"
 
-  if [[ "$match" == "null" || -z "$match" ]]; then
+  if [[ $match == "null" || -z $match ]]; then
     echo "Not found"
   else
     echo "found"
@@ -122,7 +122,7 @@ check_release_asset() {
 check_registry_version() {
   local name="$1"
   local published_ver="Not found"
-  if [[ -n "${NODE_AUTH_TOKEN:-}" ]]; then
+  if [[ -n ${NODE_AUTH_TOKEN:-} ]]; then
     local encoded
     encoded="$(urlencode "${name}")"
     local resp
@@ -131,7 +131,7 @@ check_registry_version() {
       -H "Accept: application/vnd.npm.install-v1+json" \
       "${REG}/${encoded}" 2>/dev/null || echo "")"
 
-    if [[ -n "$resp" ]]; then
+    if [[ -n $resp ]]; then
       published_ver="$(echo "$resp" | jq -r '.dist-tags.latest // "Not found"')"
     fi
   fi
@@ -139,15 +139,15 @@ check_registry_version() {
 }
 
 # Start summary
-echo "# 📦 pnpm packages analysis" >> "$SUMMARY_FILE"
-if [[ "$DRY_RUN" == "true" ]]; then
-  echo "> **DRY RUN MODE** - No packages will be published" >> "$SUMMARY_FILE"
+echo "# 📦 pnpm packages analysis" >>"$SUMMARY_FILE"
+if [[ $DRY_RUN == "true" ]]; then
+  echo "> **DRY RUN MODE** - No packages will be published" >>"$SUMMARY_FILE"
 fi
-echo "" >> "$SUMMARY_FILE"
-echo "Target: **${TARGET}**" >> "$SUMMARY_FILE"
-echo "" >> "$SUMMARY_FILE"
-echo "| Package | Local | Published | Change | Action |" >> "$SUMMARY_FILE"
-echo "|---|---:|---:|---|---|" >> "$SUMMARY_FILE"
+echo "" >>"$SUMMARY_FILE"
+echo "Target: **${TARGET}**" >>"$SUMMARY_FILE"
+echo "" >>"$SUMMARY_FILE"
+echo "| Package | Local | Published | Change | Action |" >>"$SUMMARY_FILE"
+echo "|---|---:|---:|---|---|" >>"$SUMMARY_FILE"
 
 # Find packages
 if [[ ! -d "${ROOT}/packages" ]]; then
@@ -156,7 +156,7 @@ if [[ ! -d "${ROOT}/packages" ]]; then
 else
   PKG_PATHS=()
   for pkg_json in "${ROOT}/packages"/*/package.json; do
-    [[ -f "$pkg_json" ]] && PKG_PATHS+=("${pkg_json%/package.json}")
+    [[ -f $pkg_json ]] && PKG_PATHS+=("${pkg_json%/package.json}")
   done
   echo "Found ${#PKG_PATHS[@]} package(s): ${PKG_PATHS[*]}" >&2
 fi
@@ -165,7 +165,7 @@ fi
 MATRIX_ENTRIES=()
 for pkg_path in "${PKG_PATHS[@]}"; do
   name="$(get_pkg_json_field "$pkg_path" "name")"
-  [[ -n "$SCOPE" && ! "${name}" == ${SCOPE}/* ]] && continue
+  [[ -n $SCOPE && ${name} != ${SCOPE}/* ]] && continue
 
   local_ver="$(get_pkg_json_field "$pkg_path" "version")"
   slug="$(pkg_slug "$name")"
@@ -176,30 +176,30 @@ for pkg_path in "${PKG_PATHS[@]}"; do
   # Determine published status based on target
   published_ver="Not found"
   case "$TARGET" in
-    release)
-      asset_status="$(check_release_asset "$name" "$local_ver")"
-      if [[ "$asset_status" == "found" ]]; then
-        published_ver="$local_ver"
-      fi
-      ;;
-    ghcr|npm|gcp)
-      published_ver="$(check_registry_version "$name")"
-      ;;
-    *)
-      echo "Error: unknown target '${TARGET}'" >&2
-      exit 1
-      ;;
+  release)
+    asset_status="$(check_release_asset "$name" "$local_ver")"
+    if [[ $asset_status == "found" ]]; then
+      published_ver="$local_ver"
+    fi
+    ;;
+  ghcr | npm | gcp)
+    published_ver="$(check_registry_version "$name")"
+    ;;
+  *)
+    echo "Error: unknown target '${TARGET}'" >&2
+    exit 1
+    ;;
   esac
 
   # Compare versions and determine action
   classify="$(compare_versions "$local_ver" "$published_ver")"
   action="publish"
-  if [[ "$DRY_RUN" == "true" || "$classify" == "same" || "$classify" == "downgrade" ]]; then
+  if [[ $DRY_RUN == "true" || $classify == "same" || $classify == "downgrade" ]]; then
     action="skip"
   fi
 
   # Add to matrix entries only if action is publish
-  if [[ "$action" == "publish" ]]; then
+  if [[ $action == "publish" ]]; then
     MATRIX_ENTRIES+=("$(jq -n \
       --arg path "$pkg_path" \
       --arg name "$name" \
@@ -226,7 +226,7 @@ for pkg_path in "${PKG_PATHS[@]}"; do
   fi
 
   # Add to summary
-  echo "| ${name} | ${local_ver} | ${published_ver} | ${classify} | ${action} |" >> "$SUMMARY_FILE"
+  echo "| ${name} | ${local_ver} | ${published_ver} | ${classify} | ${action} |" >>"$SUMMARY_FILE"
 done
 
 # Build final matrix
@@ -260,6 +260,6 @@ echo "DEBUG: HAS_PACKAGES=$HAS_PACKAGES" >&2
 {
   echo "matrix=$COMPRESSED_MATRIX"
   echo "has_packages=$HAS_PACKAGES"
-} >> "$OUT_FILE"
+} >>"$OUT_FILE"
 
 echo "DEBUG: Outputs written" >&2

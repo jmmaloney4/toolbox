@@ -59,28 +59,28 @@ trap 'rm -f "${AUTH_FILE}" "${DIGEST_FILE}"' EXIT
 # Authenticate by writing authfile directly.
 echo "--- authenticating (${AUTH_MODE}) ---"
 case "${AUTH_MODE}" in
-  gcloud)
-    PASSWORD=$(gcloud auth print-access-token)
-    USERNAME="oauth2accesstoken"
-    ;;
-  ghcr)
-    if [ -z "${GITHUB_TOKEN:-}" ] || [ -z "${GITHUB_USER:-}" ]; then
-      echo "ERROR: GITHUB_TOKEN and GITHUB_USER env vars required for ghcr auth mode" >&2
-      exit 1
-    fi
-    PASSWORD="${GITHUB_TOKEN}"
-    USERNAME="${GITHUB_USER}"
-    ;;
-  *)
-    echo "ERROR: Unknown AUTH_MODE '${AUTH_MODE}' (expected 'gcloud' or 'ghcr')" >&2
+gcloud)
+  PASSWORD=$(gcloud auth print-access-token)
+  USERNAME="oauth2accesstoken"
+  ;;
+ghcr)
+  if [ -z "${GITHUB_TOKEN:-}" ] || [ -z "${GITHUB_USER:-}" ]; then
+    echo "ERROR: GITHUB_TOKEN and GITHUB_USER env vars required for ghcr auth mode" >&2
     exit 1
-    ;;
+  fi
+  PASSWORD="${GITHUB_TOKEN}"
+  USERNAME="${GITHUB_USER}"
+  ;;
+*)
+  echo "ERROR: Unknown AUTH_MODE '${AUTH_MODE}' (expected 'gcloud' or 'ghcr')" >&2
+  exit 1
+  ;;
 esac
 
 REGISTRY_HOST="${ARTIFACT_REGISTRY_URL%%/*}"
 AUTH_B64=$(printf '%s:%s' "${USERNAME}" "${PASSWORD}" | base64 | tr -d '\n')
 printf '{"auths":{"%s":{"auth":"%s"}}}' \
-  "${REGISTRY_HOST}" "${AUTH_B64}" > "${AUTH_FILE}"
+  "${REGISTRY_HOST}" "${AUTH_B64}" >"${AUTH_FILE}"
 chmod 600 "${AUTH_FILE}"
 
 if [ "${SCRIPT_MODE}" = "resolve" ]; then
@@ -88,9 +88,9 @@ if [ "${SCRIPT_MODE}" = "resolve" ]; then
   nix run github:nlewo/nix2container#skopeo-nix2container -- \
     --insecure-policy inspect --format '{{.Digest}}' \
     --authfile "${AUTH_FILE}" \
-    docker://"${FULL_TAG}" \
-    | tr -d '\n' \
-    > "${DIGEST_FILE}"
+    docker://"${FULL_TAG}" |
+    tr -d '\n' \
+      >"${DIGEST_FILE}"
 else
   IMAGE_PATH="nix:${STORE_PATH}"
 

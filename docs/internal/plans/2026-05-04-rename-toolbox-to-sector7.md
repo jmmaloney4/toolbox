@@ -167,27 +167,27 @@ ______________________________________________________________________
 
 ## Risks
 
-| Risk | Mitigation |
-|---|---|
-| CI breaks between rename and first push | Phase 2 is a single commit; push immediately after rename. Window is <5 min. |
-| jackpkgs CI breaks during the gap | Phase 3 immediately after Phase 2. Same session. |
-| Open PRs in either repo break | Phase 0: merge or close all open PRs first. |
-| `uses:` refs with SHA pins still say `toolbox` | The SHA pin means GitHub resolves by hash; the repo redirect handles the lookup. But updating the string is still correct for clarity. |
-| npm consumers can't find old package | Phase 5 publishes under new name. Old package stays readable on GitHub Packages. |
-| Renovate can't find presets | Phase 2 updates `renovate/all.json` self-refs. Phase 3 updates jackpkgs. Renovate reads config from the default branch, so this is fixed on push. |
+| Risk                                           | Mitigation                                                                                                                                        |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CI breaks between rename and first push        | Phase 2 is a single commit; push immediately after rename. Window is \<5 min.                                                                     |
+| jackpkgs CI breaks during the gap              | Phase 3 immediately after Phase 2. Same session.                                                                                                  |
+| Open PRs in either repo break                  | Phase 0: merge or close all open PRs first.                                                                                                       |
+| `uses:` refs with SHA pins still say `toolbox` | The SHA pin means GitHub resolves by hash; the repo redirect handles the lookup. But updating the string is still correct for clarity.            |
+| npm consumers can't find old package           | Phase 5 publishes under new name. Old package stays readable on GitHub Packages.                                                                  |
+| Renovate can't find presets                    | Phase 2 updates `renovate/all.json` self-refs. Phase 3 updates jackpkgs. Renovate reads config from the default branch, so this is fixed on push. |
 
 ______________________________________________________________________
 
 ## Reference counts
 
-| Category | Refs |
-|---|---|
-| sector7 repo: workflow `uses:` (actions) | 26 |
-| sector7 repo: composite action `uses:` | 1 |
-| sector7 repo: renovate JSON configs | 8 |
-| sector7 repo: package.json | 1 |
-| sector7 repo: docs/README | ~40 lines |
-| jackpkgs: workflow `uses:` | 5 |
-| jackpkgs: renovate.json | 1 |
-| jackpkgs: docs | ~6 lines |
-| **Total** | **~88 references** |
+| Category                                 | Refs               |
+| ---------------------------------------- | ------------------ |
+| sector7 repo: workflow `uses:` (actions) | 26                 |
+| sector7 repo: composite action `uses:`   | 1                  |
+| sector7 repo: renovate JSON configs      | 8                  |
+| sector7 repo: package.json               | 1                  |
+| sector7 repo: docs/README                | ~40 lines          |
+| jackpkgs: workflow `uses:`               | 5                  |
+| jackpkgs: renovate.json                  | 1                  |
+| jackpkgs: docs                           | ~6 lines           |
+| **Total**                                | **~88 references** |

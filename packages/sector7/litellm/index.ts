@@ -1,4 +1,4 @@
-export { LiteLLMProxy } from "./litellm-proxy.ts";
+export { generateLiteLLMConfig } from "./config.ts";
 export type {
 	LiteLLMGeneratedConfig,
 	LiteLLMGovernancePolicy,
@@ -11,4 +11,4 @@ export type {
 	LiteLLMRouterPolicy,
 	LiteLLMServiceSpec,
 } from "./config-types.ts";
-export { generateLiteLLMConfig } from "./config.ts";
+export { LiteLLMProxy } from "./litellm-proxy.ts";

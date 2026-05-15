@@ -9,7 +9,7 @@ tags: [design, adr, pnpm, release-artifacts, nix]
 supersedes: [ADR-003]
 superseded_by: []
 links:
-  - "[ADR-003](./003-pnpm-ghcr-publish.md)"
+  - '[ADR-003](./003-pnpm-ghcr-publish.md)'
   - https://github.com/addendalabs/yard/pull/1145
   - https://github.com/jmmaloney4/sector7/releases/tag/sector7-v0.6.0-a27687e
 ---
@@ -271,8 +271,7 @@ Sector7, but the consumed artifact should remain a normal npm package tarball.
 
 1. Updated `.github/workflows/pnpm.yml` to support configurable `target` input
    (`release`, `ghcr`, `npm`, `gcp`) with `release` as default. Publish job
-   dispatches to target-specific logic: release tarball upload via `gh release
-   create`, or registry publish via `pnpm publish` with appropriate `.npmrc`.
+   dispatches to target-specific logic: release tarball upload via `gh release create`, or registry publish via `pnpm publish` with appropriate `.npmrc`.
 2. Updated `.github/actions/analyze-pnpm-packages` with a `target` input. For
    `release`, it queries the GitHub Releases API for existing assets. For
    registry targets, it queries the npm registry endpoint. The matrix includes

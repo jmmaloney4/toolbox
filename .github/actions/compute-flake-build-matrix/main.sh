@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Detect current Nix system (e.g., aarch64-darwin, x86_64-linux)
 system="$(nix eval --impure --raw --expr 'builtins.currentSystem')"
-if [[ ! "$system" =~ ^[A-Za-z0-9_-]+$ ]]; then
+if [[ ! $system =~ ^[A-Za-z0-9_-]+$ ]]; then
   echo "Invalid system string: $system" >&2
   exit 1
 fi
@@ -12,13 +12,13 @@ fi
 PROBE_TIMEOUT_SECONDS="${PROBE_TIMEOUT_SECONDS:-180}"
 
 tmp_all="$(mktemp)"
-select_expr="$(< "${GITHUB_ACTION_PATH}/select.nix")"
+select_expr="$(<"${GITHUB_ACTION_PATH}/select.nix")"
 echo "Running nix-eval-jobs to detect flake outputs..." >&2
 nix run github:nix-community/nix-eval-jobs --option extra-substituters "https://nix-community.cachix.org" --option extra-trusted-public-keys "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=" -- \
   --flake . \
   --check-cache-status \
   --meta \
-  --select "(${select_expr}) \"${system}\"" > "$tmp_all"
+  --select "(${select_expr}) \"${system}\"" >"$tmp_all"
 
 # Transform nix-eval-jobs output to matrix format
 echo "Processing nix-eval-jobs output..." >&2
@@ -81,8 +81,8 @@ if [ -n "${GITHUB_OUTPUT:-}" ]; then
     echo "matrix_include<<$delim"
     echo "$include_array"
     echo "$delim"
-  } >> "$GITHUB_OUTPUT"
-  echo "has_work=$has_work" >> "$GITHUB_OUTPUT"
+  } >>"$GITHUB_OUTPUT"
+  echo "has_work=$has_work" >>"$GITHUB_OUTPUT"
 else
   echo "GITHUB_OUTPUT not set, skipping GitHub Actions output"
 fi
@@ -108,7 +108,7 @@ if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
       echo "No outputs detected for this system."
     fi
     echo
-  } >> "$GITHUB_STEP_SUMMARY"
+  } >>"$GITHUB_STEP_SUMMARY"
 else
   echo "GITHUB_STEP_SUMMARY not set, skipping summary output"
 fi

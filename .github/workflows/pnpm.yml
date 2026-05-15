@@ -22,23 +22,22 @@ on:
         default: false
       target:
         description: >
-          Publish target: release (GitHub Release tarball), ghcr (GitHub Packages),
-          npm (npmjs.org), gcp (Google Artifact Registry).
+          Publish target: release (GitHub Release tarball), ghcr (GitHub Packages), npm (npmjs.org), gcp (Google Artifact Registry).
+
         required: false
         type: string
         default: 'release'
       registry:
         description: >
-          npm registry URL for ghcr/npm/gcp targets.
-          Defaults to https://npm.pkg.github.com (ghcr), https://registry.npmjs.org (npm),
-          or a GCP Artifact Registry URL. Ignored when target=release.
+          npm registry URL for ghcr/npm/gcp targets. Defaults to https://npm.pkg.github.com (ghcr), https://registry.npmjs.org (npm), or a GCP Artifact Registry URL. Ignored when target=release.
+
         required: false
         type: string
         default: ''
       short_sha:
         description: >
-          Short commit SHA to append to release tags (e.g. a27687e).
-          Only used when target=release. Defaults to the 7-char commit SHA.
+          Short commit SHA to append to release tags (e.g. a27687e). Only used when target=release. Defaults to the 7-char commit SHA.
+
         required: false
         type: string
         default: ''
@@ -92,7 +91,6 @@ jobs:
           echo ""
           echo "Matrix as JSON:"
           echo '${{ toJson(fromJson(steps.analyze.outputs.matrix || '[]')) }}'
-
   verify-lockfile:
     name: "🔒 verify pnpm-lock.yaml"
     runs-on: ${{ inputs.runs-on }}
@@ -109,7 +107,6 @@ jobs:
           cache: ${{ !contains(inputs.runs-on, 'self-hosted') }}
       - name: Verify lockfile is up to date
         run: nix develop .#ci-pnpm --command pnpm install --frozen-lockfile
-
   publish-packages:
     name: "🚀 publish (${{ inputs.target }}): ${{ matrix.name }}"
     needs: [analyze, verify-lockfile]
@@ -120,8 +117,8 @@ jobs:
       matrix:
         include: ${{ fromJson(needs.analyze.outputs.matrix || '[]') }}
     permissions:
-      contents: write   # needed for release asset upload
-      packages: write   # needed for ghcr publish
+      contents: write # needed for release asset upload
+      packages: write # needed for ghcr publish
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -148,7 +145,6 @@ jobs:
           echo "- **Published:** \`${{ matrix.published_version }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Change:** \`${{ matrix.release_type }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Action:** \`${{ matrix.action }}\`" >> $GITHUB_STEP_SUMMARY
-
       # ── Release tarball target ──────────────────────────────────────
       - name: Pack tarball
         if: inputs.dry_run != true && matrix.action == 'publish' && matrix.target == 'release'
@@ -157,7 +153,6 @@ jobs:
           echo "Packed artifacts:"
           ls -la *.tgz
         working-directory: ${{ matrix.package_path }}
-
       - name: Verify compiled package tarball
         if: inputs.dry_run != true && matrix.action == 'publish' && matrix.target == 'release'
         shell: bash
@@ -187,7 +182,6 @@ jobs:
           fi
 
           echo "✅ Tarball contains compiled JavaScript and declarations only"
-
       - name: Resolve short SHA
         if: inputs.dry_run != true && matrix.action == 'publish' && matrix.target == 'release'
         id: sha
@@ -198,7 +192,6 @@ jobs:
           else
             echo "short_sha=$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
           fi
-
       - name: Create release and upload tarball
         if: inputs.dry_run != true && matrix.action == 'publish' && matrix.target == 'release'
         run: |
@@ -221,11 +214,9 @@ jobs:
             --notes "Published \`${{ matrix.name }}@${{ matrix.local_version }}\` as tarball asset."
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Cleanup packed tarball
         if: inputs.dry_run != true && matrix.action == 'publish' && matrix.target == 'release'
         run: rm -f ${{ matrix.package_path }}/*.tgz
-
       # ── Registry targets (ghcr / npm / gcp) ────────────────────────
       - name: Configure npm authentication (registry)
         if: inputs.dry_run != true && matrix.action == 'publish' && matrix.target != 'release'
@@ -267,14 +258,12 @@ jobs:
           echo "✅ Authentication configured for ${{ matrix.target }}"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Publish package (registry)
         if: inputs.dry_run != true && matrix.action == 'publish' && matrix.target != 'release'
         run: nix develop .#ci-pnpm --command pnpm publish --no-git-checks
         working-directory: ${{ matrix.package_path }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Cleanup authentication (registry)
         if: inputs.dry_run != true && matrix.action == 'publish' && matrix.target != 'release'
         run: |

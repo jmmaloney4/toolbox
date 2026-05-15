@@ -261,8 +261,8 @@ export class AccessGate extends pulumi.ComponentResource {
 										})) as cloudflare.types.input.ZeroTrustAccessApplicationPolicyInclude[],
 								);
 
-			const app = new cloudflare.ZeroTrustAccessApplication(
-				`${name}-app-d${domainIdx}-p${pathIdx}`,
+				const app = new cloudflare.ZeroTrustAccessApplication(
+					`${name}-app-d${domainIdx}-p${pathIdx}`,
 					{
 						accountId: args.accountId,
 						zoneId: args.zoneId,

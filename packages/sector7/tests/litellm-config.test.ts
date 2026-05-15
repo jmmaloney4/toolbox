@@ -7,12 +7,15 @@ describe("generateLiteLLMConfig", () => {
 		const generated = generateLiteLLMConfig({
 			providers: {
 				anthropic: { envVar: "ANTHROPIC_API_KEY" },
-				openai: { envVar: "OPENAI_API_KEY", apiBase: "https://api.openai.example/v1" },
+				openai: {
+					envVar: "OPENAI_API_KEY",
+					apiBase: "https://api.openai.example/v1",
+				},
 			},
 			deployments: [
 				{
 					id: "anthropic-smart",
-provider: "anthropic",
+					provider: "anthropic",
 					providerModel: "anthropic/claude-sonnet-4-20250514",
 					mode: "chat",
 					accessGroups: ["premium"],
@@ -20,7 +23,7 @@ provider: "anthropic",
 				},
 				{
 					id: "openai-fast",
-provider: "openai",
+					provider: "openai",
 					providerModel: "openai/gpt-4o-mini",
 					mode: "chat",
 					rpm: 500,
@@ -54,7 +57,10 @@ provider: "openai",
 			},
 		});
 
-		expect(generated.providerEnvVars).toEqual(["ANTHROPIC_API_KEY", "OPENAI_API_KEY"]);
+		expect(generated.providerEnvVars).toEqual([
+			"ANTHROPIC_API_KEY",
+			"OPENAI_API_KEY",
+		]);
 		expect(generated.configYaml).not.toContain("anthropic-secret");
 		expect(generated.configYaml).not.toContain("openai-secret");
 
@@ -62,13 +68,19 @@ provider: "openai",
 		const modelList = parsed.model_list as Array<Record<string, unknown>>;
 		expect(modelList).toHaveLength(3);
 		expect(modelList[0].model_name).toBe("smart");
-		expect((modelList[0].litellm_params as Record<string, unknown>).api_key).toBe("os.environ/ANTHROPIC_API_KEY");
-		expect((modelList[0].model_info as Record<string, unknown>).access_groups).toEqual(["premium", "core"]);
+		expect(
+			(modelList[0].litellm_params as Record<string, unknown>).api_key,
+		).toBe("os.environ/ANTHROPIC_API_KEY");
+		expect(
+			(modelList[0].model_info as Record<string, unknown>).access_groups,
+		).toEqual(["premium", "core"]);
 
 		const routerSettings = parsed.router_settings as Record<string, unknown>;
 		expect(routerSettings.routing_strategy).toBe("cost-based-routing");
 		expect(routerSettings.fallbacks).toEqual([{ smart: ["fast"] }]);
-		expect(routerSettings.context_window_fallbacks).toEqual([{ smart: ["long-context"] }]);
+		expect(routerSettings.context_window_fallbacks).toEqual([
+			{ smart: ["long-context"] },
+		]);
 		expect(routerSettings.default_fallbacks).toEqual(["smart"]);
 
 		const generalSettings = parsed.general_settings as Record<string, unknown>;

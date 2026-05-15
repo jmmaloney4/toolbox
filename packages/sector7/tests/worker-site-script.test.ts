@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { generateWorkerScript } from "../workersite/worker-site-script.ts";
 
-const extractFingerprintMatcher = (script: string): ((key: string) => boolean) => {
+const extractFingerprintMatcher = (
+	script: string,
+): ((key: string) => boolean) => {
 	const match = script.match(
 		/function isFingerprintAssetKey\(key\) \{[\s\S]*?\n\}/,
 	);
@@ -55,8 +57,14 @@ describe("generateWorkerScript", () => {
 	it("versions Cache API keys independently from public request URLs", () => {
 		const script = generateWorkerScript("R2_BUCKET");
 
-		expect(script).toContain("const cacheVersion = env.CACHE_KEY_VERSION || 'default';");
-		expect(script).toContain("cacheUrl.searchParams.set('__workersite_cache_version', cacheVersion);");
-		expect(script).toContain("new Request(cacheUrl.toString(), { method: 'GET' })");
+		expect(script).toContain(
+			"const cacheVersion = env.CACHE_KEY_VERSION || 'default';",
+		);
+		expect(script).toContain(
+			"cacheUrl.searchParams.set('__workersite_cache_version', cacheVersion);",
+		);
+		expect(script).toContain(
+			"new Request(cacheUrl.toString(), { method: 'GET' })",
+		);
 	});
 });

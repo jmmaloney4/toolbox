@@ -67,7 +67,8 @@ vi.mock("@pulumi/cloudflare", () => ({
 	AccountToken: class {
 		public readonly id = "token-id";
 		public readonly value = {
-			apply: (fn: (value: string) => string | Promise<string>) => fn("token-value"),
+			apply: (fn: (value: string) => string | Promise<string>) =>
+				fn("token-value"),
 		};
 
 		constructor(
@@ -163,8 +164,15 @@ describe("R2Object provider", () => {
 
 	it("rejects cloud provider options when R2Object is constructed directly", () => {
 		expect(
-			() => new R2Object("asset", createArgs(join(tempDir, "index.html")), cloudProviderOpt),
-		).toThrow(/R2Object is a Pulumi dynamic resource; do not pass provider\/providers/);
+			() =>
+				new R2Object(
+					"asset",
+					createArgs(join(tempDir, "index.html")),
+					cloudProviderOpt,
+				),
+		).toThrow(
+			/R2Object is a Pulumi dynamic resource; do not pass provider\/providers/,
+		);
 	});
 });
 
@@ -218,6 +226,8 @@ describe("purgeZoneCache", () => {
 				},
 				cloudProviderOpt,
 			),
-		).toThrow(/purgeZoneCache is a Pulumi dynamic resource; do not pass provider\/providers/);
+		).toThrow(
+			/purgeZoneCache is a Pulumi dynamic resource; do not pass provider\/providers/,
+		);
 	});
 });

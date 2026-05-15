@@ -48,7 +48,12 @@ vi.mock("@pulumi/pulumi", () => {
 					opts?: Record<string, unknown>,
 				) {
 					provider = resourceProvider;
-					dynamicResourceCalls.push({ name, args, opts, provider: resourceProvider });
+					dynamicResourceCalls.push({
+						name,
+						args,
+						opts,
+						provider: resourceProvider,
+					});
 				}
 			},
 		},
@@ -78,7 +83,9 @@ describe("D1Query provider", () => {
 		expect(dynamicResourceCalls[0].name).toBe("test");
 		expect(dynamicResourceCalls[0].args.accountId).toBe("account-123");
 		expect(dynamicResourceCalls[0].args.databaseId).toBe("db-456");
-		expect(dynamicResourceCalls[0].args.sql).toBe("CREATE TABLE t (id INTEGER);");
+		expect(dynamicResourceCalls[0].args.sql).toBe(
+			"CREATE TABLE t (id INTEGER);",
+		);
 		expect(dynamicResourceCalls[0].args.apiToken).toBe("test-token");
 	});
 
@@ -93,7 +100,10 @@ describe("D1Query provider", () => {
 	});
 
 	it("detects no changes when SQL is unchanged", async () => {
-		const olds = { ...createArgs(), sqlHash: createHash("sha256").update(createArgs().sql).digest("hex") };
+		const olds = {
+			...createArgs(),
+			sqlHash: createHash("sha256").update(createArgs().sql).digest("hex"),
+		};
 		const result = await provider!.diff("test-id", olds, createArgs());
 		expect(result.changes).toBe(false);
 	});
@@ -101,8 +111,14 @@ describe("D1Query provider", () => {
 	it("detects changes when SQL is modified", async () => {
 		const oldSql = "CREATE TABLE t (id INTEGER);";
 		const newSql = "CREATE TABLE t (id INTEGER, name TEXT);";
-		const olds = { ...createArgs(oldSql), sqlHash: createHash("sha256").update(oldSql).digest("hex") };
-		const result = await provider!.diff("test-id", olds, { ...createArgs(), sql: newSql });
+		const olds = {
+			...createArgs(oldSql),
+			sqlHash: createHash("sha256").update(oldSql).digest("hex"),
+		};
+		const result = await provider!.diff("test-id", olds, {
+			...createArgs(),
+			sql: newSql,
+		});
 		expect(result.changes).toBe(true);
 		expect(result.replaces).toContain("sql");
 	});
@@ -110,14 +126,23 @@ describe("D1Query provider", () => {
 	it("triggers delete-before-replace when SQL changes", async () => {
 		const oldSql = "CREATE TABLE t (id INTEGER);";
 		const newSql = "CREATE TABLE t (id INTEGER, name TEXT);";
-		const olds = { ...createArgs(oldSql), sqlHash: createHash("sha256").update(oldSql).digest("hex") };
-		const result = await provider!.diff("test-id", olds, { ...createArgs(), sql: newSql });
+		const olds = {
+			...createArgs(oldSql),
+			sqlHash: createHash("sha256").update(oldSql).digest("hex"),
+		};
+		const result = await provider!.diff("test-id", olds, {
+			...createArgs(),
+			sql: newSql,
+		});
 		expect(result.deleteBeforeReplace).toBe(true);
 	});
 
 	it("detects changes when apiToken is rotated", async () => {
 		const sql = "CREATE TABLE t (id INTEGER);";
-		const olds = { ...createArgs(sql), sqlHash: createHash("sha256").update(sql).digest("hex") };
+		const olds = {
+			...createArgs(sql),
+			sqlHash: createHash("sha256").update(sql).digest("hex"),
+		};
 		const result = await provider!.diff("test-id", olds, {
 			...createArgs(),
 			apiToken: "new-token",

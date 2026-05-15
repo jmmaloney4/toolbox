@@ -1,6 +1,5 @@
 name: "Add to Project"
 description: "Add the current issue or PR to a GitHub Project V2 via gh CLI. Requires nix on the runner (self-hosted)."
-
 inputs:
   project-url:
     description: "GitHub Project URL (e.g. https://github.com/orgs/ORG/projects/N)"
@@ -16,12 +15,10 @@ inputs:
     description: "Label filter mode: AND, OR, or NOT (default OR)"
     required: false
     default: "OR"
-
 outputs:
   item-id:
     description: "Node ID of the added project item"
     value: ${{ steps.add.outputs.itemId }}
-
 runs:
   using: "composite"
   steps:

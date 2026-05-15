@@ -39,7 +39,7 @@ echo "Building Nix package: ${PACKAGE}"
 # Build the image once
 nix build ".#packages.${SYSTEM}.${PACKAGE}" -L
 
-IFS=',' read -ra TAG_ARRAY <<< "$TAGS"
+IFS=',' read -ra TAG_ARRAY <<<"$TAGS"
 PUSHED_COUNT=0
 
 for tag in "${TAG_ARRAY[@]}"; do
@@ -55,7 +55,7 @@ for tag in "${TAG_ARRAY[@]}"; do
   nix run ".#packages.${SYSTEM}.${PACKAGE}.passthru.copyTo" -- \
     "${dest}" \
     --dest-creds "${USERNAME}:${PASSWORD}"
-  
+
   PUSHED_COUNT=$((PUSHED_COUNT + 1))
 done
 

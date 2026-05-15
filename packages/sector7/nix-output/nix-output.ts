@@ -1,5 +1,5 @@
-import * as pulumi from "@pulumi/pulumi";
 import * as command from "@pulumi/command";
+import * as pulumi from "@pulumi/pulumi";
 import { getScriptPath } from "../scripts/index.ts";
 
 export interface NixOutputArgs {
@@ -77,14 +77,20 @@ export class NixOutput extends pulumi.ComponentResource {
 			...(args.subPath ? { SUB_PATH: args.subPath } : {}),
 		};
 
-		const cmd = new command.local.Command(`${name}-resolve`, {
-			create: pulumi.interpolate`bash "${scriptPath}"`,
-			environment: env,
-			triggers: [args.nixAttr, ...(args.triggers ?? [])],
-		}, { parent: this });
+		const cmd = new command.local.Command(
+			`${name}-resolve`,
+			{
+				create: pulumi.interpolate`bash "${scriptPath}"`,
+				environment: env,
+				triggers: [args.nixAttr, ...(args.triggers ?? [])],
+			},
+			{ parent: this },
+		);
 
 		this.storePath = cmd.stdout.apply((stdout: string) => {
-			const match = stdout.trim().match(/STORE_PATH_OUTPUT:(\/nix\/store\/[^\s]+)/);
+			const match = stdout
+				.trim()
+				.match(/STORE_PATH_OUTPUT:(\/nix\/store\/[^\s]+)/);
 			if (!match) {
 				throw new Error(
 					`Could not parse STORE_PATH_OUTPUT from output for ${name}`,

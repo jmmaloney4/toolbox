@@ -136,12 +136,12 @@ jobs:
 
 The app should be registered in the target org with these settings:
 
-| Field | Value |
-|---|---|
-| Name | `sector7-project-bot` |
-| Permissions → Organization → Projects | Read and write |
-| Permissions → Repository → Metadata | Read-only |
-| Webhook | Active: unchecked |
+| Field                                 | Value                 |
+| ------------------------------------- | --------------------- |
+| Name                                  | `sector7-project-bot` |
+| Permissions → Organization → Projects | Read and write        |
+| Permissions → Repository → Metadata   | Read-only             |
+| Webhook                               | Active: unchecked     |
 
 The app only needs an org-level installation -- it does not need to be installed
 on individual consumer repos. Its permission to touch org projects comes from the
@@ -152,9 +152,9 @@ org installation itself.
 The app ID and private key should be stored as **organization secrets** on the
 target org (preferred), so all consumer repos reference the same credential:
 
-| Secret | Value |
-|---|---|
-| `SECTOR7_PROJECT_BOT_APP_ID` | App ID (integer) |
+| Secret                            | Value             |
+| --------------------------------- | ----------------- |
+| `SECTOR7_PROJECT_BOT_APP_ID`      | App ID (integer)  |
 | `SECTOR7_PROJECT_BOT_PRIVATE_KEY` | Full PEM contents |
 
 For repos outside the org, store as repository secrets instead.

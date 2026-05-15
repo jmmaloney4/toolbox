@@ -88,10 +88,12 @@ The component MUST:
 ### 1. In-repo scripts (status quo)
 
 Pros:
+
 - No shared dependency.
 - Each repo can customize freely.
 
 Cons:
+
 - Duplicated auth, logging, and digest extraction logic.
 - Divergent behavior across repos.
 - Changes require updating multiple repos.
@@ -101,9 +103,11 @@ Rejected: the pattern is stable enough to share.
 ### 2. Inline bash in Pulumi program
 
 Pros:
+
 - No separate script file to manage.
 
 Cons:
+
 - Hard to test locally without Pulumi.
 - Escaping and readability issues in template strings.
 - Cannot be run standalone for debugging.
@@ -113,9 +117,11 @@ Rejected: external script is more maintainable.
 ### 3. NixImage in yard or zeus (not sector7)
 
 Pros:
+
 - Closer to the consumer.
 
 Cons:
+
 - Other repos would depend on yard or zeus just for image building.
 - sector7 exists precisely for shared infrastructure components.
 

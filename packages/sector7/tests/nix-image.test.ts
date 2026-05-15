@@ -1,5 +1,5 @@
-import * as pulumi from "@pulumi/pulumi";
 import * as command from "@pulumi/command";
+import * as pulumi from "@pulumi/pulumi";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { NixImage } from "../nix-image/nix-image";
 
@@ -78,7 +78,8 @@ describe("NixImage", () => {
 
 		// Should create a NixOutput child
 		const nixOutputs = resources.filter(
-			(r) => r.type === "sector7:nix:NixOutput" && r.name === "test-build-build",
+			(r) =>
+				r.type === "sector7:nix:NixOutput" && r.name === "test-build-build",
 		);
 		expect(nixOutputs).toHaveLength(1);
 
@@ -113,7 +114,8 @@ describe("NixImage", () => {
 
 		// Resolve mode should NOT create a NixOutput child
 		const nixOutputs = resources.filter(
-			(r) => r.type === "sector7:nix:NixOutput" && r.name.includes("test-resolve"),
+			(r) =>
+				r.type === "sector7:nix:NixOutput" && r.name.includes("test-resolve"),
 		);
 		expect(nixOutputs).toHaveLength(0);
 
@@ -203,7 +205,12 @@ describe("NixImage", () => {
 		const pushCmds = byName("test-triggers-custom-push");
 		expect(pushCmds).toHaveLength(1);
 		const triggers = pushCmds[0].inputs.triggers as string[];
-		expect(triggers).toEqual(["dev", "/nix/store/abc123-my-image", "custom-trigger-1", "custom-trigger-2"]);
+		expect(triggers).toEqual([
+			"dev",
+			"/nix/store/abc123-my-image",
+			"custom-trigger-1",
+			"custom-trigger-2",
+		]);
 	});
 
 	it("uses resolve mode additive triggers with imageTag first", async () => {

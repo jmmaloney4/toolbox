@@ -257,10 +257,7 @@ const d1QueryProvider: dynamic.ResourceProvider = {
 		return { outs: { ...news, sqlHash } };
 	},
 
-	async delete(
-		_id: string,
-		_props: D1QueryState,
-	): Promise<void> {
+	async delete(_id: string, _props: D1QueryState): Promise<void> {
 		// No-op: schema data persists after resource removal.
 		// D1 databases outlive individual Pulumi stacks.
 	},
@@ -277,10 +274,9 @@ const rejectCloudProviderOptions = (
 	if (!opts) return;
 
 	const hasProvider =
-		Object.prototype.hasOwnProperty.call(opts, "provider") &&
-		opts.provider !== undefined;
+		Object.hasOwn(opts, "provider") && opts.provider !== undefined;
 	const hasProviders =
-		Object.prototype.hasOwnProperty.call(opts, "providers") &&
+		Object.hasOwn(opts, "providers") &&
 		(opts as Record<string, unknown>).providers !== undefined;
 	if (!hasProvider && !hasProviders) return;
 
@@ -324,11 +320,7 @@ export class D1Query extends dynamic.Resource {
 	 */
 	public readonly sqlHash!: Output<string>;
 
-	constructor(
-		name: string,
-		args: D1QueryArgs,
-		opts?: DynamicResourceOptions,
-	) {
+	constructor(name: string, args: D1QueryArgs, opts?: DynamicResourceOptions) {
 		rejectCloudProviderOptions("D1Query", opts);
 		super(d1QueryProvider, name, { sqlHash: undefined, ...args }, opts);
 	}

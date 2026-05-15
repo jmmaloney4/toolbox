@@ -9,7 +9,7 @@ tags: [design, adr, pnpm, typescript, packaging]
 supersedes: []
 superseded_by: []
 links:
-  - "[ADR-018](./018-pnpm-release-tarball-artifacts.md)"
+  - '[ADR-018](./018-pnpm-release-tarball-artifacts.md)'
   - https://github.com/addendalabs/yard/pull/1146
 ---
 

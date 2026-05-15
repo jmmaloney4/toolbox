@@ -322,12 +322,11 @@ const rejectCloudProviderOptions = (
 	if (!opts) return;
 
 	const hasProvider =
-		Object.prototype.hasOwnProperty.call(opts, "provider") &&
-		opts.provider !== undefined;
+		Object.hasOwn(opts, "provider") && opts.provider !== undefined;
 	// `providers` is not on CustomResourceOptions but may be present at runtime
 	// if a ComponentResourceOptions was passed (JS doesn't enforce nominal types).
 	const hasProviders =
-		Object.prototype.hasOwnProperty.call(opts, "providers") &&
+		Object.hasOwn(opts, "providers") &&
 		(opts as Record<string, unknown>).providers !== undefined;
 	if (!hasProvider && !hasProviders) return;
 
@@ -343,10 +342,13 @@ const omitCloudProviderOptions = (
 	if (!opts) return undefined;
 	// Cast to pick both `provider` (on CustomResourceOptions) and `providers`
 	// (may be present at runtime from ComponentResourceOptions).
-	const { provider: _provider, providers: _providers, ...dynamicOpts } =
-		opts as CustomResourceOptions & {
-			providers?: unknown;
-		};
+	const {
+		provider: _provider,
+		providers: _providers,
+		...dynamicOpts
+	} = opts as CustomResourceOptions & {
+		providers?: unknown;
+	};
 	return dynamicOpts;
 };
 
@@ -818,34 +820,71 @@ const zoneCachePurgeProvider: dynamic.ResourceProvider = {
 		const failures: dynamic.CheckFailure[] = [];
 		for (const p of ["zoneId", "apiToken", "trigger"]) {
 			if (typeof news[p] !== "string" || !news[p]) {
-				failures.push({ property: p, reason: p + " is required and must be a non-empty string" });
+				failures.push({
+					property: p,
+					reason: p + " is required and must be a non-empty string",
+				});
 			}
 		}
 		// Validate files: accept non-empty string[] or undefined; reject non-array, non-string elements, or empty.
 		// Cloudflare limits purge requests to 30 URLs.
 		if (news.files !== undefined) {
-			if (!Array.isArray(news.files) || news.files.some((f: unknown) => typeof f !== "string" || !f)) {
-				failures.push({ property: "files", reason: "files must be an array of non-empty URL strings" });
+			if (
+				!Array.isArray(news.files) ||
+				news.files.some((f: unknown) => typeof f !== "string" || !f)
+			) {
+				failures.push({
+					property: "files",
+					reason: "files must be an array of non-empty URL strings",
+				});
 			} else if (news.files.length === 0) {
-				failures.push({ property: "files", reason: "files must not be empty — omit the property to purge the entire zone" });
+				failures.push({
+					property: "files",
+					reason:
+						"files must not be empty — omit the property to purge the entire zone",
+				});
 			} else if (news.files.length > 30) {
-				failures.push({ property: "files", reason: "files must not exceed 30 items (Cloudflare API limit)" });
+				failures.push({
+					property: "files",
+					reason: "files must not exceed 30 items (Cloudflare API limit)",
+				});
 			}
 		}
 		// Validate hosts: accept non-empty string[] or undefined; reject non-array, non-string elements, or empty.
 		// Cloudflare limits purge requests to 30 hostnames.
 		if (news.hosts !== undefined) {
-			if (!Array.isArray(news.hosts) || news.hosts.some((h: unknown) => typeof h !== "string" || !h)) {
-				failures.push({ property: "hosts", reason: "hosts must be an array of non-empty hostname strings" });
+			if (
+				!Array.isArray(news.hosts) ||
+				news.hosts.some((h: unknown) => typeof h !== "string" || !h)
+			) {
+				failures.push({
+					property: "hosts",
+					reason: "hosts must be an array of non-empty hostname strings",
+				});
 			} else if (news.hosts.length === 0) {
-				failures.push({ property: "hosts", reason: "hosts must not be empty — omit the property to purge the entire zone" });
+				failures.push({
+					property: "hosts",
+					reason:
+						"hosts must not be empty — omit the property to purge the entire zone",
+				});
 			} else if (news.hosts.length > 30) {
-				failures.push({ property: "hosts", reason: "hosts must not exceed 30 items (Cloudflare API limit)" });
+				failures.push({
+					property: "hosts",
+					reason: "hosts must not exceed 30 items (Cloudflare API limit)",
+				});
 			}
 		}
 		// files and hosts are mutually exclusive.
-		if (Array.isArray(news.files) && news.files.length > 0 && Array.isArray(news.hosts) && news.hosts.length > 0) {
-			failures.push({ property: "files", reason: "files and hosts are mutually exclusive" });
+		if (
+			Array.isArray(news.files) &&
+			news.files.length > 0 &&
+			Array.isArray(news.hosts) &&
+			news.hosts.length > 0
+		) {
+			failures.push({
+				property: "files",
+				reason: "files and hosts are mutually exclusive",
+			});
 		}
 		return { inputs: news, failures };
 	},
@@ -858,10 +897,14 @@ const zoneCachePurgeProvider: dynamic.ResourceProvider = {
 		const replaces: string[] = [];
 		if (olds.zoneId !== news.zoneId) replaces.push("zoneId");
 		const filesChanged =
-			JSON.stringify([...((olds.files as string[] | undefined) ?? [])].sort()) !==
+			JSON.stringify(
+				[...((olds.files as string[] | undefined) ?? [])].sort(),
+			) !==
 			JSON.stringify([...((news.files as string[] | undefined) ?? [])].sort());
 		const hostsChanged =
-			JSON.stringify([...((olds.hosts as string[] | undefined) ?? [])].sort()) !==
+			JSON.stringify(
+				[...((olds.hosts as string[] | undefined) ?? [])].sort(),
+			) !==
 			JSON.stringify([...((news.hosts as string[] | undefined) ?? [])].sort());
 		return {
 			replaces,
@@ -875,7 +918,12 @@ const zoneCachePurgeProvider: dynamic.ResourceProvider = {
 	},
 
 	async create(inputs: ZoneCachePurgeInputs): Promise<dynamic.CreateResult> {
-		await purgeZoneCacheApi(inputs.zoneId, inputs.apiToken, inputs.files, inputs.hosts);
+		await purgeZoneCacheApi(
+			inputs.zoneId,
+			inputs.apiToken,
+			inputs.files,
+			inputs.hosts,
+		);
 		return {
 			id: `purge-${inputs.zoneId}-${inputs.trigger.slice(0, 12)}`,
 			outs: { ...inputs },

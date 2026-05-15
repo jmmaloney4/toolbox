@@ -1,7 +1,7 @@
-import * as pulumi from "@pulumi/pulumi";
 import * as command from "@pulumi/command";
-import { getScriptPath } from "../scripts/index.ts";
+import * as pulumi from "@pulumi/pulumi";
 import { NixOutput } from "../nix-output/nix-output.ts";
+import { getScriptPath } from "../scripts/index.ts";
 
 export interface NixImageArgs {
 	/** Flake attribute path (e.g. "packages.x86_64-linux.lens-api-image") */
@@ -71,48 +71,68 @@ export class NixImage extends pulumi.ComponentResource {
 
 		if (mode === "resolve") {
 			// Resolve-only: authenticate and inspect the already-pushed image
-			const resolveCmd = new command.local.Command(`${name}-resolve`, {
-				create: pulumi.interpolate`bash "${pushScriptPath}"`,
-				environment: {
-					...baseEnv,
-					SCRIPT_MODE: "resolve",
+			const resolveCmd = new command.local.Command(
+				`${name}-resolve`,
+				{
+					create: pulumi.interpolate`bash "${pushScriptPath}"`,
+					environment: {
+						...baseEnv,
+						SCRIPT_MODE: "resolve",
+					},
+					triggers: [args.imageTag, ...(args.triggers ?? [])],
 				},
-				triggers: [args.imageTag, ...(args.triggers ?? [])],
-			}, { parent: this });
+				{ parent: this },
+			);
 
 			this.digest = resolveCmd.stdout.apply((stdout: string) => {
 				const match = stdout.trim().match(/DIGEST_OUTPUT:(sha256:[a-f0-9]+)/);
 				if (!match) {
-					throw new Error(`Could not parse DIGEST_OUTPUT from resolve output for ${name}`);
+					throw new Error(
+						`Could not parse DIGEST_OUTPUT from resolve output for ${name}`,
+					);
 				}
 				return match[1];
 			});
 			this.imageRef = pulumi.interpolate`${args.artifactRegistryUrl}/${args.imageName}@${this.digest}`;
 		} else {
 			// Build + push: compose NixOutput for the build step, then push
-			const nixOutput = new NixOutput(`${name}-build`, {
-				nixAttr: args.nixAttr,
-				repoRoot: args.repoRoot,
-				mode: "build",
-				triggers: [args.imageTag, ...(args.triggers ?? [])],
-				env: args.env,
-			}, { parent: this });
+			const nixOutput = new NixOutput(
+				`${name}-build`,
+				{
+					nixAttr: args.nixAttr,
+					repoRoot: args.repoRoot,
+					mode: "build",
+					triggers: [args.imageTag, ...(args.triggers ?? [])],
+					env: args.env,
+				},
+				{ parent: this },
+			);
 
 			// Push the built image from the store path
-			const pushCmd = new command.local.Command(`${name}-push`, {
-				create: pulumi.interpolate`bash "${pushScriptPath}"`,
-				environment: {
-					...baseEnv,
-					SCRIPT_MODE: "push",
-					STORE_PATH: nixOutput.storePath,
+			const pushCmd = new command.local.Command(
+				`${name}-push`,
+				{
+					create: pulumi.interpolate`bash "${pushScriptPath}"`,
+					environment: {
+						...baseEnv,
+						SCRIPT_MODE: "push",
+						STORE_PATH: nixOutput.storePath,
+					},
+					triggers: pulumi.all([
+						args.imageTag,
+						nixOutput.storePath,
+						...(args.triggers ?? []),
+					]),
 				},
-				triggers: pulumi.all([args.imageTag, nixOutput.storePath, ...(args.triggers ?? [])]),
-		}, { parent: this });
+				{ parent: this },
+			);
 
 			this.digest = pushCmd.stdout.apply((stdout: string) => {
 				const match = stdout.trim().match(/DIGEST_OUTPUT:(sha256:[a-f0-9]+)/);
 				if (!match) {
-					throw new Error(`Could not parse DIGEST_OUTPUT from push output for ${name}`);
+					throw new Error(
+						`Could not parse DIGEST_OUTPUT from push output for ${name}`,
+					);
 				}
 				return match[1];
 			});

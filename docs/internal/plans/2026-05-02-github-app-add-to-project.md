@@ -30,14 +30,14 @@ ______________________________________________________________________
 
 **Configuration:**
 
-| Field | Value |
-|---|---|
-| Name | `toolbox-project-bot` |
-| Homepage URL | `https://github.com/jmmaloney4/toolbox` |
-| Webhook | Active: unchecked (no webhooks needed) |
-| Permissions → Organization → Projects | Read and write |
-| Permissions → Repository → Metadata | Read-only |
-| Where can this App be installed? | Any account |
+| Field                                 | Value                                   |
+| ------------------------------------- | --------------------------------------- |
+| Name                                  | `toolbox-project-bot`                   |
+| Homepage URL                          | `https://github.com/jmmaloney4/toolbox` |
+| Webhook                               | Active: unchecked (no webhooks needed)  |
+| Permissions → Organization → Projects | Read and write                          |
+| Permissions → Repository → Metadata   | Read-only                               |
+| Where can this App be installed?      | Any account                             |
 
 After registration:
 
@@ -56,9 +56,9 @@ ______________________________________________________________________
 Store the following as **organization secrets** on `ergodicsystems` (preferred) or
 as **repository secrets** on each consumer repo:
 
-| Secret name | Value |
-|---|---|
-| `TOOLBOX_PROJECT_BOT_APP_ID` | App ID (integer) |
+| Secret name                       | Value             |
+| --------------------------------- | ----------------- |
+| `TOOLBOX_PROJECT_BOT_APP_ID`      | App ID (integer)  |
 | `TOOLBOX_PROJECT_BOT_PRIVATE_KEY` | Full PEM contents |
 
 Organization secrets are preferred because every consumer repo can reference them
@@ -99,6 +99,7 @@ ______________________________________________________________________
 ### jmmaloney4/garden
 
 Current:
+
 ```yaml
 jobs:
   add-to-project:
@@ -106,6 +107,7 @@ jobs:
 ```
 
 After:
+
 ```yaml
 jobs:
   add-to-project:
@@ -144,8 +146,8 @@ ______________________________________________________________________
 
 ## Alternatives considered
 
-| Approach | Pros | Cons |
-|---|---|---|
-| Fine-grained PAT | Simple to set up | Expires within 1 year; tied to personal account; manual rotation |
-| Classic PAT | Works today | Overly broad scopes; tied to personal account; security risk |
-| GitHub App (chosen) | Scoped, no expiry, org-owned | More setup upfront; slightly more complex workflow |
+| Approach            | Pros                         | Cons                                                             |
+| ------------------- | ---------------------------- | ---------------------------------------------------------------- |
+| Fine-grained PAT    | Simple to set up             | Expires within 1 year; tied to personal account; manual rotation |
+| Classic PAT         | Works today                  | Overly broad scopes; tied to personal account; security risk     |
+| GitHub App (chosen) | Scoped, no expiry, org-owned | More setup upfront; slightly more complex workflow               |
