@@ -94,6 +94,7 @@ export interface LiteLLMProxyArgs {
   governance?: LiteLLMGovernancePolicy;
   observability?: LiteLLMObservabilityPolicy;
   redis?: LiteLLMRedisPolicy;
+  allowMultiReplicaWithoutRedis?: pulumi.Input<boolean>;
 
   keys?: Record<string, LiteLLMVirtualKeySpec>;
 
@@ -109,15 +110,16 @@ export interface LiteLLMProviderConfig {
 
 export interface LiteLLMModelDeployment {
   id: string;
-  modelName: string;
   provider: string;
   providerModel: string;
   apiBase?: pulumi.Input<string>;
-  mode?: "chat" | "completion" | "embedding";
+  mode?: "chat" | "completion" | "embedding" | "image_generation" | "audio_transcription" | "audio_speech" | "rerank";
   baseModel?: string;
   accessGroups?: string[];
   rpm?: number;
   tpm?: number;
+  rpd?: number;
+  tpd?: number;
   weight?: number;
   order?: number;
   maxInputTokens?: number;
@@ -134,7 +136,6 @@ export interface LiteLLMModelGroup {
 }
 
 export interface LiteLLMVirtualKeySpec {
-  keyAlias: pulumi.Input<string>;
   key?: pulumi.Input<string>;
   models?: pulumi.Input<pulumi.Input<string>[]>;
   teamId?: pulumi.Input<string>;
@@ -273,7 +274,7 @@ Initial implementation can use the existing pattern from garden:
 3. Store the generated key as a Pulumi secret output.
 4. Delete the key by token hash on destroy/replacement.
 
-The helper must build JSON with a real JSON encoder, not shell `printf`. Key aliases and metadata can contain quotes. A small Python helper script or a TypeScript command wrapper is acceptable.
+The helper must build JSON with a real JSON encoder, not shell `printf`. Key aliases and metadata can contain quotes. A TypeScript command wrapper (using `@pulumi/command`) is preferred to avoid requiring Python in the runtime environment.
 
 Virtual key creation is operationally useful but it increases the component's side effects. If implementation gets too large, split it into two resources:
 

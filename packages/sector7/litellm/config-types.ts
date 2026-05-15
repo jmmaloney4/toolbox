@@ -1,7 +1,7 @@
 import type * as k8s from "@pulumi/kubernetes";
 import type * as pulumi from "@pulumi/pulumi";
 
-export type LiteLLMModelMode = "chat" | "completion" | "embedding";
+export type LiteLLMModelMode = "chat" | "completion" | "embedding" | "image_generation" | "audio_transcription" | "audio_speech" | "rerank";
 
 export interface LiteLLMProviderConfig {
   apiKey: pulumi.Input<string>;
@@ -11,7 +11,6 @@ export interface LiteLLMProviderConfig {
 
 export interface LiteLLMModelDeployment {
   id: string;
-  modelName: string;
   provider: string;
   providerModel: string;
   apiBase?: string;
@@ -20,6 +19,8 @@ export interface LiteLLMModelDeployment {
   accessGroups?: string[];
   rpm?: number;
   tpm?: number;
+  rpd?: number;
+  tpd?: number;
   weight?: number;
   order?: number;
   maxInputTokens?: number;
