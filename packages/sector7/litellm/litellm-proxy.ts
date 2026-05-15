@@ -103,7 +103,7 @@ export class LiteLLMProxy extends pulumi.ComponentResource {
       },
       { parent: this },
     ).result;
-    this.masterKey = pulumi.output(args.masterKey ?? generatedMasterKey);
+    this.masterKey = pulumi.secret(pulumi.output(args.masterKey ?? generatedMasterKey));
 
     this.runtimeSecret = new k8s.core.v1.Secret(
       `${name}-runtime`,
@@ -208,7 +208,7 @@ export class LiteLLMProxy extends pulumi.ComponentResource {
                   ],
                   livenessProbe: {
                     httpGet: { path: "/health/liveliness", port: servicePort },
-                    initialDelaySeconds: 120,
+                    initialDelaySeconds: 180,
                     periodSeconds: 15,
                     timeoutSeconds: 10,
                     failureThreshold: 3,

@@ -110,6 +110,8 @@ export function validateLiteLLMConfig(args: {
   const groupNames = new Set(args.modelGroups.map((group) => group.name));
 
   for (const [providerName, provider] of Object.entries(args.providers)) {
+    // Note: apiKey is pulumi.Input<string>; we cannot validate its runtime value here.
+    // This check only ensures the property exists (non‑null/undefined).
     if (!provider.apiKey) {
       throw new Error(`LiteLLM provider '${providerName}' is missing apiKey`);
     }
