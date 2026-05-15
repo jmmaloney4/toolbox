@@ -10,7 +10,6 @@ import type {
 } from "./config-types.ts";
 
 type ResolvedProviderConfig = {
-  apiKey: string;
   envVar?: string;
   apiBase?: string;
 };
@@ -113,14 +112,6 @@ export function validateLiteLLMConfig(args: {
 }): void {
   const deploymentIds = new Set<string>();
   const groupNames = new Set(args.modelGroups.map((group) => group.name));
-
-  for (const [providerName, provider] of Object.entries(args.providers)) {
-    // Note: apiKey is pulumi.Input<string>; we cannot validate its runtime value here.
-    // This check only ensures the property exists (non‑null/undefined).
-    if (!provider.apiKey) {
-      throw new Error(`LiteLLM provider '${providerName}' is missing apiKey`);
-    }
-  }
 
   for (const deployment of args.deployments) {
     if (deploymentIds.has(deployment.id)) {
