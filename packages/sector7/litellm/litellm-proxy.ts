@@ -14,11 +14,6 @@ type ResolvedProviderConfig = {
   apiBase?: string;
 };
 
-type ResolvedProviderSecret = {
-  envVar: string;
-  apiKey: string;
-};
-
 type ResolvedDeployment = Omit<LiteLLMModelDeployment, "apiBase"> & {
   apiBase?: string;
 };
@@ -40,21 +35,14 @@ function resolveProviderConfig(
     }));
 }
 
-function resolveProviderSecret(
-  provider: LiteLLMProviderConfig,
-  envVar: pulumi.Output<string>,
-): pulumi.Output<ResolvedProviderSecret> {
-  return pulumi.all([pulumi.output(provider.apiKey), envVar]).apply(([apiKey, resolvedEnvVar]) => ({
-    envVar: resolvedEnvVar,
-    apiKey,
-  }));
-}
-
 function resolveDeployment(deployment: LiteLLMModelDeployment): pulumi.Output<ResolvedDeployment> {
-  return pulumi.output(deployment.apiBase).apply((apiBase) => ({
-    ...deployment,
-    apiBase: apiBase ?? undefined,
-  }));
+  return pulumi.output(deployment.apiBase).apply((apiBase) => {
+    const { apiBase: _ignored, ...rest } = deployment;
+    return {
+      ...rest,
+      apiBase: apiBase ?? undefined,
+    };
+  });
 }
 
 

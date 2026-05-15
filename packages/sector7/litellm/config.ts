@@ -14,6 +14,10 @@ type ResolvedProviderConfig = {
   apiBase?: string;
 };
 
+type ResolvedDeploymentConfig = Omit<LiteLLMModelDeployment, "apiBase"> & {
+  apiBase?: string;
+};
+
 const DEFAULT_OBSERVABILITY: Required<
   Pick<
     LiteLLMObservabilityPolicy,
@@ -105,7 +109,7 @@ function buildFallbackMap(
 export function validateLiteLLMConfig(args: {
   replicas?: number;
   providers: Record<string, ResolvedProviderConfig>;
-  deployments: LiteLLMModelDeployment[];
+  deployments: ResolvedDeploymentConfig[];
   modelGroups: LiteLLMModelGroup[];
   redis?: LiteLLMRedisPolicy;
   router?: LiteLLMRouterPolicy;
@@ -174,7 +178,7 @@ export function validateLiteLLMConfig(args: {
 
 export function generateLiteLLMConfig(args: {
   providers: Record<string, ResolvedProviderConfig>;
-  deployments: LiteLLMModelDeployment[];
+  deployments: ResolvedDeploymentConfig[];
   modelGroups: LiteLLMModelGroup[];
   observability?: LiteLLMObservabilityPolicy;
   governance?: LiteLLMGovernancePolicy;
