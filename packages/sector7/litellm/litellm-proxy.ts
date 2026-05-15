@@ -1,7 +1,7 @@
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import * as random from "@pulumi/random";
-import { generateLiteLLMConfig } from "./config.ts";
+import { generateLiteLLMConfig, getProviderEnvVar } from "./config.ts";
 import type {
   LiteLLMModelDeployment,
   LiteLLMProxyArgs,
@@ -19,15 +19,6 @@ type ResolvedDeployment = Omit<LiteLLMModelDeployment, "apiBase"> & {
   apiBase?: string;
 };
 
-function toUpperSnakeCase(value: string): string {
-  return value
-    .replace(/[^a-zA-Z0-9]+/g, "_")
-    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
-    .replace(/_+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .toUpperCase();
-}
-
 function toSecretKey(envVar: string): string {
   return envVar.toLowerCase();
 }
@@ -35,14 +26,16 @@ function toSecretKey(envVar: string): string {
 function resolveProvider(providerName: string, provider: LiteLLMProviderConfig): pulumi.Output<ResolvedProvider> {
   return pulumi
     .all([provider.apiKey, pulumi.output(provider.envVar), pulumi.output(provider.apiBase)])
-    .apply(([apiKey, envVar, apiBase]) => ({
-      name: providerName,
-      apiKey,
-      envVar: envVar ?? `${toUpperSnakeCase(providerName)}_API_KEY`,
-      apiBase: apiBase ?? undefined,
-    }));
+    .apply(([apiKey, envVar, apiBase]) => {
+      const resolvedEnvVar = getProviderEnvVar(providerName, { apiKey, envVar: envVar ?? undefined });
+      return {
+        name: providerName,
+        apiKey,
+        envVar: resolvedEnvVar,
+        apiBase: apiBase ?? undefined,
+      };
+    });
 }
-
 function resolveDeployment(deployment: LiteLLMModelDeployment): pulumi.Output<ResolvedDeployment> {
   return pulumi.output(deployment.apiBase).apply((apiBase) => ({
     ...deployment,
@@ -76,6 +69,8 @@ export class LiteLLMProxy extends pulumi.ComponentResource {
     );
     const resolvedDeployments = pulumi.all(args.deployments.map((deployment) => resolveDeployment(deployment)));
 
+    const providerSecretName = `${name}-provider-keys`;
+
     const runtimeConfig = pulumi.all([resolvedProviders, resolvedDeployments, replicas]).apply(
       ([providers, deployments, resolvedReplicas]) => {
         const providerMap = Object.fromEntries(
@@ -106,7 +101,7 @@ export class LiteLLMProxy extends pulumi.ComponentResource {
             name: provider.envVar,
             valueFrom: {
               secretKeyRef: {
-                name: `${name}-provider-keys`,
+                name: providerSecretName,
                 key: toSecretKey(provider.envVar),
               },
             },
@@ -142,7 +137,7 @@ export class LiteLLMProxy extends pulumi.ComponentResource {
       `${name}-providers`,
       {
         metadata: {
-          name: `${name}-provider-keys`,
+          name: providerSecretName,
           namespace: this.namespace,
         },
         stringData: runtimeConfig.apply((value) => value.providerStringData),

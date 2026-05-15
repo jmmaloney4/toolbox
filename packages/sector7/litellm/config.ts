@@ -5,10 +5,15 @@ import type {
   LiteLLMModelDeployment,
   LiteLLMModelGroup,
   LiteLLMObservabilityPolicy,
-  LiteLLMProviderConfig,
   LiteLLMRedisPolicy,
   LiteLLMRouterPolicy,
 } from "./config-types.ts";
+
+type ResolvedProviderConfig = {
+  apiKey: string;
+  envVar?: string;
+  apiBase?: string;
+};
 
 const DEFAULT_OBSERVABILITY: Required<
   Pick<
@@ -68,9 +73,9 @@ function toUpperSnakeCase(value: string): string {
 
 export function getProviderEnvVar(
   providerName: string,
-  provider: LiteLLMProviderConfig,
+  provider: ResolvedProviderConfig,
 ): string {
-  return (provider.envVar as string | undefined) ?? `${toUpperSnakeCase(providerName)}_API_KEY`;
+  return provider.envVar ?? `${toUpperSnakeCase(providerName)}_API_KEY`;
 }
 
 function addIfDefined(
@@ -100,7 +105,7 @@ function buildFallbackMap(
 
 export function validateLiteLLMConfig(args: {
   replicas?: number;
-  providers: Record<string, LiteLLMProviderConfig>;
+  providers: Record<string, ResolvedProviderConfig>;
   deployments: LiteLLMModelDeployment[];
   modelGroups: LiteLLMModelGroup[];
   redis?: LiteLLMRedisPolicy;
@@ -177,7 +182,7 @@ export function validateLiteLLMConfig(args: {
 }
 
 export function generateLiteLLMConfig(args: {
-  providers: Record<string, LiteLLMProviderConfig>;
+  providers: Record<string, ResolvedProviderConfig>;
   deployments: LiteLLMModelDeployment[];
   modelGroups: LiteLLMModelGroup[];
   observability?: LiteLLMObservabilityPolicy;
