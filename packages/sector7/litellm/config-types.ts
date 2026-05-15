@@ -5,15 +5,15 @@ export type LiteLLMModelMode = "chat" | "completion" | "embedding" | "image_gene
 
 export interface LiteLLMProviderConfig {
   apiKey: pulumi.Input<string>;
-  envVar?: string;
-  apiBase?: string;
+  envVar?: pulumi.Input<string>;
+  apiBase?: pulumi.Input<string>;
 }
 
 export interface LiteLLMModelDeployment {
   id: string;
   provider: string;
   providerModel: string;
-  apiBase?: string;
+  apiBase?: pulumi.Input<string>;
   mode?: LiteLLMModelMode;
   baseModel?: string;
   accessGroups?: string[];
@@ -90,7 +90,7 @@ export interface LiteLLMProxyArgs {
   namespace?: pulumi.Input<string>;
   createNamespace?: boolean;
   image?: pulumi.Input<string>;
-  replicas?: number;
+  replicas?: pulumi.Input<number>;
   databaseUrl: pulumi.Input<string>;
   masterKey?: pulumi.Input<string>;
   providers: Record<string, LiteLLMProviderConfig>;

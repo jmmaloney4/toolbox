@@ -70,7 +70,7 @@ export function getProviderEnvVar(
   providerName: string,
   provider: LiteLLMProviderConfig,
 ): string {
-  return provider.envVar ?? `${toUpperSnakeCase(providerName)}_API_KEY`;
+  return (provider.envVar as string | undefined) ?? `${toUpperSnakeCase(providerName)}_API_KEY`;
 }
 
 function addIfDefined(

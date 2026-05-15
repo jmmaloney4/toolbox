@@ -62,14 +62,12 @@ describe("LiteLLMProxy", () => {
 			deployments: [
 				{
 					id: "anthropic-smart",
-					modelName: "smart",
 					provider: "anthropic",
 					providerModel: "anthropic/claude-sonnet-4-20250514",
 					mode: "chat",
 				},
 				{
 					id: "openai-fast",
-					modelName: "fast",
 					provider: "openai",
 					providerModel: "openai/gpt-4o-mini",
 					mode: "chat",
@@ -120,8 +118,7 @@ describe("LiteLLMProxy", () => {
 			DATABASE_URL: "postgres://db-user:real-pass@db.internal/litellm",
 		});
 
-		const configMap = findResource("team-proxy-config");
-		const configYaml = (configMap?.inputs.data as Record<string, string>)["config.yaml"];
+		const configYaml = await resolveOutput(proxy.configYaml);
 		expect(configYaml).toContain("model_name: smart");
 		expect(configYaml).toContain("os.environ/ANTHROPIC_API_KEY");
 		expect(configYaml).toContain("database_url: os.environ/DATABASE_URL");
@@ -146,7 +143,6 @@ describe("LiteLLMProxy", () => {
 			deployments: [
 				{
 					id: "anthropic-smart",
-					modelName: "smart",
 					provider: "anthropic",
 					providerModel: "anthropic/claude-sonnet-4-20250514",
 				},
