@@ -97,15 +97,7 @@ export class LiteLLMProxy extends pulumi.ComponentResource {
           providerStringData: Object.fromEntries(
             providers.map((provider) => [toSecretKey(provider.envVar), provider.apiKey]),
           ),
-          providerEnvEntries: providers.map((provider) => ({
-            name: provider.envVar,
-            valueFrom: {
-              secretKeyRef: {
-                name: providerSecretName,
-                key: toSecretKey(provider.envVar),
-              },
-            },
-          })),
+          providerEnvVars: providers.map((provider) => provider.envVar),
         };
       },
     );
@@ -190,8 +182,8 @@ export class LiteLLMProxy extends pulumi.ComponentResource {
       "app.kubernetes.io/instance": name,
     };
 
-    const env = pulumi.all([runtimeConfig, this.runtimeSecret.metadata.name]).apply(
-      ([value, runtimeSecretName]) => [
+    const env = pulumi.all([runtimeConfig, this.runtimeSecret.metadata.name, this.providerSecret.metadata.name]).apply(
+      ([value, runtimeSecretName, providerSecretName]) => [
         {
           name: "LITELLM_MASTER_KEY",
           valueFrom: {
@@ -210,7 +202,15 @@ export class LiteLLMProxy extends pulumi.ComponentResource {
             },
           },
         },
-        ...value.providerEnvEntries,
+        ...value.providerEnvVars.map((envVar) => ({
+          name: envVar,
+          valueFrom: {
+            secretKeyRef: {
+              name: providerSecretName,
+              key: toSecretKey(envVar),
+            },
+          },
+        })),
       ],
     );
 
