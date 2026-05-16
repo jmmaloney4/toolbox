@@ -71,7 +71,7 @@
               path = "package.json";
             }
           ];
-          commitMessage = "release: bump sector7 to {{new_version}}";
+          commitMessage = "release: bump sector7 to {version}";
         };
 
         pre-commit.settings.hooks.mypy.enable = lib.mkForce false;
