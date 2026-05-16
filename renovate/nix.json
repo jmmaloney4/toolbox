@@ -13,18 +13,6 @@
 				"pname\\s*=\\s*\"(?<depName>[^\"]+)\";\\s*\\n\\s*version\\s*=\\s*\"(?<currentValue>[^\"]+)\";[\\s\\S]*?sha256\\s*=\\s*\"(?<currentDigest>[a-f0-9]{64})\";"
 			],
 			"datasourceTemplate": "pypi"
-		},
-		{
-			"customType": "regex",
-			"description": "Update fetchFromGitHub packages in Nix files",
-			"managerFilePatterns": ["/nix/.+\\.nix$/"],
-			"matchStrings": [
-				"(?<prefix>pname\\s*=\\s*\"(?<depName>[^\"]+)\";\\s*\\n\\s*version\\s*=\\s*\")(?<currentValue>[^\"]+)(?<suffix1>\";[\\s\\S]*?fetchFromGitHub\\s*\\{[\\s\\S]*?owner\\s*=\\s*\"(?<owner>[^\"]+)\";[\\s\\S]*?repo\\s*=\\s*\"(?<repo>[^\"]+)\";[\\s\\S]*?)(?:(?<hashPrefix>hash\\s*=\\s*)|(?<cargoHashPrefix>cargoHash\\s*=\\s*))[^\\n]+\";(?<suffix2>[\\s\\S]*?\\n\\s*})"
-			],
-			"datasourceTemplate": "github-tags",
-			"packageNameTemplate": "{{{owner}}}/{{{repo}}}",
-			"depNameTemplate": "{{{owner}}}/{{{repo}}}",
-			"autoReplaceStringTemplate": "{{{prefix}}}{{{newValue}}}{{{suffix1}}}{{#if hashPrefix}}{{{hashPrefix}}}lib.fakeHash;{{/if}}{{#if cargoHashPrefix}}{{{cargoHashPrefix}}}\"\";{{/if}}{{{suffix2}}}"
 		}
 	]
 }

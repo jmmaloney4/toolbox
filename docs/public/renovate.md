@@ -14,7 +14,7 @@ This directory contains composable Renovate presets that can be shared across pr
 
 ### Technology-Specific Presets
 
-- **`nix.json`** - Nix-specific configuration with regex managers that bump GitHub tags and reset Nix hashes to `lib.fakeHash`
+- **`nix.json`** - Nix-specific configuration with regex managers
 - **`pulumi.json`** - Pulumi-specific configuration and version management
 
 ## Usage
