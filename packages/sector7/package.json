@@ -76,7 +76,7 @@
 		"@pulumi/random": "^4.0.0"
 	},
 	"dependencies": {
-		"yaml": "^2.8.1"
+		"yaml": "2.9.0"
 	},
 	"devDependencies": {
 		"@pulumi/pulumi": "3.234.0",

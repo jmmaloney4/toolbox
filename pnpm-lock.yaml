@@ -24,7 +24,7 @@ importers:
   packages/sector7:
     dependencies:
       yaml:
-        specifier: ^2.8.1
+        specifier: 2.9.0
         version: 2.9.0
     devDependencies:
       '@pulumi/cloudflare':

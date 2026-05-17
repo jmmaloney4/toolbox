@@ -33,7 +33,7 @@ jobs:
     runs-on: ${{ inputs.runs-on }}
     steps:
       - name: Add issue or PR to project
-        uses: jmmaloney4/toolbox/.github/actions/add-to-project@main
+        uses: jmmaloney4/toolbox/.github/actions/add-to-project@ef8369640dd50c30532dd6e4a522a6e365ba6d42 # main
         with:
           project-url: ${{ inputs.project_url }}
           github-token: ${{ secrets.github-token }}
