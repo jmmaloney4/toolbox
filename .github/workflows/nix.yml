@@ -36,9 +36,8 @@ jobs:
     name: '☃️ detect flake outputs'
     runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJson(inputs.runs-on) || inputs.runs-on }}
     outputs:
-      matrix_include: ${{ steps.compute.outputs.matrix_include }}
-      has_work: ${{ steps.compute.outputs.has_work }}
-      images_to_push: ${{ steps.images.outputs.image_matrix }}
+      build_matrix_include: ${{ steps.split.outputs.build_matrix_include }}
+      images_to_push: ${{ steps.split.outputs.image_matrix }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -53,29 +52,27 @@ jobs:
         uses: jmmaloney4/sector7/.github/actions/compute-flake-build-matrix@61fa58a027d96afc7c5c9a2953ab54dd3bb42ad4 # main
         with:
           probe-timeout-seconds: '180'
-      - name: compute images to push
-        id: images
+      - name: split build and image matrices
+        id: split
         shell: 'nix shell nixpkgs#jq -c bash {0}'
         run: |
-          # Use jq to filter the matrix for entries where is_image is true,
-          # then extract just the package name (the 'name' field)
-          # into a list for the downstream matrix.
-          image_names=$(echo '${{ steps.compute.outputs.matrix_include }}' | jq -c '[ .[] | select(.is_image == true) | .name ]')
+          matrix='${{ steps.compute.outputs.matrix_include }}'
+          build_matrix=$(echo "$matrix" | jq -c '[ .[] | select(.is_image != true) ]')
+          image_names=$(echo "$matrix" | jq -c '[ .[] | select(.is_image == true) | .name ]')
+          echo "Found build entries: $build_matrix"
           echo "Found images: $image_names"
+          echo "build_matrix_include=$build_matrix" >> "$GITHUB_OUTPUT"
           echo "image_matrix=$image_names" >> "$GITHUB_OUTPUT"
   build:
     name: "👷‍♂️ ${{ matrix.category }}.${{ matrix.system }}.${{ matrix.name }}"
     needs: [detect]
     runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJson(inputs.runs-on) || inputs.runs-on }}
-    if: ${{ needs.detect.outputs.has_work == 'true' }}
+    if: ${{ needs.detect.outputs.build_matrix_include != '[]' }}
     strategy:
       fail-fast: false
       max-parallel: 1
       matrix:
-        include: ${{ fromJson(needs.detect.outputs.matrix_include) }}
-        exclude:
-          # Exclude images from this job - they're built and pushed separately
-          - is_image: true
+        include: ${{ fromJson(needs.detect.outputs.build_matrix_include) }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
