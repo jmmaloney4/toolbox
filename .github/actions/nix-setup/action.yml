@@ -17,7 +17,7 @@ runs:
       with:
         show_costs: true
         sccache: s3
-    - uses: DeterminateSystems/nix-installer-action@aa0e5400805113bf2d5d8f9ba11ff9148bd372a3 # main
+    - uses: DeterminateSystems/nix-installer-action@00199f951aeb9404028a6e4b95ad42546f73296a # main
     - if: ${{ inputs.cache == 'true' }}
       uses: DeterminateSystems/flakehub-cache-action@6824bf2b70bf86b7dcb8c7a3d75cd399e4aa6447 # main
       # TODO: Fix this
