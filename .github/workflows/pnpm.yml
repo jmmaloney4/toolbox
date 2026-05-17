@@ -73,7 +73,7 @@ jobs:
           fi
       - name: Analyze packages (target=${{ inputs.target }})
         id: analyze
-        uses: jmmaloney4/sector7/.github/actions/analyze-pnpm-packages@9d71ec06b6d6e9204b8df4585e65de5323826c16 # main
+        uses: jmmaloney4/sector7/.github/actions/analyze-pnpm-packages@61fa58a027d96afc7c5c9a2953ab54dd3bb42ad4 # main
         with:
           dry_run: ${{ inputs.dry_run }}
           target: ${{ inputs.target }}
@@ -101,7 +101,7 @@ jobs:
         with:
           repository: ${{ inputs.repository }}
           ref: ${{ inputs.ref }}
-      - uses: jmmaloney4/sector7/.github/actions/nix-setup@9d71ec06b6d6e9204b8df4585e65de5323826c16 # main
+      - uses: jmmaloney4/sector7/.github/actions/nix-setup@61fa58a027d96afc7c5c9a2953ab54dd3bb42ad4 # main
         with:
           runs-on: ${{ inputs.runs-on }}
           cache: ${{ !contains(inputs.runs-on, 'self-hosted') }}
@@ -124,7 +124,7 @@ jobs:
         with:
           repository: ${{ inputs.repository }}
           ref: ${{ inputs.ref }}
-      - uses: jmmaloney4/sector7/.github/actions/nix-setup@9d71ec06b6d6e9204b8df4585e65de5323826c16 # main
+      - uses: jmmaloney4/sector7/.github/actions/nix-setup@61fa58a027d96afc7c5c9a2953ab54dd3bb42ad4 # main
         with:
           runs-on: ${{ inputs.runs-on }}
           cache: ${{ !contains(inputs.runs-on, 'self-hosted') }}
