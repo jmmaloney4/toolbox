@@ -17,6 +17,8 @@ This directory contains composable Renovate presets that can be shared across pr
 - **`nix.json`** - Nix-specific configuration with regex managers
 - **`pulumi.json`** - Pulumi-specific configuration and version management
 
+> Note: `renovate/nix.json` intentionally only manages safe `fetchPypi`-style Nix updates. Nix `fetchFromGitHub` sources are left out of the shared preset so downstream repos can recompute hashes manually without Renovate trying to rewrite them (see ADR-023).
+
 ## Usage
 
 To use these presets in your Renovate configuration, extend them using the GitHub preset syntax:
