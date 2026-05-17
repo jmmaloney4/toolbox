@@ -1,5 +1,6 @@
 import * as pulumi from "@pulumi/pulumi";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { LiteLLMApiKey, LiteLLMTeam } from "../litellm/admin.ts";
 import { LiteLLMProxy } from "../litellm/litellm-proxy.ts";
 
 type MockResource = {
@@ -15,7 +16,13 @@ beforeAll(() => {
 		newResource: (args) => {
 			const state = { ...(args.inputs as Record<string, unknown>) };
 			if (args.type === "random:index/randomPassword:RandomPassword") {
-				state.result = "generated-master-key";
+				state.result =
+					args.name === "personal-coding-key-secret"
+						? "generated-api-key"
+						: "generated-master-key";
+			}
+			if (args.type === "command:local:Command") {
+				state.stdout = `${args.name}-stdout`;
 			}
 			resources.push({
 				type: args.type,
@@ -46,6 +53,22 @@ function resolveOutput<T>(value: pulumi.Input<T>): Promise<T> {
 
 function findResource(name: string): MockResource | undefined {
 	return resources.find((resource) => resource.name === name);
+}
+
+async function resolveRecord(
+	value: Record<string, unknown> | undefined,
+): Promise<Record<string, unknown>> {
+	const resolved = await resolveOutput(value ?? {});
+	if (
+		resolved &&
+		typeof resolved === "object" &&
+		"value" in resolved &&
+		typeof resolved.value === "object" &&
+		resolved.value !== null
+	) {
+		return resolved.value as Record<string, unknown>;
+	}
+	return resolved;
 }
 
 describe("LiteLLMProxy", () => {
@@ -155,7 +178,7 @@ describe("LiteLLMProxy", () => {
 			],
 			modelGroups: [{ name: "smart", deploymentIds: ["anthropic-smart"] }],
 			databaseUrl: pulumi.secret(
-				"postgres://db-user:real-pass@db.internal/litellm",
+				"postgres://db-user:***@db.internal/litellm",
 			),
 		});
 
@@ -163,5 +186,60 @@ describe("LiteLLMProxy", () => {
 
 		expect(findResource("shared-proxy-ns")).toBeUndefined();
 		expect(await resolveOutput(proxy.namespace)).toBe("shared-services");
+	});
+
+	it("creates admin command resources for teams and api keys", async () => {
+		const team = new LiteLLMTeam("personal-team", {
+			proxyNamespace: "litellm-prod",
+			masterKey: pulumi.secret("master-key"),
+			teamAlias: "Personal",
+			teamId: "team-personal",
+			models: ["coding", "cheap"],
+			maxBudget: 250,
+			budgetDuration: "30d",
+			tags: ["personal"],
+			metadata: { owner: "jack" },
+		});
+		const apiKey = new LiteLLMApiKey("personal-coding-key", {
+			proxyNamespace: "litellm-prod",
+			masterKey: pulumi.secret("master-key"),
+			keyAlias: "personal-coding",
+			teamId: "team-personal",
+			models: ["coding"],
+			aliases: { default: "coding" },
+			metadata: { owner: "jack" },
+			tags: ["personal"],
+		});
+
+		expect(await resolveOutput(team.teamId)).toBe("team-personal");
+		expect(await resolveOutput(apiKey.key)).toBe("sk-generated-api-key");
+		expect(await resolveOutput(apiKey.tokenId)).toBe(
+			"personal-coding-key-key-stdout",
+		);
+
+		const teamCommand = findResource("personal-team-team");
+		expect(teamCommand?.type).toBe("command:local:Command");
+		const teamEnvironment = await resolveRecord(
+			teamCommand?.inputs.environment as Record<string, unknown> | undefined,
+		);
+		expect(teamEnvironment).toMatchObject({
+			LITELLM_PROXY_NAMESPACE: "litellm-prod",
+			LITELLM_TEAM_ALIAS: "Personal",
+			LITELLM_TEAM_ID: "team-personal",
+			LITELLM_TEAM_MODELS_JSON: '["coding","cheap"]',
+			LITELLM_TEAM_MAX_BUDGET: "250",
+		});
+
+		const keyCommand = findResource("personal-coding-key-key");
+		expect(keyCommand?.type).toBe("command:local:Command");
+		const keyEnvironment = await resolveRecord(
+			keyCommand?.inputs.environment as Record<string, unknown> | undefined,
+		);
+		expect(keyEnvironment).toMatchObject({
+			LITELLM_KEY_ALIAS: "personal-coding",
+			LITELLM_KEY_TEAM_ID: "team-personal",
+			LITELLM_KEY_MODELS_JSON: '["coding"]',
+			LITELLM_KEY_ALIASES_JSON: '{"default":"coding"}',
+		});
 	});
 });

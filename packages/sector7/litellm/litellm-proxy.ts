@@ -10,7 +10,8 @@ import type {
 
 type ResolvedProviderConfig = {
 	name: string;
-	envVar: string;
+	hasApiKey: boolean;
+	envVar?: string;
 	apiBase?: string;
 };
 
@@ -27,10 +28,19 @@ function resolveProviderConfig(
 	provider: LiteLLMProviderConfig,
 ): pulumi.Output<ResolvedProviderConfig> {
 	return pulumi
-		.all([pulumi.output(provider.envVar), pulumi.output(provider.apiBase)])
-		.apply(([envVar, apiBase]) => ({
+		.all([
+			pulumi.output(provider.apiKey),
+			pulumi.output(provider.envVar),
+			pulumi.output(provider.apiBase),
+		])
+		.apply(([apiKey, envVar, apiBase]) => ({
 			name: providerName,
-			envVar: getProviderEnvVar(providerName, { envVar: envVar ?? undefined }),
+			hasApiKey: apiKey !== undefined,
+			envVar:
+				getProviderEnvVar(providerName, {
+					hasApiKey: apiKey !== undefined,
+					envVar: envVar ?? undefined,
+				}) ?? undefined,
 			apiBase: apiBase ?? undefined,
 		}));
 }
@@ -81,12 +91,24 @@ export class LiteLLMProxy extends pulumi.ComponentResource {
 			Object.entries(args.providers).map(([providerName, provider]) =>
 				pulumi
 					.all([pulumi.output(provider.apiKey), pulumi.output(provider.envVar)])
-					.apply(([apiKey, envVar]) => ({
-						envVar: getProviderEnvVar(providerName, {
+					.apply(([apiKey, envVar]) => {
+						if (apiKey === undefined) {
+							return undefined;
+						}
+						const resolvedEnvVar = getProviderEnvVar(providerName, {
+							hasApiKey: true,
 							envVar: envVar ?? undefined,
-						}),
-						apiKey,
-					})),
+						});
+						if (!resolvedEnvVar) {
+							throw new Error(
+								`Expected env var for LiteLLM provider '${providerName}' with apiKey`,
+							);
+						}
+						return {
+							envVar: resolvedEnvVar,
+							apiKey,
+						};
+					}),
 			),
 		);
 		const resolvedDeployments = pulumi.all(
@@ -95,18 +117,21 @@ export class LiteLLMProxy extends pulumi.ComponentResource {
 
 		const providerSecretName = `${name}-provider-keys`;
 
-		const providerStringData = resolvedProviderSecrets.apply(
-			(secretProviders) =>
-				Object.fromEntries(
-					secretProviders.map((provider) => [
+		const providerStringData = resolvedProviderSecrets.apply((secretProviders) =>
+			Object.fromEntries(
+				secretProviders
+					.filter((provider) => provider !== undefined)
+					.map((provider) => [
 						toSecretKey(provider.envVar),
 						provider.apiKey,
 					]),
-				),
+			),
 		);
 
 		const providerEnvVars = resolvedProviderConfigs.apply((providers) =>
-			providers.map((provider) => provider.envVar),
+			providers
+				.filter((provider) => provider.hasApiKey && provider.envVar)
+				.map((provider) => provider.envVar!)
 		);
 
 		const configYaml = pulumi
@@ -116,6 +141,7 @@ export class LiteLLMProxy extends pulumi.ComponentResource {
 					providers.map((provider) => [
 						provider.name,
 						{
+							hasApiKey: provider.hasApiKey,
 							envVar: provider.envVar,
 							apiBase: provider.apiBase,
 						},
@@ -131,6 +157,9 @@ export class LiteLLMProxy extends pulumi.ComponentResource {
 					redis: args.redis,
 					router: args.router,
 					replicas: resolvedReplicas,
+					extraLiteLLMSettings: args.extraLiteLLMSettings,
+					extraGeneralSettings: args.extraGeneralSettings,
+					extraRouterSettings: args.extraRouterSettings,
 				});
 
 				return generatedConfig.configYaml;
