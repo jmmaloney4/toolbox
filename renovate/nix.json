@@ -19,7 +19,7 @@
 			"description": "Update fetchFromGitHub packages in Nix files without hash rewrites",
 			"managerFilePatterns": ["/nix/.+\\.nix$/"],
 			"matchStrings": [
-				"pname\\s*=\\s*\"(?<depName>[^\"]+)\";\\s*\\n\\s*version\\s*=\\s*\"(?<currentValue>[^\"]+)\";[\\s\\S]*?fetchFromGitHub\\s*\\{[\\s\\S]*?owner\\s*=\\s*\"(?<owner>[^\"]+)\";[\\s\\S]*?repo\\s*=\\s*\"(?<repo>[^\"]+)\";[\\s\\S]*?hash\\s*=\\s*\"[^\"]+\";"
+				"pname\\s*=\\s*\"(?<depName>[^\"]+)\";\\s+version\\s*=\\s*\"(?<currentValue>[^\"]+)\";[\\s\\S]*?fetchFromGitHub\\s*\\{[\\s\\S]*?owner\\s*=\\s*\"(?<owner>[^\"]+)\";[\\s\\S]*?repo\\s*=\\s*\"(?<repo>[^\"]+)\";[\\s\\S]*?hash\\s*=\\s*\"[^\"]+\";"
 			],
 			"datasourceTemplate": "github-releases",
 			"depNameTemplate": "{{{owner}}}/{{{repo}}}"
