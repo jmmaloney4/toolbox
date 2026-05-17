@@ -187,6 +187,8 @@ jobs:
   - `"npm"`: Use npm
   - `"none"`: Skip dependency installation (for non-Node.js Pulumi projects)
 
+**Caller flake contract:** The workflow requires a `ci-pulumi` dev shell in the caller repository. That shell must provide `pulumi`, `jq`, and the selected Node.js package manager (`pnpm` or `npm`). When `nodejs_package_manager` is `"none"`, no Node.js package manager is required.
+
 **Note**: Ensure each Pulumi stack defines `gcp:project` in its stack configuration to specify the target GCP project.
 
 ### 🤖 `claude.yml`

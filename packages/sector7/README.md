@@ -93,7 +93,8 @@ Notes:
 
 - If you set `limitToRef` when creating the provider (e.g., `refs/heads/main`), authentication will only work for that ref. Ensure it matches the refs where you expect this workflow to run.
 - The reusable workflow checks out the caller repo/ref you pass via `repository`/`ref`, so the Pulumi projects and `flake.lock` referenced by the workflow should live in the caller repository.
-- The workflow requires the three inputs shown above; variables/secrets are not implicitly inherited, so pass them explicitly as inputs as shown.
+- The workflow requires a `ci-pulumi` dev shell in the caller repository. That shell must provide `pulumi`, `jq`, and the selected `nodejs_package_manager` (`pnpm` or `npm`; no package manager is required for `none`).
+- The workflow requires the inputs shown above; variables/secrets are not implicitly inherited, so pass them explicitly as inputs as shown.
 
 #### Configuration
 
