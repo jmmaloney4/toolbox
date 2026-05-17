@@ -224,6 +224,7 @@ describe("LiteLLMProxy", () => {
 		);
 		expect(teamEnvironment).toMatchObject({
 			LITELLM_PROXY_NAMESPACE: "litellm-prod",
+			LITELLM_PROXY_PORT: "4000",
 			LITELLM_TEAM_ALIAS: "Personal",
 			LITELLM_TEAM_ID: "team-personal",
 			LITELLM_TEAM_MODELS_JSON: '["coding","cheap"]',
@@ -237,6 +238,7 @@ describe("LiteLLMProxy", () => {
 		);
 		expect(keyEnvironment).toMatchObject({
 			LITELLM_KEY_ALIAS: "personal-coding",
+			LITELLM_PROXY_PORT: "4000",
 			LITELLM_KEY_TEAM_ID: "team-personal",
 			LITELLM_KEY_MODELS_JSON: '["coding"]',
 			LITELLM_KEY_ALIASES_JSON: '{"default":"coding"}',

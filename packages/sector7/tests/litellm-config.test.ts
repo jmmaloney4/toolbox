@@ -139,8 +139,12 @@ describe("generateLiteLLMConfig", () => {
 			observability: {
 				successCallbacks: ["prometheus"],
 			},
+			governance: {
+				maxBudget: 50,
+			},
 			extraLiteLLMSettings: {
 				json_logs: true,
+				max_budget: 999,
 			},
 			extraGeneralSettings: {
 				enforce_user_param: false,
@@ -181,6 +185,7 @@ describe("generateLiteLLMConfig", () => {
 
 		const litellmSettings = parsed.litellm_settings as Record<string, unknown>;
 		expect(litellmSettings.json_logs).toBe(true);
+		expect(litellmSettings.max_budget).toBe(999);
 		expect(litellmSettings.success_callback).toEqual(["prometheus"]);
 	});
 

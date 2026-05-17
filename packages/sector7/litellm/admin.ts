@@ -8,8 +8,9 @@ function pulumiJsonString(
 	value: pulumi.Input<unknown> | undefined,
 	fallback: unknown,
 ): pulumi.Output<string> {
-	const source: pulumi.Input<unknown> = value === undefined ? fallback : value;
-	return pulumi.all([source]).apply(([resolved]) => JSON.stringify(resolved));
+	return pulumi
+		.all([value])
+		.apply(([resolved]) => JSON.stringify(resolved ?? fallback));
 }
 
 function buildAdminEnvironment(
@@ -19,6 +20,7 @@ function buildAdminEnvironment(
 		LITELLM_PROXY_NAMESPACE: args.proxyNamespace,
 		LITELLM_MASTER_KEY: args.masterKey,
 		LITELLM_PROXY_DEPLOYMENT: args.proxyDeploymentName ?? "litellm",
+		LITELLM_PROXY_PORT: pulumi.output(args.proxyPort ?? 4000).apply(String),
 	};
 }
 
@@ -69,11 +71,13 @@ export class LiteLLMApiKey extends pulumi.ComponentResource {
 					LITELLM_KEY_METADATA_JSON: pulumiJsonString(args.metadata, {}),
 				},
 			},
-			{ parent: this },
+			{ parent: this, additionalSecretOutputs: ["stdout"] },
 		);
 
 		this.key = pulumi.secret(actualKey);
-		this.tokenId = commandResource.stdout.apply((stdout) => stdout.trim());
+		this.tokenId = pulumi.secret(commandResource.stdout).apply((stdout) =>
+			stdout.trim(),
+		);
 
 		this.registerOutputs({
 			key: this.key,
@@ -116,9 +120,9 @@ export class LiteLLMTeam extends pulumi.ComponentResource {
 			{ parent: this },
 		);
 
-		this.teamId = pulumi.output(args.teamId ?? commandResource.stdout).apply((value) =>
-			String(value).trim(),
-		);
+		this.teamId = pulumi
+			.all([args.teamId, commandResource.stdout])
+			.apply(([teamId, stdout]) => String(teamId ?? stdout).trim());
 
 		this.registerOutputs({
 			teamId: this.teamId,

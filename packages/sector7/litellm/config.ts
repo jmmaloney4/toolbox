@@ -354,8 +354,6 @@ export function generateLiteLLMConfig(args: {
 				: {}),
 		};
 	}
-	Object.assign(litellmSettings, args.extraLiteLLMSettings ?? {});
-
 	const governance = {
 		...DEFAULT_GOVERNANCE,
 		...args.governance,
@@ -376,6 +374,7 @@ export function generateLiteLLMConfig(args: {
 		"default_key_generate_params",
 		args.governance?.defaultKeyGenerateParams,
 	);
+	Object.assign(litellmSettings, args.extraLiteLLMSettings ?? {});
 
 	const generalSettings: Record<string, unknown> = {
 		master_key: "os.environ/LITELLM_MASTER_KEY",

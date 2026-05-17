@@ -14,23 +14,26 @@ require_env() {
 run_proxy_python() {
   local body_b64="$1"
   local path="$2"
+  local master_key_b64
+  master_key_b64=$(printf '%s' "$LITELLM_MASTER_KEY" | base64)
 
   kubectl exec -i \
     -n "$LITELLM_PROXY_NAMESPACE" \
     "deploy/$LITELLM_PROXY_DEPLOYMENT" -- \
-    python3 - "$LITELLM_MASTER_KEY" "$body_b64" "$path" <<'PYEOF'
+    python3 - "$body_b64" "$path" "${LITELLM_PROXY_PORT:-4000}" <<PYEOF
 import base64
 import json
 import sys
 import urllib.error
 import urllib.request
 
-master_key = sys.argv[1]
-body = json.loads(base64.b64decode(sys.argv[2]).decode())
-path = sys.argv[3]
+master_key = base64.b64decode("${master_key_b64}").decode()
+body = json.loads(base64.b64decode(sys.argv[1]).decode())
+path = sys.argv[2]
+port = int(sys.argv[3])
 
 req = urllib.request.Request(
-    f"http://localhost:4000{path}",
+    f"http://localhost:{port}{path}",
     data=json.dumps(body).encode(),
     headers={
         "Authorization": f"Bearer {master_key}",
@@ -124,12 +127,12 @@ PYEOF
     ;;
 
   delete-key)
-    token_id="${__PULUMI_COMMAND_ID__:-}"
+    token_id="${PULUMI_COMMAND_STDOUT:-${LITELLM_KEY_VALUE:-}}"
     if [[ -z "$token_id" ]]; then
       exit 0
     fi
     body=$(printf '{"keys":["%s"]}' "$token_id")
-    run_proxy_python "$(printf '%s' "$body" | base64)" "/key/delete" >/dev/null || true
+    run_proxy_python "$(printf '%s' "$body" | base64)" "/key/delete" >/dev/null
     ;;
 
   create-team)
@@ -164,12 +167,12 @@ PYEOF
     ;;
 
   delete-team)
-    team_id="${LITELLM_TEAM_ID:-${__PULUMI_COMMAND_ID__:-}}"
+    team_id="${LITELLM_TEAM_ID:-${PULUMI_COMMAND_STDOUT:-}}"
     if [[ -z "$team_id" ]]; then
       exit 0
     fi
     body=$(printf '{"team_ids":["%s"]}' "$team_id")
-    run_proxy_python "$(printf '%s' "$body" | base64)" "/team/delete" >/dev/null || true
+    run_proxy_python "$(printf '%s' "$body" | base64)" "/team/delete" >/dev/null
     ;;
 
   *)

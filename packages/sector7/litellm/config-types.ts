@@ -158,6 +158,7 @@ export interface LiteLLMAdminTargetArgs {
 	proxyNamespace: pulumi.Input<string>;
 	masterKey: pulumi.Input<string>;
 	proxyDeploymentName?: pulumi.Input<string>;
+	proxyPort?: pulumi.Input<number>;
 }
 
 export interface LiteLLMApiKeyArgs extends LiteLLMAdminTargetArgs {
