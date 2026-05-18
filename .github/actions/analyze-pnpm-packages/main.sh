@@ -48,21 +48,25 @@ echo "- **Target:** \`${TARGET}\`" >>"$SUMMARY_FILE"
 
 # ── Validate all package versions match the root version ────────────
 
-if [[ -d "${ROOT}/packages" ]]; then
-  VERSION_MISMATCH=0
-  for pkg_json in "${ROOT}"/packages/*/package.json; do
-    [[ -f "$pkg_json" ]] || continue
-    pkg_name="$(jq -r '.name' "$pkg_json")"
-    pkg_ver="$(jq -r '.version // empty' "$pkg_json")"
-    if [[ "$pkg_ver" != "$VERSION" ]]; then
-      echo "❌ Version mismatch: ${pkg_name} is ${pkg_ver}, expected ${VERSION}" >&2
-      VERSION_MISMATCH=1
+if [[ "${DRY_RUN}" == "true" ]]; then
+  echo "- **Version check:** skipped in dry run" >>"$SUMMARY_FILE"
+else
+  if [[ -d "${ROOT}/packages" ]]; then
+    VERSION_MISMATCH=0
+    for pkg_json in "${ROOT}"/packages/*/package.json; do
+      [[ -f "$pkg_json" ]] || continue
+      pkg_name="$(jq -r '.name' "$pkg_json")"
+      pkg_ver="$(jq -r '.version // empty' "$pkg_json")"
+      if [[ "$pkg_ver" != "$VERSION" ]]; then
+        echo "❌ Version mismatch: ${pkg_name} is ${pkg_ver}, expected ${VERSION}" >&2
+        VERSION_MISMATCH=1
+      fi
+    done
+    if [[ $VERSION_MISMATCH -ne 0 ]]; then
+      echo "Error: not all package versions match root package.json version (${VERSION})" >&2
+      echo "Update all packages to version ${VERSION} before releasing." >&2
+      exit 1
     fi
-  done
-  if [[ $VERSION_MISMATCH -ne 0 ]]; then
-    echo "Error: not all package versions match root package.json version (${VERSION})" >&2
-    echo "Update all packages to version ${VERSION} before releasing." >&2
-    exit 1
   fi
 fi
 
