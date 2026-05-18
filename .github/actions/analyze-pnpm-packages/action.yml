@@ -1,6 +1,11 @@
 name: Analyze pnpm packages
 description: >
-  Detect packages under packages/*, check whether they need publishing, and emit a JSON matrix and summary. Supports multiple publish targets: release (GitHub Release tarball assets), ghcr (GitHub Packages npm registry), npm (npmjs.org), and gcp (Google Artifact Registry npm).
+  Unified monorepo release analyzer. Reads version from root package.json,
+  checks whether a v${version} GitHub Release with all expected tarballs already
+  exists, and emits a JSON matrix of packages to publish if needed.
+
+  Only the 'release' target is supported. Registry targets (ghcr, npm, gcp)
+  have been removed.
 
 inputs:
   dry_run:
@@ -8,37 +13,28 @@ inputs:
     required: false
     default: "false"
   target:
-    description: >
-      Publish target: release (GitHub Release tarball), ghcr (GitHub Packages), npm (npmjs.org), gcp (Google Artifact Registry).
-
+    description: Publish target. Only "release" (GitHub Release tarball) is supported.
     required: false
     default: "release"
-  registry:
-    description: >
-      npm registry URL for ghcr/npm/gcp targets. Defaults to https://npm.pkg.github.com for ghcr. Ignored when target=release.
-
-    required: false
-    default: "https://npm.pkg.github.com"
   root:
     description: repo root
     required: false
     default: "."
-  scope:
-    description: npm scope filter (e.g., @jmmaloney4); if set, only include scoped packages
-    required: false
   github_repository:
     description: >
-      Owner/repository for GitHub Release asset checks when target=release. Defaults to ${{ github.repository }}.
-
+      Owner/repository for GitHub Release checks. Defaults to the workflow's
+      github.repository (set automatically by GitHub Actions).
     required: false
-    default: ""
+    default: "${{ github.repository }}"
+
 outputs:
   matrix:
-    description: JSON matrix of packages and actions
+    description: JSON matrix of packages to publish
     value: ${{ steps.analyze.outputs.matrix }}
   has_packages:
     description: Whether there are packages to publish (true/false)
     value: ${{ steps.analyze.outputs.has_packages }}
+
 runs:
   using: composite
   steps:
@@ -47,9 +43,7 @@ runs:
       env:
         A_DRY_RUN: ${{ inputs.dry_run }}
         A_TARGET: ${{ inputs.target }}
-        A_REGISTRY: ${{ inputs.registry }}
         A_ROOT: ${{ inputs.root }}
-        A_SCOPE: ${{ inputs.scope }}
         A_GITHUB_REPOSITORY: ${{ inputs.github_repository }}
-        NODE_AUTH_TOKEN: ${{ env.NODE_AUTH_TOKEN }}
-      run: $GITHUB_ACTION_PATH/main.sh
+        GH_TOKEN: ${{ github.token }}
+      run: bash $GITHUB_ACTION_PATH/main.sh
