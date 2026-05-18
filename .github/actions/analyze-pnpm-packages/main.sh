@@ -15,10 +15,12 @@ OUT_FILE="${GITHUB_OUTPUT:-/dev/stdout}"
 
 # ── Verify tools are available ──────────────────────────────────────
 
-if ! command -v jq >/dev/null 2>&1; then
-  echo "Error: jq is required but not available" >&2
-  exit 1
-fi
+for cmd in jq gh; do
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    echo "Error: $cmd is required but not available" >&2
+    exit 1
+  fi
+done
 
 # ── Read unified version from root package.json ─────────────────────
 
@@ -121,7 +123,8 @@ for pkg_path in "${PKG_PATHS[@]}"; do
   # not the root package.json version (workspaces don't auto-inherit).
   pkg_version="$(jq -r '.version // empty' "${pkg_path}/package.json")"
   # npm pack: strip @, replace / with -
-  stem="$(echo "$name" | sed 's|^@||; s|/|-|g')"
+  stem="${name#@}"
+  stem="${stem//\//-}"
   asset_name="${stem}-${pkg_version}.tgz"
 
   MATRIX_ENTRIES+=("$(jq -n \
