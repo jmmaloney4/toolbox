@@ -8,7 +8,9 @@
 		{
 			"customType": "regex",
 			"description": "Update fetchPypi packages in Nix files",
-			"managerFilePatterns": ["/nix/.+\\.nix$/"],
+			"managerFilePatterns": [
+				"/nix/.+\\.nix$/"
+			],
 			"matchStrings": [
 				"pname\\s*=\\s*\"(?<depName>[^\"]+)\";\\s*\\n\\s*version\\s*=\\s*\"(?<currentValue>[^\"]+)\";[\\s\\S]*?sha256\\s*=\\s*\"(?<currentDigest>[a-f0-9]{64})\";"
 			],
@@ -16,10 +18,13 @@
 		},
 		{
 			"customType": "regex",
-			"description": "Update fetchFromGitHub packages in Nix files without hash rewrites",
-			"managerFilePatterns": ["/nix/.+\\.nix$/"],
+			"description": "Update fetchFromGitHub packages in Nix files (rec and let-binding patterns)",
+			"managerFilePatterns": [
+				"/nix/.+\\.nix$/"
+			],
 			"matchStrings": [
-				"pname\\s*=\\s*\"(?<depName>[^\"]+)\";\\s+version\\s*=\\s*\"(?<currentValue>[^\"]+)\";[\\s\\S]*?fetchFromGitHub\\s*\\{[\\s\\S]*?owner\\s*=\\s*\"(?<owner>[^\"]+)\";[\\s\\S]*?repo\\s*=\\s*\"(?<repo>[^\"]+)\";[\\s\\S]*?hash\\s*=\\s*\"[^\"]+\";"
+				"pname\\s*=\\s*\"(?<depName>[^\"]+)\";\\s+version\\s*=\\s*\"(?<currentValue>[^\"]+)\";[\\s\\S]*?fetchFromGitHub\\s*\\{[\\s\\S]*?owner\\s*=\\s*\"(?<owner>[^\"]+)\";[\\s\\S]*?repo\\s*=\\s*\"(?<repo>[^\"]+)\";[\\s\\S]*?(?:sha256|hash)\\s*=\\s*\"[^\"]+\";",
+				"let\\s+version\\s*=\\s*\"(?<currentValue>[^\"]+)\";\\s+in[\\s\\S]*?pname\\s*=\\s*\"(?<depName>[^\"]+)\";[\\s\\S]*?fetchFromGitHub\\s*\\{[\\s\\S]*?owner\\s*=\\s*\"(?<owner>[^\"]+)\";[\\s\\S]*?repo\\s*=\\s*\"(?<repo>[^\"]+)\";[\\s\\S]*?(?:sha256|hash)\\s*=\\s*\"[^\"]+\";"
 			],
 			"datasourceTemplate": "github-releases",
 			"depNameTemplate": "{{{owner}}}/{{{repo}}}"
