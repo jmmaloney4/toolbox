@@ -52,11 +52,13 @@ They ship at the same version as the existing package(s). No per-package version
 
 **Cleaner tags.** `v0.10.0` instead of `sector7-v0.9.2-007f69a`. Easier for humans, easier for Renovate, easier for any tooling that parses tags.
 
-**No partial releases.** Everything ships together or nothing ships. This is the right tradeoff for an internal ecosystem where packages are designed to work together and consumers update eagerly.
+**No partial releases.** Everything ships together or nothing ships. The analyzer verifies asset completeness: if a release tag exists but is missing expected tarballs, the publish proceeds to fill the gap. This prevents dead releases from partial upload failures.
 
 **No republish from different commits.** Without the SHA suffix, attempting to publish the same version from a different commit fails (tag already exists). This is intentional: bump the version if you need a new release. The SHA suffix was allowing sloppy version management.
 
 **Breaks if a second package needs independent versioning.** If sector7 grows a package that genuinely needs its own release cadence, this ADR would need to be revisited. Given the current design intent (all packages work together), this is acceptable.
+
+**Registry targets removed.** The `ghcr`, `npm`, and `gcp` registry publish paths have been removed from the workflow and analyzer. sector7 ships as GitHub Release tarballs only. If registry publishing is needed in the future, it should be added as a separate workflow rather than coupling it to the tarball release path.
 
 ## Migration
 

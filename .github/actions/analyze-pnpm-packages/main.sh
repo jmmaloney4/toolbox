@@ -6,7 +6,7 @@ set -euo pipefail
 # exists as a GitHub Release, and outputs a matrix entry if publishing is needed.
 
 TARGET="${A_TARGET:-release}"
-DRY_RUN="${A_DRY_RUN:-false}"
+DRY_RUN="$(echo "${A_DRY_RUN:-false}" | tr '[:upper:]' '[:lower:]')"
 GITHUB_REPO="${A_GITHUB_REPOSITORY:-}"
 ROOT="${A_ROOT:-.}"
 
@@ -96,8 +96,28 @@ case "$TARGET" in
   release)
     if [[ -n "$GITHUB_REPO" ]]; then
       if gh release view "$TAG" --repo "$GITHUB_REPO" >/dev/null 2>&1; then
-        ALREADY_PUBLISHED="true"
-        echo "- **Status:** already published (tag \`${TAG}\` exists)" >>"$SUMMARY_FILE"
+        # Release exists — verify all expected assets are present.
+        # Partial releases (tag created but upload failed) must be retried.
+        MISSING_ASSETS=()
+        for pkg_path in "${PKG_PATHS[@]}"; do
+          name="$(jq -r '.name' "${pkg_path}/package.json")"
+          pkg_version="$(jq -r '.version // empty' "${pkg_path}/package.json")"
+          stem="${name#@}"
+          stem="${stem//\//-}"
+          asset_name="${stem}-${pkg_version}.tgz"
+          if ! gh release view "$TAG" --repo "$GITHUB_REPO" --json assets -q ".assets[].name" 2>/dev/null | grep -qx "$asset_name"; then
+            MISSING_ASSETS+=("$asset_name")
+          fi
+        done
+        if [[ ${#MISSING_ASSETS[@]} -eq 0 ]]; then
+          ALREADY_PUBLISHED="true"
+          echo "- **Status:** already published (tag \`${TAG}\` exists with all assets)" >>"$SUMMARY_FILE"
+        else
+          echo "- **Status:** incomplete release (missing: ${MISSING_ASSETS[*]}), will republish" >>"$SUMMARY_FILE"
+          for asset in "${MISSING_ASSETS[@]}"; do
+            echo "  ⚠️ Missing asset: $asset" >&2
+          done
+        fi
       else
         echo "- **Status:** new release needed" >>"$SUMMARY_FILE"
       fi
@@ -105,15 +125,8 @@ case "$TARGET" in
       echo "- **Status:** unknown (no GITHUB_REPO set, assuming not published)" >>"$SUMMARY_FILE"
     fi
     ;;
-  ghcr|npm|gcp)
-    # For npm registry targets, check published version via registry API.
-    # Note: this requires NODE_AUTH_TOKEN to be set.
-    # sector7 is released only as tarballs, so these targets are deprecated.
-    echo "WARNING: target='${TARGET}' is deprecated for the unified release model" >&2
-    echo "- **Status:** needs registry publish (deprecated target)" >>"$SUMMARY_FILE"
-    ;;
   *)
-    echo "Error: unknown target '${TARGET}'" >&2
+    echo "Error: unknown or deprecated target '${TARGET}'. Only 'release' is supported." >&2
     exit 1
     ;;
 esac

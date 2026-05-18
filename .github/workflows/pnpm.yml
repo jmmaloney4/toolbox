@@ -21,19 +21,10 @@ on:
         type: boolean
         default: false
       target:
-        description: >
-          Publish target: release (GitHub Release tarball), ghcr (GitHub Packages), npm (npmjs.org), gcp (Google Artifact Registry).
-
+        description: 'Publish target. Only "release" (GitHub Release tarball) is supported.'
         required: false
         type: string
         default: 'release'
-      registry:
-        description: >
-          npm registry URL for ghcr/npm/gcp targets. Defaults to https://npm.pkg.github.com (ghcr), https://registry.npmjs.org (npm), or a GCP Artifact Registry URL. Ignored when target=release.
-
-        required: false
-        type: string
-        default: ''
 jobs:
   analyze:
     name: "🧱 analyze pnpm packages"
@@ -49,31 +40,15 @@ jobs:
         with:
           repository: ${{ inputs.repository }}
           ref: ${{ inputs.ref }}
-      - name: Resolve registry default
-        id: resolve-registry
-        shell: bash
-        run: |
-          # If caller didn't specify a registry, pick the default for the target
-          if [[ -n "${{ inputs.registry }}" ]]; then
-            echo "registry=${{ inputs.registry }}" >> "$GITHUB_OUTPUT"
-          else
-            case "${{ inputs.target }}" in
-              ghcr)  echo "registry=https://npm.pkg.github.com" >> "$GITHUB_OUTPUT" ;;
-              npm)   echo "registry=https://registry.npmjs.org" >> "$GITHUB_OUTPUT" ;;
-              gcp)   echo "registry=" >> "$GITHUB_OUTPUT" ;;
-              *)     echo "registry=" >> "$GITHUB_OUTPUT" ;;  # release doesn't need one
-            esac
-          fi
       - name: Analyze packages (target=${{ inputs.target }})
         id: analyze
-        uses: jmmaloney4/sector7/.github/actions/analyze-pnpm-packages@04d9bc2dd846b6584f5544721127b32296e6b71d # current PR head
+        uses: jmmaloney4/sector7/.github/actions/analyze-pnpm-packages@8a16dd623d6a35269d26372e2251754da2ff76e7 # PR #204 head
         with:
           dry_run: ${{ inputs.dry_run }}
           target: ${{ inputs.target }}
-          registry: ${{ steps.resolve-registry.outputs.registry }}
           github_repository: ${{ inputs.repository }}
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Debug matrix output
         run: |
           echo "Matrix output:"
@@ -111,7 +86,6 @@ jobs:
         include: ${{ fromJson(needs.analyze.outputs.matrix || '[]') }}
     permissions:
       contents: write # needed for release asset upload
-      packages: write # needed for ghcr publish
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -215,55 +189,3 @@ jobs:
       - name: Cleanup packed tarball
         if: inputs.dry_run != true && matrix.action == 'publish' && matrix.target == 'release'
         run: rm -f ${{ matrix.package_path }}/*.tgz
-      # ── Registry targets (ghcr / npm / gcp) ────────────────────────
-      - name: Configure npm authentication (registry)
-        if: inputs.dry_run != true && matrix.action == 'publish' && matrix.target != 'release'
-        run: |
-          echo "Configuring npm for ${{ matrix.target }} registry authentication..."
-          case "${{ matrix.target }}" in
-            ghcr)
-              REGISTRY="https://npm.pkg.github.com"
-              ;;
-            npm)
-              REGISTRY="https://registry.npmjs.org"
-              ;;
-            gcp)
-              REGISTRY="${{ inputs.registry }}"
-              if [[ -z "$REGISTRY" ]]; then
-                echo "❌ GCP target requires the 'registry' input to be set"
-                exit 1
-              fi
-              ;;
-            *)
-              echo "❌ Unknown target: ${{ matrix.target }}"
-              exit 1
-              ;;
-          esac
-
-          echo "Setting auth for registry: ${REGISTRY}"
-          echo "//$(echo "$REGISTRY" | sed 's|https://||')/:_authToken=\${NODE_AUTH_TOKEN}" > ${{ matrix.package_path }}/.npmrc
-
-          # For scoped packages on ghcr, add the registry line
-          if [[ "${{ matrix.target }}" == "ghcr" && "${{ matrix.name }}" == @* ]]; then
-            SCOPE="${{ matrix.name %%/*}}"
-            echo "${SCOPE}:registry=${REGISTRY}" >> ${{ matrix.package_path }}/.npmrc
-          fi
-
-          if [ ! -f "${{ matrix.package_path }}/.npmrc" ]; then
-            echo "❌ Failed to create .npmrc file"
-            exit 1
-          fi
-          echo "✅ Authentication configured for ${{ matrix.target }}"
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Publish package (registry)
-        if: inputs.dry_run != true && matrix.action == 'publish' && matrix.target != 'release'
-        run: nix develop .#ci-pnpm --command pnpm publish --no-git-checks
-        working-directory: ${{ matrix.package_path }}
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Cleanup authentication (registry)
-        if: inputs.dry_run != true && matrix.action == 'publish' && matrix.target != 'release'
-        run: |
-          rm -f ${{ matrix.package_path }}/.npmrc
-          echo "✅ Cleanup completed"
