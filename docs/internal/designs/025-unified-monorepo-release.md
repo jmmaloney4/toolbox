@@ -48,7 +48,7 @@ They ship at the same version as the existing package(s). No per-package version
 
 ## Consequences
 
-**Simpler.** The analyzer script shrinks from 265 lines to ~30 lines of "read version, check tag, pack if missing." The workflow drops the matrix strategy for the release target.
+**Simpler.** The analyzer script shrinks from 265 lines to ~190 lines (including asset completeness verification). The workflow drops the registry resolution step, registry publish steps, and short_sha input.
 
 **Cleaner tags.** `v0.10.0` instead of `sector7-v0.9.2-007f69a`. Easier for humans, easier for Renovate, easier for any tooling that parses tags.
 
