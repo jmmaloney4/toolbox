@@ -189,18 +189,18 @@ jobs:
 
           # Create release if it doesn't exist (first package in the matrix).
           # Subsequent packages upload their tarball to the same release.
-          # gh release create returns exit 1 when the tag already exists;
-          # we detect this by checking stderr for "already exists".
-          CREATE_OUTPUT=""
-          CREATE_OUTPUT="$(gh release create "$TAG" \
+          # gh release create returns exit 1 when the tag already exists.
+          # We capture only stderr (redirect stdout to /dev/null) so that
+          # the success URL on stdout doesn't pollute the error check.
+          CREATE_STDERR="$(gh release create "$TAG" \
             --repo "${{ inputs.repository }}" \
             --title "${TAG}" \
             --notes "Published \`${{ matrix.name }}@${{ matrix.version }}\`." \
-            2>&1)" || true
-          if echo "$CREATE_OUTPUT" | grep -qi "already exists\|release.*already"; then
+            2>&1 >/dev/null)" || true
+          if echo "$CREATE_STDERR" | grep -qi "already exists\|release.*already"; then
             echo "ℹ️ Release ${TAG} already exists (parallel matrix job created it)"
-          elif [[ -n "$CREATE_OUTPUT" ]]; then
-            echo "❌ gh release create failed: $CREATE_OUTPUT"
+          elif [[ -n "$CREATE_STDERR" ]]; then
+            echo "❌ gh release create failed: $CREATE_STDERR"
             exit 1
           else
             echo "✅ Release ${TAG} created"
