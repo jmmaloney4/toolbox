@@ -21,7 +21,7 @@
 			"matchDatasources": ["github-releases"],
 			"matchPackageNames": ["jmmaloney4/sector7"],
 			"minimumReleaseAge": null,
-			"extractVersion": "^sector7-v(?<version>\\d+\\.\\d+\\.\\d+)-[0-9a-f]+$"
+			"extractVersion": "^sector7-v(?<version>\\d+\\.\\d+\\.\\d+-[0-9a-f]+)$"
 		}
 	]
 }
