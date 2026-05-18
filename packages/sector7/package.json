@@ -1,6 +1,6 @@
 {
 	"name": "@jmmaloney4/sector7",
-	"version": "0.8.4",
+	"version": "0.9.1",
 	"description": "Reusable Pulumi components for infrastructure management",
 	"license": "MPL-2.0",
 	"publishConfig": {
@@ -54,6 +54,10 @@
 		"./litellm": {
 			"types": "./dist/litellm/index.d.ts",
 			"default": "./dist/litellm/index.js"
+		},
+		"./pulumi-config": {
+			"types": "./dist/pulumi-config/index.d.ts",
+			"default": "./dist/pulumi-config/index.js"
 		}
 	},
 	"files": [
