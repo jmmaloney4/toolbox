@@ -32,10 +32,11 @@ inputs:
     required: false
   github_repository:
     description: >
-      Owner/repository for GitHub Release checks. Defaults to ${{ github.repository }}.
+      Owner/repository for GitHub Release checks. Defaults to the workflow's
+      github.repository (set automatically by GitHub Actions).
 
     required: false
-    default: ""
+    default: "${{ github.repository }}"
 
 outputs:
   matrix:

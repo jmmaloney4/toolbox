@@ -13,6 +13,13 @@ ROOT="${A_ROOT:-.}"
 SUMMARY_FILE="${GITHUB_STEP_SUMMARY:-/dev/stdout}"
 OUT_FILE="${GITHUB_OUTPUT:-/dev/stdout}"
 
+# ── Verify tools are available ──────────────────────────────────────
+
+if ! command -v jq >/dev/null 2>&1; then
+  echo "Error: jq is required but not available" >&2
+  exit 1
+fi
+
 # ── Read unified version from root package.json ─────────────────────
 
 if [[ ! -f "${ROOT}/package.json" ]]; then
