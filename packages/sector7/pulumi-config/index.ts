@@ -5,4 +5,4 @@ export {
 	type MapConfigOptions,
 	type RecordConfigOptions,
 	type SecretFieldsOf,
-} from "./mixed-config.ts";
+} from "./mixed-config.js";

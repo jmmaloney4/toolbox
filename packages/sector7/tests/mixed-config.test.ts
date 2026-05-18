@@ -1,6 +1,6 @@
 import * as pulumi from "@pulumi/pulumi";
 import { describe, expect, it } from "vitest";
-import { requireMixedConfig } from "../pulumi-config/index.ts";
+import { requireMixedConfig } from "../pulumi-config/index.js";
 
 type FakeConfig = Pick<pulumi.Config, "requireObject" | "requireSecret">;
 
@@ -9,16 +9,27 @@ type ProviderConfig = {
 	apiKey: string;
 };
 
+type TeamConfig = {
+	id: string;
+	alias: string;
+	apiKey: string;
+};
+
+type AccountConfig = {
+	name: string;
+	apiToken: string;
+};
+
 function fakeConfig(args: {
 	objects: Record<string, unknown>;
 	secrets: Record<string, string>;
-}): pulumi.Config {
-	const config: FakeConfig = {
-		requireObject: <T>(key: string): T => {
+}) {
+	return {
+		requireObject: (key: string) => {
 			if (!(key in args.objects)) {
 				throw new Error(`missing object ${key}`);
 			}
-			return args.objects[key] as T;
+			return args.objects[key];
 		},
 		requireSecret: (key: string) => {
 			if (!(key in args.secrets)) {
@@ -26,8 +37,7 @@ function fakeConfig(args: {
 			}
 			return pulumi.secret(args.secrets[key]);
 		},
-	};
-	return config as pulumi.Config;
+	} as any;
 }
 
 async function resolveOutput<T>(value: pulumi.Input<T>): Promise<T> {
@@ -36,7 +46,7 @@ async function resolveOutput<T>(value: pulumi.Input<T>): Promise<T> {
 			resolve(resolved as T);
 			return resolved;
 		});
-		});
+	});
 }
 
 describe("requireMixedConfig", () => {
@@ -68,6 +78,58 @@ describe("requireMixedConfig", () => {
 		expect(await resolveOutput(providers.cavinsresearch.apiKey)).toBe(
 			"research-secret",
 		);
+	});
+
+	it("reads record-shaped config keyed by a string field", async () => {
+		const config = fakeConfig({
+			objects: {
+				teams: [
+					{ id: "personal", alias: "coding" },
+					{ id: "research", alias: "cheap" },
+				],
+			},
+			secrets: {
+				"teams[0].apiKey": "personal-secret",
+				"teams[1].apiKey": "research-secret",
+			},
+		});
+
+		const teams = requireMixedConfig<TeamConfig, "alias", ["apiKey"]>(
+			config,
+			"teams",
+			{ shape: "record", keyField: "alias", secretFields: ["apiKey"] },
+		);
+
+		expect(teams.coding.id).toBe("personal");
+		expect(teams.cheap.id).toBe("research");
+		expect(await resolveOutput(teams.coding.apiKey)).toBe("personal-secret");
+		expect(await resolveOutput(teams.cheap.apiKey)).toBe("research-secret");
+	});
+
+	it("reads array-shaped config with plain and secret fields", async () => {
+		const config = fakeConfig({
+			objects: {
+				accounts: [
+					{ name: "jmmaloney4" },
+					{ name: "cavinsresearch" },
+				],
+			},
+			secrets: {
+				"accounts[0].apiToken": "jmm-secret",
+				"accounts[1].apiToken": "cavins-secret",
+			},
+		});
+
+		const accounts = requireMixedConfig<AccountConfig, ["apiToken"]>(
+			config,
+			"accounts",
+			{ secretFields: ["apiToken"] },
+		);
+
+		expect(accounts[0].name).toBe("jmmaloney4");
+		expect(accounts[1].name).toBe("cavinsresearch");
+		expect(await resolveOutput(accounts[0].apiToken)).toBe("jmm-secret");
+		expect(await resolveOutput(accounts[1].apiToken)).toBe("cavins-secret");
 	});
 
 	it("reads flat secret maps", async () => {

@@ -17,7 +17,7 @@ export interface ArrayConfigOptions<
 
 export interface RecordConfigOptions<
 	T extends Record<string, unknown>,
-	K extends keyof T,
+	K extends Extract<keyof T, string>,
 	S extends readonly (keyof T)[],
 > {
 	shape: "record";
@@ -48,7 +48,7 @@ export function requireMixedConfig<
 
 export function requireMixedConfig<
 	T extends Record<string, unknown>,
-	K extends keyof T,
+	K extends Extract<keyof T, string>,
 	S extends readonly (keyof T)[],
 >(
 	config: pulumi.Config,
@@ -81,7 +81,7 @@ export function requireMixedConfig(
 		  >
 		| RecordConfigOptions<
 				Record<string, unknown>,
-				keyof Record<string, unknown>,
+				Extract<keyof Record<string, unknown>, string>,
 				readonly (keyof Record<string, unknown>)[]
 		  >
 		| MapConfigOptions<
@@ -93,11 +93,8 @@ export function requireMixedConfig(
 	| Array<Record<string, unknown>>
 	| Record<string, Record<string, unknown>>
 	| Record<string, pulumi.Output<string>> {
-	const shape = "shape" in options && options.shape ? options.shape : "array";
-	const secretFields: readonly string[] =
-		"secretFields" in options
-			? (options.secretFields as readonly string[])
-			: [];
+	const shape = options.shape ?? "array";
+	const secretFields = "secretFields" in options ? options.secretFields : [];
 
 	switch (shape) {
 		case "array": {
@@ -112,13 +109,7 @@ export function requireMixedConfig(
 		}
 
 		case "record": {
-			const keyField = (
-				options as RecordConfigOptions<
-					Record<string, unknown>,
-					keyof Record<string, unknown>,
-					readonly (keyof Record<string, unknown>)[]
-				>
-			).keyField as string;
+			const keyField = (options as { keyField: string }).keyField;
 			const items = config.requireObject<Record<string, unknown>[]>(key);
 			const map: Record<string, Record<string, unknown>> = {};
 			items.forEach((item, i) => {
