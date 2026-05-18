@@ -98,6 +98,8 @@ case "$TARGET" in
       if gh release view "$TAG" --repo "$GITHUB_REPO" >/dev/null 2>&1; then
         # Release exists — verify all expected assets are present.
         # Partial releases (tag created but upload failed) must be retried.
+        # Fetch asset list once to avoid N API calls per package.
+        EXISTING_ASSETS="$(gh release view "$TAG" --repo "$GITHUB_REPO" --json assets -q ".assets[].name" 2>/dev/null || true)"
         MISSING_ASSETS=()
         for pkg_path in "${PKG_PATHS[@]}"; do
           name="$(jq -r '.name' "${pkg_path}/package.json")"
@@ -105,7 +107,8 @@ case "$TARGET" in
           stem="${name#@}"
           stem="${stem//\//-}"
           asset_name="${stem}-${pkg_version}.tgz"
-          if ! gh release view "$TAG" --repo "$GITHUB_REPO" --json assets -q ".assets[].name" 2>/dev/null | grep -qx "$asset_name"; then
+          # grep -F for literal match (asset names contain dots)
+          if ! echo "$EXISTING_ASSETS" | grep -Fqx "$asset_name"; then
             MISSING_ASSETS+=("$asset_name")
           fi
         done
