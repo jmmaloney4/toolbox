@@ -20,8 +20,8 @@ if [[ ! -f "${ROOT}/package.json" ]]; then
   exit 1
 fi
 
-VERSION="$(jq -r '.version' "${ROOT}/package.json")"
-if [[ -z "$VERSION" ]]; then
+VERSION="$(jq -r '.version // empty' "${ROOT}/package.json")"
+if [[ -z "$VERSION" || "$VERSION" == "null" ]]; then
   echo "Error: version field missing or empty in ${ROOT}/package.json" >&2
   exit 1
 fi

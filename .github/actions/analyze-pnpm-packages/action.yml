@@ -45,14 +45,15 @@ outputs:
     description: Whether there are packages to publish (true/false)
     value: ${{ steps.analyze.outputs.has_packages }}
 
-runs:
-  using: composite
-  steps:
-    - id: analyze
-      shell: bash
-      env:
-        A_DRY_RUN: ${{ inputs.dry_run }}
-        A_TARGET: ${{ inputs.target }}
-        A_ROOT: ${{ inputs.root }}
-        A_GITHUB_REPOSITORY: ${{ inputs.github_repository }}
-      run: $GITHUB_ACTION_PATH/main.sh
+  runs:
+    using: composite
+    steps:
+      - id: analyze
+        shell: bash
+        env:
+          A_DRY_RUN: ${{ inputs.dry_run }}
+          A_TARGET: ${{ inputs.target }}
+          A_ROOT: ${{ inputs.root }}
+          A_GITHUB_REPOSITORY: ${{ inputs.github_repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: bash $GITHUB_ACTION_PATH/main.sh

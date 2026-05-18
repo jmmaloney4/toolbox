@@ -189,13 +189,14 @@ jobs:
 
           # Create release if it doesn't exist (first package in the matrix).
           # Subsequent packages upload their tarball to the same release.
-          if ! gh release view "$TAG" --repo "${{ inputs.repository }}" >/dev/null 2>&1; then
-            echo "Creating release ${TAG}"
-            gh release create "$TAG" \
-              --repo "${{ inputs.repository }}" \
-              --title "${TAG}" \
-              --notes "Published \`${{ matrix.name }}@${{ matrix.version }}\`."
-          fi
+          # The create is idempotent: if another matrix job already created it,
+          # `gh release create` returns an error which we ignore.
+          echo "Creating release ${TAG}"
+          gh release create "$TAG" \
+            --repo "${{ inputs.repository }}" \
+            --title "${TAG}" \
+            --notes "Published \`${{ matrix.name }}@${{ matrix.version }}\`." \
+            2>/dev/null || true
 
           echo "Uploading ${ASSET} to release ${TAG}"
           gh release upload "$TAG" "$ASSET_PATH" \
