@@ -34,13 +34,6 @@ on:
         required: false
         type: string
         default: ''
-      short_sha:
-        description: >
-          Short commit SHA to append to release tags (e.g. a27687e). Only used when target=release. Defaults to the 7-char commit SHA.
-
-        required: false
-        type: string
-        default: ''
 jobs:
   analyze:
     name: "🧱 analyze pnpm packages"
@@ -141,10 +134,8 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Target:** \`${{ matrix.target }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Path:** \`${{ matrix.package_path }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Local:** \`${{ matrix.local_version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Published:** \`${{ matrix.published_version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Change:** \`${{ matrix.release_type }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Action:** \`${{ matrix.action }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** \`${{ matrix.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag:** \`${{ matrix.tag }}\`" >> $GITHUB_STEP_SUMMARY
       # ── Release tarball target ──────────────────────────────────────
       - name: Pack tarball
         if: inputs.dry_run != true && matrix.action == 'publish' && matrix.target == 'release'
@@ -182,20 +173,10 @@ jobs:
           fi
 
           echo "✅ Tarball contains compiled JavaScript and declarations only"
-      - name: Resolve short SHA
-        if: inputs.dry_run != true && matrix.action == 'publish' && matrix.target == 'release'
-        id: sha
-        shell: bash
-        run: |
-          if [[ -n "${{ inputs.short_sha }}" ]]; then
-            echo "short_sha=${{ inputs.short_sha }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "short_sha=$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Create release and upload tarball
+      - name: Upload tarball to release
         if: inputs.dry_run != true && matrix.action == 'publish' && matrix.target == 'release'
         run: |
-          TAG="${{ matrix.release_tag }}-${{ steps.sha.outputs.short_sha }}"
+          TAG="${{ matrix.tag }}"
           ASSET="${{ matrix.asset_name }}"
           ASSET_PATH="${{ matrix.package_path }}/${ASSET}"
 
@@ -206,12 +187,20 @@ jobs:
             exit 1
           fi
 
-          echo "Creating release ${TAG} with asset ${ASSET}"
-          gh release create "$TAG" \
-            "$ASSET_PATH" \
+          # Create release if it doesn't exist (first package in the matrix).
+          # Subsequent packages upload their tarball to the same release.
+          if ! gh release view "$TAG" --repo "${{ inputs.repository }}" >/dev/null 2>&1; then
+            echo "Creating release ${TAG}"
+            gh release create "$TAG" \
+              --repo "${{ inputs.repository }}" \
+              --title "${TAG}" \
+              --notes "Published \`${{ matrix.name }}@${{ matrix.version }}\`."
+          fi
+
+          echo "Uploading ${ASSET} to release ${TAG}"
+          gh release upload "$TAG" "$ASSET_PATH" \
             --repo "${{ inputs.repository }}" \
-            --title "${TAG}" \
-            --notes "Published \`${{ matrix.name }}@${{ matrix.local_version }}\` as tarball asset."
+            --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Cleanup packed tarball

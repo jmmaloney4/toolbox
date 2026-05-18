@@ -1,6 +1,8 @@
 name: Analyze pnpm packages
 description: >
-  Detect packages under packages/*, check whether they need publishing, and emit a JSON matrix and summary. Supports multiple publish targets: release (GitHub Release tarball assets), ghcr (GitHub Packages npm registry), npm (npmjs.org), and gcp (Google Artifact Registry npm).
+  Unified monorepo release analyzer. Reads version from root package.json,
+  checks whether a v${version} GitHub Release already exists, and emits a
+  JSON matrix of packages to publish if needed.
 
 inputs:
   dry_run:
@@ -15,7 +17,7 @@ inputs:
     default: "release"
   registry:
     description: >
-      npm registry URL for ghcr/npm/gcp targets. Defaults to https://npm.pkg.github.com for ghcr. Ignored when target=release.
+      npm registry URL for ghcr/npm/gcp targets. Ignored when target=release.
 
     required: false
     default: "https://npm.pkg.github.com"
@@ -24,21 +26,25 @@ inputs:
     required: false
     default: "."
   scope:
-    description: npm scope filter (e.g., @jmmaloney4); if set, only include scoped packages
+    description: >
+      Deprecated. Kept for backward compatibility with callers. No longer used by the action.
+
     required: false
   github_repository:
     description: >
-      Owner/repository for GitHub Release asset checks when target=release. Defaults to ${{ github.repository }}.
+      Owner/repository for GitHub Release checks. Defaults to ${{ github.repository }}.
 
     required: false
     default: ""
+
 outputs:
   matrix:
-    description: JSON matrix of packages and actions
+    description: JSON matrix of packages to publish
     value: ${{ steps.analyze.outputs.matrix }}
   has_packages:
     description: Whether there are packages to publish (true/false)
     value: ${{ steps.analyze.outputs.has_packages }}
+
 runs:
   using: composite
   steps:
@@ -47,9 +53,6 @@ runs:
       env:
         A_DRY_RUN: ${{ inputs.dry_run }}
         A_TARGET: ${{ inputs.target }}
-        A_REGISTRY: ${{ inputs.registry }}
         A_ROOT: ${{ inputs.root }}
-        A_SCOPE: ${{ inputs.scope }}
         A_GITHUB_REPOSITORY: ${{ inputs.github_repository }}
-        NODE_AUTH_TOKEN: ${{ env.NODE_AUTH_TOKEN }}
       run: $GITHUB_ACTION_PATH/main.sh
