@@ -189,14 +189,23 @@ jobs:
 
           # Create release if it doesn't exist (first package in the matrix).
           # Subsequent packages upload their tarball to the same release.
-          # The create is idempotent: if another matrix job already created it,
-          # `gh release create` returns an error which we ignore.
-          echo "Creating release ${TAG}"
+          # gh release create fails with exit 36 when the tag already exists.
+          # We detect that specific exit code to allow parallel matrix jobs.
+          CREATE_EXIT=0
           gh release create "$TAG" \
             --repo "${{ inputs.repository }}" \
             --title "${TAG}" \
             --notes "Published \`${{ matrix.name }}@${{ matrix.version }}\`." \
-            2>/dev/null || true
+            2>/dev/null || CREATE_EXIT=$?
+          if [[ $CREATE_EXIT -ne 0 && $CREATE_EXIT -ne 36 ]]; then
+            echo "❌ gh release create failed with exit code $CREATE_EXIT"
+            exit 1
+          fi
+          if [[ $CREATE_EXIT -eq 0 ]]; then
+            echo "✅ Release ${TAG} created"
+          else
+            echo "ℹ️ Release ${TAG} already exists (parallel matrix job created it)"
+          fi
 
           echo "Uploading ${ASSET} to release ${TAG}"
           gh release upload "$TAG" "$ASSET_PATH" \

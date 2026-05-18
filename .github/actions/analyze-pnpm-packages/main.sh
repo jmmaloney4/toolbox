@@ -59,30 +59,48 @@ fi
 # ── Check if release already exists ─────────────────────────────────
 
 ALREADY_PUBLISHED="false"
-if [[ -n "$GITHUB_REPO" ]]; then
-  if gh release view "$TAG" --repo "$GITHUB_REPO" >/dev/null 2>&1; then
-    ALREADY_PUBLISHED="true"
-    echo "- **Status:** already published (tag \`${TAG}\` exists)" >>"$SUMMARY_FILE"
-  else
-    echo "- **Status:** new release needed" >>"$SUMMARY_FILE"
-  fi
-else
-  echo "- **Status:** unknown (no GITHUB_REPO set, assuming not published)" >>"$SUMMARY_FILE"
-fi
+case "$TARGET" in
+  release)
+    if [[ -n "$GITHUB_REPO" ]]; then
+      if gh release view "$TAG" --repo "$GITHUB_REPO" >/dev/null 2>&1; then
+        ALREADY_PUBLISHED="true"
+        echo "- **Status:** already published (tag \`${TAG}\` exists)" >>"$SUMMARY_FILE"
+      else
+        echo "- **Status:** new release needed" >>"$SUMMARY_FILE"
+      fi
+    else
+      echo "- **Status:** unknown (no GITHUB_REPO set, assuming not published)" >>"$SUMMARY_FILE"
+    fi
+    ;;
+  ghcr|npm|gcp)
+    # For npm registry targets, check published version via registry API.
+    # Note: this requires NODE_AUTH_TOKEN to be set.
+    # sector7 is released only as tarballs, so these targets are deprecated.
+    echo "WARNING: target='${TARGET}' is deprecated for the unified release model" >&2
+    echo "- **Status:** needs registry publish (deprecated target)" >>"$SUMMARY_FILE"
+    ;;
+  *)
+    echo "Error: unknown target '${TARGET}'" >&2
+    exit 1
+    ;;
+esac
 
 # ── Build matrix entries ────────────────────────────────────────────
 
 MATRIX_ENTRIES=()
 for pkg_path in "${PKG_PATHS[@]}"; do
   name="$(jq -r '.name' "${pkg_path}/package.json")"
+  # pnpm pack uses the package's own version for the tarball filename,
+  # not the root package.json version (workspaces don't auto-inherit).
+  pkg_version="$(jq -r '.version // empty' "${pkg_path}/package.json")"
   # npm pack: strip @, replace / with -
   stem="$(echo "$name" | sed 's|^@||; s|/|-|g')"
-  asset_name="${stem}-${VERSION}.tgz"
+  asset_name="${stem}-${pkg_version}.tgz"
 
   MATRIX_ENTRIES+=("$(jq -n \
     --arg path "$pkg_path" \
     --arg name "$name" \
-    --arg version "$VERSION" \
+    --arg version "$pkg_version" \
     --arg target "$TARGET" \
     --arg tag "$TAG" \
     --arg asset_name "$asset_name" \
