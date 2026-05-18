@@ -66,7 +66,7 @@ jobs:
           fi
       - name: Analyze packages (target=${{ inputs.target }})
         id: analyze
-        uses: jmmaloney4/sector7/.github/actions/analyze-pnpm-packages@e810f9d58eaf12b58af1ebef7968f684d2ee2030 # main
+        uses: jmmaloney4/sector7/.github/actions/analyze-pnpm-packages@04d9bc2dd846b6584f5544721127b32296e6b71d # current PR head
         with:
           dry_run: ${{ inputs.dry_run }}
           target: ${{ inputs.target }}
