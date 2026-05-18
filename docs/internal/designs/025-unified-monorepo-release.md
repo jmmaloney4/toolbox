@@ -32,7 +32,9 @@ No slug prefix. No SHA suffix. One tag per release.
 
 ### Version source
 
-The root `package.json` `version` field is the single source of truth. Packages under `packages/*/` inherit this version. A bump happens once, applies everywhere.
+The root `package.json` `version` field is the single source of truth. All packages under `packages/*/` must have the same `version` field. The publish workflow validates this invariant before proceeding — if any package version diverges from the root version, the workflow exits with an error listing the mismatches.
+
+A bump happens once in root `package.json`, then all packages must be updated to match before the release proceeds.
 
 ### Release decision
 
