@@ -19,7 +19,8 @@
 			"description": "Update mkHelmChartFromGitHub ARC chart packages in Nix files",
 			"managerFilePatterns": ["/nix/.+\\.nix$/"],
 			"matchStrings": [
-				"mkHelmChartFromGitHub\\s*(?:rec\\s*)?\\{[^}]*?pname\\s*=\\s*\"(?<depName>[^\"]+)\";[^}]*?version\\s*=\\s*\"(?<currentValue>[^\"]+)\";[^}]*?owner\\s*=\\s*\"(?<owner>actions)\";[^}]*?repo\\s*=\\s*\"(?<repo>actions-runner-controller)\";[^}]*?rev\\s*=\\s*\"gha-runner-scale-set-\\$\\{version\\}\";[^}]*?hash\\s*=\\s*\"[^\"]+\";"
+				"mkHelmChartFromGitHub\\s*(?:rec\\s*)?\\{[^}]*?pname\\s*=\\s*\"(?<depName>[^\"]+)\";[^}]*?version\\s*=\\s*\"(?<currentValue>[^\"]+)\";[^}]*?owner\\s*=\\s*\"(?<owner>actions)\";[^}]*?repo\\s*=\\s*\"(?<repo>actions-runner-controller)\";[^}]*?rev\\s*=\\s*\"gha-runner-scale-set-\\$\\{version\\}\";[^}]*?hash\\s*=\\s*\"[^\"]+\";",
+				"let\\s+version\\s*=\\s*\"(?<currentValue>[^\"]+)\";\\s*in\\s*mkHelmChartFromGitHub\\s*(?:rec\\s*)?\\{[^}]*?inherit\\s+version;[^}]*?pname\\s*=\\s*\"(?<depName>[^\"]+)\";[^}]*?owner\\s*=\\s*\"(?<owner>actions)\";\\s*repo\\s*=\\s*\"(?<repo>actions-runner-controller)\";\\s*rev\\s*=\\s*\"gha-runner-scale-set-\\$\\{version\\}\";\\s*hash\\s*=\\s*\"[^\"]+\";\\s*chartSubdir\\s*=\\s*\"[^\"]+\";"
 			],
 			"datasourceTemplate": "github-tags",
 			"depNameTemplate": "{{{owner}}}/{{{repo}}}",
@@ -31,7 +32,9 @@
 			"managerFilePatterns": ["/nix/.+\\.nix$/"],
 			"matchStrings": [
 				"mkHelmChartFromGitHub\\s*(?:rec\\s*)?\\{[^}]*?pname\\s*=\\s*\"(?<depName>[^\"]+)\";[^}]*?version\\s*=\\s*\"(?<currentValue>[^\"]+)\";[^}]*?owner\\s*=\\s*\"(?<owner>[^\"]+)\";[^}]*?repo\\s*=\\s*\"(?<repo>[^\"]+)\";[^}]*?hash\\s*=\\s*\"[^\"]+\";",
-				"mkHelmChartFromGitHub\\s*(?:rec\\s*)?\\{[^}]*?pname\\s*=\\s*\"(?<depName>[^\"]+)\";[^}]*?version\\s*=\\s*\"(?<currentValue>[^\"]+)\";[^}]*?owner\\s*=\\s*\"(?<owner>[^\"]+)\";[^}]*?repo\\s*=\\s*\"(?<repo>[^\"]+)\";[^}]*?chartSubdir\\s*=\\s*\"[^\"]+\";[^}]*?hash\\s*=\\s*\"[^\"]+\";"
+				"mkHelmChartFromGitHub\\s*(?:rec\\s*)?\\{[^}]*?pname\\s*=\\s*\"(?<depName>[^\"]+)\";[^}]*?version\\s*=\\s*\"(?<currentValue>[^\"]+)\";[^}]*?owner\\s*=\\s*\"(?<owner>[^\"]+)\";[^}]*?repo\\s*=\\s*\"(?<repo>[^\"]+)\";[^}]*?chartSubdir\\s*=\\s*\"[^\"]+\";[^}]*?hash\\s*=\\s*\"[^\"]+\";",
+				"let\\s+version\\s*=\\s*\"(?<currentValue>[^\"]+)\";\\s*in\\s*mkHelmChartFromGitHub\\s*(?:rec\\s*)?\\{[^}]*?inherit\\s+version;[^}]*?pname\\s*=\\s*\"(?<depName>[^\"]+)\";[^}]*?owner\\s*=\\s*\"(?<owner>[^\"]+)\";\\s*repo\\s*=\\s*\"(?<repo>[^\"]+)\";\\s*hash\\s*=\\s*\"[^\"]+\";",
+				"let\\s+version\\s*=\\s*\"(?<currentValue>[^\"]+)\";\\s*in\\s*mkHelmChartFromGitHub\\s*(?:rec\\s*)?\\{[^}]*?inherit\\s+version;[^}]*?pname\\s*=\\s*\"(?<depName>[^\"]+)\";[^}]*?owner\\s*=\\s*\"(?<owner>[^\"]+)\";\\s*repo\\s*=\\s*\"(?<repo>[^\"]+)\";\\s*hash\\s*=\\s*\"[^\"]+\";\\s*chartSubdir\\s*=\\s*\"[^\"]+\";"
 			],
 			"datasourceTemplate": "github-releases",
 			"depNameTemplate": "{{{owner}}}/{{{repo}}}"
