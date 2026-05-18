@@ -28,9 +28,9 @@ const sriHash = "sha256-XRJNwpeGjQSEPub34BLrPJn3Tj6Ie90/PB7LR2+tPmU=";
 
 describe("renovate/nix.json mkHelmChartFromGitHub regex managers", () => {
 	it("matches ARC chart blocks that use real Nix SRI hashes", () => {
-		const arcRegex = managerRegexes(
+		const arcRegexes = managerRegexes(
 			"Update mkHelmChartFromGitHub ARC chart packages in Nix files",
-		)[0];
+		);
 		const arcBlock = [
 			"mkHelmChartFromGitHub rec {",
 			'  pname = "gha-runner-scale-set-controller-chart";',
@@ -42,7 +42,7 @@ describe("renovate/nix.json mkHelmChartFromGitHub regex managers", () => {
 			"};",
 		].join("\n");
 
-		const match = arcBlock.match(arcRegex);
+		const match = firstMatch(arcRegexes, arcBlock);
 		expect(match?.groups?.depName).toBe(
 			"gha-runner-scale-set-controller-chart",
 		);
@@ -88,6 +88,81 @@ describe("renovate/nix.json mkHelmChartFromGitHub regex managers", () => {
 		expect(match?.groups?.currentValue).toBe("1.2.3");
 		expect(match?.groups?.owner).toBe("example");
 		expect(match?.groups?.repo).toBe("repo");
+	});
+
+	it("matches let-bound ARC chart blocks that inherit version inside the attrset", () => {
+		const arcRegexes = managerRegexes(
+			"Update mkHelmChartFromGitHub ARC chart packages in Nix files",
+		);
+		const arcBlock = [
+			"gha-runner-scale-set-controller-chart = let",
+			'  version = "0.14.0";',
+			"in",
+			"  mkHelmChartFromGitHub {",
+			"    inherit version;",
+			'    pname = "gha-runner-scale-set-controller-chart";',
+			'    owner = "actions";',
+			'    repo = "actions-runner-controller";',
+			'    rev = "gha-runner-scale-set-${version}";',
+			`    hash = "${sriHash}";`,
+			'    chartSubdir = "charts/gha-runner-scale-set-controller";',
+			"  };",
+		].join("\n");
+
+		const match = firstMatch(arcRegexes, arcBlock);
+		expect(match?.groups?.depName).toBe(
+			"gha-runner-scale-set-controller-chart",
+		);
+		expect(match?.groups?.currentValue).toBe("0.14.0");
+		expect(match?.groups?.owner).toBe("actions");
+		expect(match?.groups?.repo).toBe("actions-runner-controller");
+	});
+
+	it("matches let-bound generic chart blocks that inherit version inside the attrset", () => {
+		const genericRegexes = managerRegexes(
+			"Update mkHelmChartFromGitHub packages in Nix files",
+		);
+		const genericBlock = [
+			"envoy-gateway-crds-chart = let",
+			'  version = "1.7.3";',
+			"in",
+			"  mkHelmChartFromGitHub {",
+			"    inherit version;",
+			'    pname = "envoy-gateway-crds-chart";',
+			'    owner = "envoyproxy";',
+			'    repo = "gateway";',
+			`    hash = "${sriHash}";`,
+			'    chartSubdir = "charts/gateway-crds-helm";',
+			"  };",
+		].join("\n");
+
+		const match = firstMatch(genericRegexes, genericBlock);
+		expect(match?.groups?.depName).toBe("envoy-gateway-crds-chart");
+		expect(match?.groups?.currentValue).toBe("1.7.3");
+		expect(match?.groups?.owner).toBe("envoyproxy");
+		expect(match?.groups?.repo).toBe("gateway");
+	});
+
+	it("does not let the generic matcher swallow let-bound ARC chart blocks", () => {
+		const genericRegexes = managerRegexes(
+			"Update mkHelmChartFromGitHub packages in Nix files",
+		);
+		const arcBlock = [
+			"gha-runner-scale-set-controller-chart = let",
+			'  version = "0.14.0";',
+			"in",
+			"  mkHelmChartFromGitHub {",
+			"    inherit version;",
+			'    pname = "gha-runner-scale-set-controller-chart";',
+			'    owner = "actions";',
+			'    repo = "actions-runner-controller";',
+			'    rev = "gha-runner-scale-set-${version}";',
+			`    hash = "${sriHash}";`,
+			'    chartSubdir = "charts/gha-runner-scale-set-controller";',
+			"  };",
+		].join("\n");
+
+		expect(firstMatch(genericRegexes, arcBlock)).toBeUndefined();
 	});
 
 	it("does not let the generic matcher swallow ARC chart blocks with rev lines", () => {
