@@ -14,11 +14,11 @@ This directory contains composable Renovate presets that can be shared across pr
 
 ### Technology-Specific Presets
 
-- **`nix.json`** - Nix-specific configuration with safe regex managers for `fetchPypi` plus `mkHelmChartFromGitHub` version bumps (see ADR-038 in jackpkgs); hashes are left for manual recomputation (see ADR-023)
+- **`nix.json`** - Nix-specific configuration with safe regex managers for `fetchPypi` plus `mkHelmChartFromGitHub` version bumps (see ADR-038 in jackpkgs); Nix SRI hashes such as `sha256-XRJNwpeGjQSEPub34BLrPJn3Tj6Ie90/PB7LR2+tPmU=` are matched structurally but left for manual recomputation (see ADR-023)
 - **`pulumi.json`** - Pulumi-specific configuration and version management
 - **`sector7-release-tarballs.json`** - Package.json dependency updates for `@jmmaloney4/sector7` GitHub release tarballs
 
-> Note: `renovate/nix.json` detects `mkHelmChartFromGitHub` version bumps (and `fetchPypi`), but does not rewrite the hash. Maintainers recompute the new hash manually before merge.
+> Note: `renovate/nix.json` detects `mkHelmChartFromGitHub` version bumps (and `fetchPypi`), including the usual quoted Nix SRI hash form like `sha256-XRJNwpeGjQSEPub34BLrPJn3Tj6Ie90/PB7LR2+tPmU=`, but does not rewrite the hash. Maintainers recompute the new hash manually before merge.
 
 > Note: `renovate/sector7-release-tarballs.json` handles the packed GitHub Release asset URLs used by consumer repos. It updates the tarball URL in `package.json` and leaves lockfile regeneration to Renovate's normal package manager flow.
 
