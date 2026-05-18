@@ -11,7 +11,7 @@ export type LiteLLMModelMode =
 	| "rerank";
 
 export interface LiteLLMProviderConfig {
-	apiKey: pulumi.Input<string>;
+	apiKey?: pulumi.Input<string>;
 	envVar?: pulumi.Input<string>;
 	apiBase?: pulumi.Input<string>;
 }
@@ -24,6 +24,12 @@ export interface LiteLLMModelDeployment {
 	mode?: LiteLLMModelMode;
 	baseModel?: string;
 	accessGroups?: string[];
+	teamId?: string;
+	teamAlias?: string;
+	teamPublicModelName?: string;
+	tags?: string[];
+	extraLiteLLMParams?: Record<string, unknown>;
+	extraModelInfo?: Record<string, unknown>;
 	rpm?: number;
 	tpm?: number;
 	rpd?: number;
@@ -41,6 +47,32 @@ export interface LiteLLMModelGroup {
 	fallbacks?: string[];
 	contextWindowFallbacks?: string[];
 	accessGroups?: string[];
+	teamId?: string;
+	teamAlias?: string;
+	teamPublicModelName?: string;
+	tags?: string[];
+	extraModelInfo?: Record<string, unknown>;
+}
+
+export interface LiteLLMTeamCapability {
+	name: string;
+	deploymentIds: string[];
+	fallbacks?: string[];
+	contextWindowFallbacks?: string[];
+	accessGroups?: string[];
+	tags?: string[];
+	extraModelInfo?: Record<string, unknown>;
+}
+
+export interface LiteLLMTeamDefinition {
+	id: string;
+	alias?: string;
+	capabilities: LiteLLMTeamCapability[];
+}
+
+export interface BuildLiteLLMTeamScopedModelGroupsArgs {
+	teams: LiteLLMTeamDefinition[];
+	separator?: string;
 }
 
 export interface LiteLLMObservabilityPolicy {
@@ -112,9 +144,43 @@ export interface LiteLLMProxyArgs {
 	redis?: LiteLLMRedisPolicy;
 	service?: LiteLLMServiceSpec;
 	resources?: k8s.types.input.core.v1.ResourceRequirements;
+	extraLiteLLMSettings?: Record<string, unknown>;
+	extraGeneralSettings?: Record<string, unknown>;
+	extraRouterSettings?: Record<string, unknown>;
 }
 
 export interface LiteLLMGeneratedConfig {
 	configYaml: string;
 	providerEnvVars: string[];
+}
+
+export interface LiteLLMAdminTargetArgs {
+	proxyNamespace: pulumi.Input<string>;
+	masterKey: pulumi.Input<string>;
+	proxyDeploymentName?: pulumi.Input<string>;
+	proxyPort?: pulumi.Input<number>;
+}
+
+export interface LiteLLMApiKeyArgs extends LiteLLMAdminTargetArgs {
+	keyAlias: pulumi.Input<string>;
+	models?: pulumi.Input<pulumi.Input<string>[]>;
+	teamId?: pulumi.Input<string>;
+	userId?: pulumi.Input<string>;
+	budgetId?: pulumi.Input<string>;
+	maxBudget?: pulumi.Input<number>;
+	budgetDuration?: pulumi.Input<string>;
+	duration?: pulumi.Input<string>;
+	aliases?: pulumi.Input<Record<string, pulumi.Input<string>>>;
+	tags?: pulumi.Input<pulumi.Input<string>[]>;
+	metadata?: pulumi.Input<Record<string, pulumi.Input<string>>>;
+}
+
+export interface LiteLLMTeamArgs extends LiteLLMAdminTargetArgs {
+	teamAlias: pulumi.Input<string>;
+	teamId?: pulumi.Input<string>;
+	models?: pulumi.Input<pulumi.Input<string>[]>;
+	maxBudget?: pulumi.Input<number>;
+	budgetDuration?: pulumi.Input<string>;
+	tags?: pulumi.Input<pulumi.Input<string>[]>;
+	metadata?: pulumi.Input<Record<string, pulumi.Input<string>>>;
 }

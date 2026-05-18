@@ -119,6 +119,99 @@ config:
     limitToRef: refs/heads/main
 ```
 
+## LiteLLM
+
+Sector7 ships a low-level `LiteLLMProxy` component plus higher-level helpers for team-scoped capability routing.
+
+Use the low-level API when you want to wire providers, deployments, and model groups by hand.
+Use the team-scoped builder when callers should see stable aliases like `coding` or `cheap` while LiteLLM routes to different backend pools based on team / billing context.
+
+```typescript
+import * as pulumi from "@pulumi/pulumi";
+import {
+  LiteLLMApiKey,
+  LiteLLMProxy,
+  LiteLLMTeam,
+  buildLiteLLMTeamScopedModelGroups,
+} from "@jmmaloney4/sector7/litellm";
+
+const modelGroups = buildLiteLLMTeamScopedModelGroups({
+  teams: [
+    {
+      id: "personal",
+      alias: "Personal",
+      capabilities: [
+        {
+          name: "coding",
+          deploymentIds: ["codex-main", "codex-fallback"],
+          fallbacks: ["cheap"],
+        },
+        {
+          name: "cheap",
+          deploymentIds: ["cheap-main"],
+        },
+      ],
+    },
+  ],
+});
+
+const proxy = new LiteLLMProxy("litellm", {
+  namespace: "litellm",
+  databaseUrl: pulumi.secret("postgres://..."),
+  providers: {
+    codex: {
+      apiBase: "http://codex-proxy.codex.svc.cluster.local:9879",
+    },
+    openai: {
+      apiKey: pulumi.secret("[REDACTED]"),
+    },
+  },
+  deployments: [
+    {
+      id: "codex-main",
+      provider: "codex",
+      providerModel: "openai/gpt-5-codex",
+    },
+    {
+      id: "codex-fallback",
+      provider: "codex",
+      providerModel: "openai/gpt-5-codex",
+    },
+    {
+      id: "cheap-main",
+      provider: "openai",
+      providerModel: "openai/gpt-4o-mini",
+    },
+  ],
+  modelGroups,
+  router: {
+    routingStrategy: "least-busy",
+  },
+});
+
+const personalTeam = new LiteLLMTeam("personal-team", {
+  proxyNamespace: proxy.namespace,
+  masterKey: proxy.masterKey,
+  teamAlias: "Personal",
+  teamId: "team-personal",
+  models: ["coding", "cheap"],
+});
+
+const personalKey = new LiteLLMApiKey("personal-key", {
+  proxyNamespace: proxy.namespace,
+  masterKey: proxy.masterKey,
+  keyAlias: "personal-default",
+  teamId: personalTeam.teamId,
+  models: ["coding", "cheap"],
+});
+```
+
+Notes:
+
+- Internal OpenAI-compatible upstreams can omit `apiKey` and rely on `apiBase` only.
+- Team-scoped aliases compile to unique internal model names such as `personal::coding` while exposing the caller-facing alias through LiteLLM team metadata.
+- `LiteLLMTeam` and `LiteLLMApiKey` use LiteLLM's admin endpoints through the in-cluster deployment.
+
 ## Development
 
 ### Setup

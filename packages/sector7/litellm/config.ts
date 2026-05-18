@@ -10,6 +10,7 @@ import type {
 } from "./config-types.ts";
 
 type ResolvedProviderConfig = {
+	hasApiKey?: boolean;
 	envVar?: string;
 	apiBase?: string;
 };
@@ -77,8 +78,16 @@ function toUpperSnakeCase(value: string): string {
 export function getProviderEnvVar(
 	providerName: string,
 	provider: ResolvedProviderConfig,
-): string {
-	return provider.envVar ?? `${toUpperSnakeCase(providerName)}_API_KEY`;
+): string | undefined {
+	if (provider.envVar) {
+		return provider.envVar;
+	}
+
+	if (provider.hasApiKey) {
+		return `${toUpperSnakeCase(providerName)}_API_KEY`;
+	}
+
+	return undefined;
 }
 
 function addIfDefined(
@@ -89,6 +98,19 @@ function addIfDefined(
 	if (value !== undefined) {
 		target[key] = value;
 	}
+}
+
+function mergeObjects(
+	...sources: Array<Record<string, unknown> | undefined>
+): Record<string, unknown> {
+	const merged: Record<string, unknown> = {};
+	for (const source of sources) {
+		if (!source) {
+			continue;
+		}
+		Object.assign(merged, source);
+	}
+	return merged;
 }
 
 function buildFallbackMap(
@@ -164,6 +186,9 @@ export function validateLiteLLMConfig(args: {
 	const envVars = new Set<string>();
 	for (const [providerName, provider] of Object.entries(args.providers)) {
 		const envVar = getProviderEnvVar(providerName, provider);
+		if (!envVar) {
+			continue;
+		}
 		if (envVars.has(envVar)) {
 			throw new Error(`Duplicate LiteLLM provider env var: ${envVar}`);
 		}
@@ -186,12 +211,15 @@ export function generateLiteLLMConfig(args: {
 	redis?: LiteLLMRedisPolicy;
 	router?: LiteLLMRouterPolicy;
 	replicas?: number;
+	extraLiteLLMSettings?: Record<string, unknown>;
+	extraGeneralSettings?: Record<string, unknown>;
+	extraRouterSettings?: Record<string, unknown>;
 }): LiteLLMGeneratedConfig {
 	validateLiteLLMConfig(args);
 
-	const providerEnvVars = Object.entries(args.providers).map(
-		([providerName, provider]) => getProviderEnvVar(providerName, provider),
-	);
+	const providerEnvVars = Object.entries(args.providers)
+		.map(([providerName, provider]) => getProviderEnvVar(providerName, provider))
+		.filter((value): value is string => value !== undefined);
 	const deploymentsById = new Map(
 		args.deployments.map((deployment) => [deployment.id, deployment] as const),
 	);
@@ -207,10 +235,11 @@ export function generateLiteLLMConfig(args: {
 
 			const provider = args.providers[deployment.provider];
 			const envVar = getProviderEnvVar(deployment.provider, provider);
-			const litellmParams: Record<string, unknown> = {
-				model: deployment.providerModel,
-				api_key: `os.environ/${envVar}`,
-			};
+			const litellmParams = mergeObjects(deployment.extraLiteLLMParams);
+			litellmParams.model = deployment.providerModel;
+			if (envVar) {
+				litellmParams.api_key = `os.environ/${envVar}`;
+			}
 			addIfDefined(
 				litellmParams,
 				"api_base",
@@ -218,6 +247,8 @@ export function generateLiteLLMConfig(args: {
 			);
 			addIfDefined(litellmParams, "rpm", deployment.rpm);
 			addIfDefined(litellmParams, "tpm", deployment.tpm);
+			addIfDefined(litellmParams, "rpd", deployment.rpd);
+			addIfDefined(litellmParams, "tpd", deployment.tpd);
 			addIfDefined(litellmParams, "weight", deployment.weight);
 			addIfDefined(litellmParams, "order", deployment.order);
 
@@ -225,10 +256,18 @@ export function generateLiteLLMConfig(args: {
 				...(deployment.accessGroups ?? []),
 				...(group.accessGroups ?? []),
 			]);
+			const tags = new Set<string>([
+				...(deployment.tags ?? []),
+				...(group.tags ?? []),
+			]);
 
-			const modelInfo: Record<string, unknown> = {
-				id: deployment.id,
-			};
+			const modelInfo = mergeObjects(
+				group.extraModelInfo,
+				deployment.extraModelInfo,
+				{
+					id: deployment.id,
+				},
+			);
 			addIfDefined(
 				modelInfo,
 				"base_model",
@@ -251,6 +290,22 @@ export function generateLiteLLMConfig(args: {
 				"output_cost_per_token",
 				deployment.outputCostPerToken,
 			);
+			addIfDefined(
+				modelInfo,
+				"team_id",
+				deployment.teamId ?? group.teamId,
+			);
+			addIfDefined(
+				modelInfo,
+				"team_alias",
+				deployment.teamAlias ?? group.teamAlias,
+			);
+			addIfDefined(
+				modelInfo,
+				"team_public_model_name",
+				deployment.teamPublicModelName ?? group.teamPublicModelName,
+			);
+			addIfDefined(modelInfo, "tags", tags.size > 0 ? [...tags] : undefined);
 
 			return {
 				model_name: group.name,
@@ -299,7 +354,6 @@ export function generateLiteLLMConfig(args: {
 				: {}),
 		};
 	}
-
 	const governance = {
 		...DEFAULT_GOVERNANCE,
 		...args.governance,
@@ -320,6 +374,7 @@ export function generateLiteLLMConfig(args: {
 		"default_key_generate_params",
 		args.governance?.defaultKeyGenerateParams,
 	);
+	Object.assign(litellmSettings, args.extraLiteLLMSettings ?? {});
 
 	const generalSettings: Record<string, unknown> = {
 		master_key: "os.environ/LITELLM_MASTER_KEY",
@@ -339,6 +394,7 @@ export function generateLiteLLMConfig(args: {
 		"use_redis_transaction_buffer",
 		args.redis?.useRedisTransactionBuffer,
 	);
+	Object.assign(generalSettings, args.extraGeneralSettings ?? {});
 
 	const router = {
 		...DEFAULT_ROUTER,
@@ -369,6 +425,7 @@ export function generateLiteLLMConfig(args: {
 	if (contextWindowFallbacks.length > 0) {
 		routerSettings.context_window_fallbacks = contextWindowFallbacks;
 	}
+	Object.assign(routerSettings, args.extraRouterSettings ?? {});
 
 	const configYaml = stringify(
 		{
