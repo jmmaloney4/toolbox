@@ -22,7 +22,7 @@ jobs:
       DIST: research/_site
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: jmmaloney4/sector7/.github/actions/nix-setup@61fa58a027d96afc7c5c9a2953ab54dd3bb42ad4 # main
+      - uses: jmmaloney4/sector7/.github/actions/nix-setup@e810f9d58eaf12b58af1ebef7968f684d2ee2030 # main
         with:
           runs-on: ${{ vars.ACTIONS_RUNS_ON }}
           cache: ${{ !contains(vars.ACTIONS_RUNS_ON, 'self-hosted') }}
