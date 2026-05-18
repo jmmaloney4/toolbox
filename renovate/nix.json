@@ -19,7 +19,7 @@
 			"description": "Update mkHelmChartFromGitHub ARC chart packages in Nix files",
 			"managerFilePatterns": ["/nix/.+\\.nix$/"],
 			"matchStrings": [
-				"mkHelmChartFromGitHub\\s*\\{[\\s\\S]*?pname\\s*=\\s*\"(?<depName>[^\"]+)\";[\\s\\S]*?version\\s*=\\s*\"(?<currentValue>[^\"]+)\";[\\s\\S]*?owner\\s*=\\s*\"(?<owner>actions)\";[\\s\\S]*?repo\\s*=\\s*\"(?<repo>actions-runner-controller)\";[\\s\\S]*?rev\\s*=\\s*\"gha-runner-scale-set-\\$\\{version\\}\";[\\s\\S]*?hash\\s*=\\s*\"[^\"]+\";"
+				"mkHelmChartFromGitHub\\s*(?:rec\\s*)?\\{[\\s\\S]*?pname\\s*=\\s*\"(?<depName>[^\"]+)\";[\\s\\S]*?version\\s*=\\s*\"(?<currentValue>[^\"]+)\";[\\s\\S]*?owner\\s*=\\s*\"(?<owner>actions)\";[\\s\\S]*?repo\\s*=\\s*\"(?<repo>actions-runner-controller)\";[\\s\\S]*?rev\\s*=\\s*\"gha-runner-scale-set-\\$\\{version\\}\";[\\s\\S]*?hash\\s*=\\s*\"[^\"]+\";"
 			],
 			"datasourceTemplate": "github-tags",
 			"depNameTemplate": "{{{owner}}}/{{{repo}}}",
@@ -30,7 +30,7 @@
 			"description": "Update mkHelmChartFromGitHub packages in Nix files",
 			"managerFilePatterns": ["/nix/.+\\.nix$/"],
 			"matchStrings": [
-				"mkHelmChartFromGitHub\\s*\\{(?![\\s\\S]*?rev\\s*=)[\\s\\S]*?pname\\s*=\\s*\"(?<depName>[^\"]+)\";[\\s\\S]*?version\\s*=\\s*\"(?<currentValue>[^\"]+)\";[\\s\\S]*?owner\\s*=\\s*\"(?<owner>[^\"]+)\";[\\s\\S]*?repo\\s*=\\s*\"(?<repo>[^\"]+)\";[\\s\\S]*?hash\\s*=\\s*\"[^\"]+\";"
+				"mkHelmChartFromGitHub\\s*(?:rec\\s*)?\\{[\\s\\S]*?pname\\s*=\\s*\"(?<depName>[^\"]+)\";[\\s\\S]*?version\\s*=\\s*\"(?<currentValue>[^\"]+)\";[\\s\\S]*?owner\\s*=\\s*\"(?<owner>[^\"]+)\";[\\s\\S]*?repo\\s*=\\s*\"(?<repo>[^\"]+)\";\\s*hash\\s*=\\s*\"[^\"]+\";"
 			],
 			"datasourceTemplate": "github-releases",
 			"depNameTemplate": "{{{owner}}}/{{{repo}}}"
