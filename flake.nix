@@ -54,6 +54,7 @@
           "renovate/minor-patch-automerge.json"
           "renovate/nix.json"
           "renovate/pulumi.json"
+          "renovate/sector7-release-tarballs.json"
           "renovate/security.json"
         ];
 

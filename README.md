@@ -102,6 +102,16 @@ Configure Renovate with our presets:
 }
 ```
 
+If a consumer repository depends on the packed Sector7 GitHub Release tarball URL, add the dedicated preset or use `all.json`:
+
+```json
+{
+  "extends": [
+    "github>jmmaloney4/sector7//renovate/sector7-release-tarballs.json"
+  ]
+}
+```
+
 ## 🛠️ Development Environment
 
 This repository includes a Nix flake that provides a consistent development environment across all supported platforms.
