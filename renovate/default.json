@@ -43,9 +43,9 @@
 			"minimumReleaseAge": null
 		},
 		{
-			"description": "Do not pin requires-python in pyproject.toml — keep as minimum version range",
+			"description": "Disable requires-python updates — managed manually per project as a capped minor range (e.g. >=3.13,<3.14)",
 			"matchDepTypes": ["requires-python"],
-			"rangeStrategy": "replace"
+			"enabled": false
 		}
 	]
 }
