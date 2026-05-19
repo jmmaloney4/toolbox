@@ -41,6 +41,11 @@
 			"description": "Skip stability days for internal sector7 actions (own repo)",
 			"matchPackageNames": ["jmmaloney4/sector7"],
 			"minimumReleaseAge": null
+		},
+		{
+			"description": "Disable requires-python updates — managed manually per project as a capped minor range (e.g. >=3.13,<3.14)",
+			"matchDepTypes": ["requires-python"],
+			"enabled": false
 		}
 	]
 }
