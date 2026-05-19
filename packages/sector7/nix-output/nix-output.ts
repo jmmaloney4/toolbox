@@ -58,11 +58,15 @@ export interface NixOutputArgs {
 }
 
 function parseStorePath(stdout: string, name: string): string {
-	const match = stdout.trim().match(/STORE_PATH_OUTPUT:(\/nix\/store\/[^\s]+)/);
-	if (!match) {
+	const prefix = "STORE_PATH_OUTPUT:";
+	const line = stdout
+		.trim()
+		.split(/\r?\n/)
+		.find((entry) => entry.startsWith(prefix));
+	if (!line) {
 		throw new Error(`Could not parse STORE_PATH_OUTPUT from output for ${name}`);
 	}
-	return match[1];
+	return line.slice(prefix.length);
 }
 
 function isStringRecord(
@@ -80,14 +84,18 @@ export function resolvePreviewStorePath(
 		return undefined;
 	}
 
-	const stdout = execFileSync("bash", [scriptPath], {
-		encoding: "utf8",
-		env: {
-			...process.env,
-			...env,
-		},
-	});
-	return parseStorePath(stdout, name);
+	try {
+		const stdout = execFileSync("bash", [scriptPath], {
+			encoding: "utf8",
+			env: {
+				...process.env,
+				...env,
+			},
+		});
+		return parseStorePath(stdout, name);
+	} catch {
+		return undefined;
+	}
 }
 
 export class NixOutput extends pulumi.ComponentResource {
