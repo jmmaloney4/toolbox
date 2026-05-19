@@ -96,7 +96,7 @@ jobs:
         with:
           repository: ${{ inputs.repository }}
           ref: ${{ inputs.ref }}
-      - uses: jmmaloney4/toolbox/.github/actions/pulumi-setup@e810f9d58eaf12b58af1ebef7968f684d2ee2030 # main
+      - uses: jmmaloney4/sector7/.github/actions/pulumi-setup@e810f9d58eaf12b58af1ebef7968f684d2ee2030 # main
         with:
           google_workload_identity_provider: ${{ inputs.google_workload_identity_provider }}
           google_service_account_email: ${{ inputs.google_service_account_email }}
