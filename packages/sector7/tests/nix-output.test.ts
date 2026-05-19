@@ -300,6 +300,45 @@ describe("NixOutput", () => {
 		);
 	});
 
+	it("eager preview helper returns undefined when the script fails", () => {
+		const execSpy = vi.mocked(execFileSync).mockImplementation(() => {
+			throw new Error("nix failed");
+		});
+
+		const storePath = resolvePreviewStorePath(
+			"test-preview-failure",
+			"/tmp/nix-output-resolve.sh",
+			{
+				NIX_ATTR: "packages.x86_64-linux.myapp",
+				REPO_ROOT: "/home/user/my-repo",
+				SCRIPT_MODE: "build",
+				COMMAND_LOG_STEM: ".pulumi/command-logs/test-preview-failure",
+			},
+		);
+
+		expect(storePath).toBeUndefined();
+		expect(execSpy).toHaveBeenCalledOnce();
+	});
+
+	it("eager preview helper preserves spaces in parsed store paths", () => {
+		vi.mocked(execFileSync).mockReturnValue(
+			"=== Resolved: /nix/store/eager123-my app-1.0.0 ===\nSTORE_PATH_OUTPUT:/nix/store/eager123-my app-1.0.0\n",
+		);
+
+		const storePath = resolvePreviewStorePath(
+			"test-preview-spaces",
+			"/tmp/nix-output-resolve.sh",
+			{
+				NIX_ATTR: "packages.x86_64-linux.myapp",
+				REPO_ROOT: "/home/user/my-repo",
+				SCRIPT_MODE: "build",
+				COMMAND_LOG_STEM: ".pulumi/command-logs/test-preview-spaces",
+			},
+		);
+
+		expect(storePath).toBe("/nix/store/eager123-my app-1.0.0");
+	});
+
 	it("eager preview helper returns undefined when any env input is dynamic", () => {
 		const execSpy = vi.mocked(execFileSync);
 
