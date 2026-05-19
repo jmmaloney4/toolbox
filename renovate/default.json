@@ -41,6 +41,11 @@
 			"description": "Skip stability days for internal sector7 actions (own repo)",
 			"matchPackageNames": ["jmmaloney4/sector7"],
 			"minimumReleaseAge": null
+		},
+		{
+			"description": "Do not pin requires-python in pyproject.toml — keep as minimum version range",
+			"matchDepTypes": ["requires-python"],
+			"rangeStrategy": "replace"
 		}
 	]
 }
