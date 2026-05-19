@@ -1,7 +1,11 @@
-import * as command from "@pulumi/command";
+import { execFileSync } from "node:child_process";
 import * as pulumi from "@pulumi/pulumi";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { NixOutput } from "../nix-output/nix-output";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { NixOutput, resolvePreviewStorePath } from "../nix-output/nix-output";
+
+vi.mock("node:child_process", () => ({
+	execFileSync: vi.fn(),
+}));
 
 type MockResource = {
 	type: string;
@@ -12,51 +16,59 @@ type MockResource = {
 
 const resources: MockResource[] = [];
 
-beforeAll(() => {
-	pulumi.runtime.setMocks({
-		newResource: (args) => {
-			const state = args.inputs;
+function installMocks(preview = false): void {
+	pulumi.runtime.setMocks(
+		{
+			newResource: (args: pulumi.runtime.MockResourceArgs) => {
+				const state = args.inputs;
 
-			// For command.local.Command, simulate stdout with STORE_PATH_OUTPUT marker
-			if (args.type === "command:local:Command") {
-				const create = state.create as string | undefined;
+				// For command.local.Command, simulate stdout with STORE_PATH_OUTPUT marker
+				if (args.type === "command:local:Command") {
+					const create = state.create as string | undefined;
 
-				if (create?.includes("nix-output-resolve.sh")) {
-					const env = state.environment as Record<string, string> | undefined;
-					const subPath = env?.SUB_PATH;
-					const baseStorePath = "/nix/store/abc123-myapp-1.0.0";
-					const storePath = subPath
-						? `${baseStorePath}/${subPath}`
-						: baseStorePath;
+					if (create?.includes("nix-output-resolve.sh")) {
+						const env = state.environment as Record<string, string> | undefined;
+						const subPath = env?.SUB_PATH;
+						const baseStorePath = "/nix/store/abc123-myapp-1.0.0";
+						const storePath = subPath
+							? `${baseStorePath}/${subPath}`
+							: baseStorePath;
 
-					(state as Record<string, unknown>).stdout =
-						`=== Resolved: ${storePath} ===\nSTORE_PATH_OUTPUT:${storePath}\n`;
+						(state as Record<string, unknown>).stdout =
+							`=== Resolved: ${storePath} ===\nSTORE_PATH_OUTPUT:${storePath}\n`;
+					}
 				}
-			}
 
-			resources.push({
-				type: args.type,
-				name: args.name,
-				inputs: state as Record<string, unknown>,
-				parent: args.parent?.urn ?? undefined,
-			});
+				resources.push({
+					type: args.type,
+					name: args.name,
+					inputs: state as Record<string, unknown>,
+					parent: args.parent?.urn ?? undefined,
+				});
 
-			return {
-				id: `${args.name}-id`,
-				state,
-			};
+				return {
+					id: `${args.name}-id`,
+					state,
+				};
+			},
+			call: (args: pulumi.runtime.MockCallArgs) => args.inputs,
 		},
-		call: (args) => args.inputs,
-	});
-});
+		undefined,
+		undefined,
+		preview,
+	);
+}
 
 beforeEach(() => {
 	resources.length = 0;
+	vi.clearAllMocks();
+	vi.restoreAllMocks();
+	installMocks(false);
 });
 
 function resolveOutput<T>(value: pulumi.Input<T>): Promise<T> {
 	return new Promise((resolve) => {
-		pulumi.output(value).apply((resolved) => {
+		pulumi.output(value).apply((resolved: T) => {
 			resolve(resolved as T);
 			return resolved;
 		});
@@ -251,5 +263,58 @@ describe("NixOutput", () => {
 		const env = cmds[0].inputs.environment as Record<string, unknown>;
 		expect(env).not.toHaveProperty("SUB_OUTPUT");
 		expect(env).not.toHaveProperty("SUB_PATH");
+	});
+
+	it("eager preview helper resolves a concrete store path when env is static", () => {
+		const execSpy = vi.mocked(execFileSync).mockReturnValue(
+			"=== Resolved: /nix/store/eager123-myapp-1.0.0 ===\nSTORE_PATH_OUTPUT:/nix/store/eager123-myapp-1.0.0\n",
+		);
+
+		const storePath = resolvePreviewStorePath(
+			"test-preview-eager",
+			"/tmp/nix-output-resolve.sh",
+			{
+				NIX_ATTR: "packages.x86_64-linux.myapp",
+				REPO_ROOT: "/home/user/my-repo",
+				SCRIPT_MODE: "build",
+				COMMAND_LOG_STEM: ".pulumi/command-logs/test-preview-eager",
+				EXTRA_FLAG: "enabled",
+			},
+		);
+
+		expect(storePath).toBe("/nix/store/eager123-myapp-1.0.0");
+		expect(execSpy).toHaveBeenCalledOnce();
+		expect(execSpy).toHaveBeenCalledWith(
+			"bash",
+			["/tmp/nix-output-resolve.sh"],
+			expect.objectContaining({
+				encoding: "utf8",
+				env: expect.objectContaining({
+					NIX_ATTR: "packages.x86_64-linux.myapp",
+					REPO_ROOT: "/home/user/my-repo",
+					SCRIPT_MODE: "build",
+					COMMAND_LOG_STEM: ".pulumi/command-logs/test-preview-eager",
+					EXTRA_FLAG: "enabled",
+				}),
+			}),
+		);
+	});
+
+	it("eager preview helper returns undefined when any env input is dynamic", () => {
+		const execSpy = vi.mocked(execFileSync);
+
+		const storePath = resolvePreviewStorePath(
+			"test-preview-fallback",
+			"/tmp/nix-output-resolve.sh",
+			{
+				NIX_ATTR: "packages.x86_64-linux.myapp",
+				REPO_ROOT: pulumi.output("/home/user/my-repo"),
+				SCRIPT_MODE: "build",
+				COMMAND_LOG_STEM: ".pulumi/command-logs/test-preview-fallback",
+			},
+		);
+
+		expect(storePath).toBeUndefined();
+		expect(execSpy).not.toHaveBeenCalled();
 	});
 });

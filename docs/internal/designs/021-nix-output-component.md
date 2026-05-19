@@ -83,6 +83,17 @@ export interface NixOutputArgs {
    * output is in the local store.
    */
   mode?: "resolve" | "build";
+  /**
+   * Preview path resolution strategy.
+   *
+   * "resource" keeps the child command as the source of truth, which can
+   * leave `storePath` unknown during preview when the command needs to rerun.
+   *
+   * "eager" attempts to resolve the path during preview when all required
+   * inputs are already plain strings, preserving better downstream diff
+   * fidelity for consumers like local Helm charts.
+   */
+  previewStrategy?: "resource" | "eager";
   /** Extra environment variables to pass to the build command. */
   env?: Record<string, pulumi.Input<string>>;
 }
@@ -165,6 +176,7 @@ For `NixImage`, the default trigger remains `imageTag` since that's the deployme
 - **General-purpose**: Any nix attribute that produces a derivable output can be represented, not just nix2container images.
 - **Resolve-first default**: The default mode is "resolve" — if the derivation already exists in the store, no build is triggered. This is the correct Pulumi-aligned default: declare desired state, only build if necessary.
 - **Cleaner separation of concerns**: Image push logic no longer shares a command with nix build logic. Each step has its own command, its own triggers, its own error surface.
+- **Optional preview fidelity**: Consumers that use local file-path inputs downstream can opt into preview-time store-path resolution when their `NixOutput` inputs are already concrete strings.
 
 ## Negative / Risks
 
@@ -206,7 +218,7 @@ Balances declarative intent ("output" of the nix system) with generality. An out
 
 1. **Should `NixOutput` have a `subOutput` arg?** Yes. Added `subOutput` to select named outputs from multi-output derivations. Implemented as `nixAttr^subOutput` syntax passed to the shell script via `SUB_OUTPUT` env var.
 
-2. **What happens on `pulumi preview`?** `NixOutput` with `mode="build"` shows a diff on preview because `command.local.Command` doesn't execute during preview. This is expected and consistent with how NixImage worked before. Document in the README.
+2. **What happens on `pulumi preview`?** By default, `NixOutput` keeps the resource-backed behavior, so `mode="build"` can still leave `storePath` unknown during preview because `command.local.Command` doesn't execute in preview. Consumers that need a concrete preview-time path can opt into `previewStrategy="eager"`, which runs the resolver script during preview when all required inputs are already plain strings.
 
 3. **Should `NixOutput` support caching?** No explicit caching in the component. Nix daemon cache handles this naturally. The `--no-link --print-out-paths` build approach doesn't create symlinks to clean up. Leave caching to the nix daemon.
 

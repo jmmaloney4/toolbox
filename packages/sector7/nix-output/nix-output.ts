@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import * as command from "@pulumi/command";
 import * as pulumi from "@pulumi/pulumi";
 import { getScriptPath } from "../scripts/index.ts";
@@ -38,8 +39,55 @@ export interface NixOutputArgs {
 	 * output is in the local store.
 	 */
 	mode?: "resolve" | "build";
+	/**
+	 * Preview path resolution strategy.
+	 *
+	 * "resource" (default) keeps the existing Pulumi resource-backed
+	 * behavior, which means `storePath` can be unknown during preview when
+	 * the child command needs to rerun.
+	 *
+	 * "eager" attempts to resolve the store path during preview when all
+	 * inputs needed by the script are plain strings. This preserves better
+	 * downstream preview fidelity for consumers like local Helm charts.
+	 * If any required input is still dynamic, it falls back to
+	 * resource-backed behavior.
+	 */
+	previewStrategy?: "resource" | "eager";
 	/** Extra environment variables to pass to the command. */
 	env?: Record<string, pulumi.Input<string>>;
+}
+
+function parseStorePath(stdout: string, name: string): string {
+	const match = stdout.trim().match(/STORE_PATH_OUTPUT:(\/nix\/store\/[^\s]+)/);
+	if (!match) {
+		throw new Error(`Could not parse STORE_PATH_OUTPUT from output for ${name}`);
+	}
+	return match[1];
+}
+
+function isStringRecord(
+	value: Record<string, pulumi.Input<string>>,
+): value is Record<string, string> {
+	return Object.values(value).every((entry) => typeof entry === "string");
+}
+
+export function resolvePreviewStorePath(
+	name: string,
+	scriptPath: string,
+	env: Record<string, pulumi.Input<string>>,
+): string | undefined {
+	if (!isStringRecord(env)) {
+		return undefined;
+	}
+
+	const stdout = execFileSync("bash", [scriptPath], {
+		encoding: "utf8",
+		env: {
+			...process.env,
+			...env,
+		},
+	});
+	return parseStorePath(stdout, name);
 }
 
 export class NixOutput extends pulumi.ComponentResource {
@@ -66,6 +114,7 @@ export class NixOutput extends pulumi.ComponentResource {
 		const scriptPath = getScriptPath("nix-output-resolve.sh");
 		const commandLogStem = `.pulumi/command-logs/${name}`;
 		const mode = args.mode ?? "resolve";
+		const previewStrategy = args.previewStrategy ?? "resource";
 
 		const env: Record<string, pulumi.Input<string>> = {
 			...(args.env ?? {}),
@@ -87,17 +136,15 @@ export class NixOutput extends pulumi.ComponentResource {
 			{ parent: this },
 		);
 
-		this.storePath = cmd.stdout.apply((stdout: string) => {
-			const match = stdout
-				.trim()
-				.match(/STORE_PATH_OUTPUT:(\/nix\/store\/[^\s]+)/);
-			if (!match) {
-				throw new Error(
-					`Could not parse STORE_PATH_OUTPUT from output for ${name}`,
-				);
-			}
-			return match[1];
-		});
+		const eagerStorePath =
+			previewStrategy === "eager" && pulumi.runtime.isDryRun()
+				? resolvePreviewStorePath(name, scriptPath, env)
+				: undefined;
+
+		this.storePath =
+			eagerStorePath !== undefined
+				? pulumi.output(eagerStorePath)
+				: cmd.stdout.apply((stdout: string) => parseStorePath(stdout, name));
 
 		this.registerOutputs({
 			storePath: this.storePath,
