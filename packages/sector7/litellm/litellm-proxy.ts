@@ -67,11 +67,11 @@ function rewriteDatabaseUrlForProxy(
 	url: string,
 	proxyPort: number,
 ): string {
-	const rewritten = url.replace(
-		/(\/\/[^@]+@)([^:\/]+)(:\d+)?/,
-		(_, prefix, _host, _port) => `${prefix}127.0.0.1:${proxyPort}`,
-	);
-	return rewritten.replace(/sslmode=[^&]+/, "sslmode=disable");
+	const parsed = new URL(url);
+	parsed.hostname = "127.0.0.1";
+	parsed.port = String(proxyPort);
+	parsed.searchParams.set("sslmode", "disable");
+	return parsed.toString();
 }
 
 function buildCloudSqlSidecar(args: {
