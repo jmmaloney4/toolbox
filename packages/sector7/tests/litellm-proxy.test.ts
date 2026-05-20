@@ -164,6 +164,55 @@ describe("LiteLLMProxy", () => {
 		expect(service?.type).toBe("kubernetes:core/v1:Service");
 	});
 
+	it("creates Cloud SQL Auth Proxy sidecar when configured", async () => {
+		const proxy = new LiteLLMProxy("sidecar-proxy", {
+			namespace: "litellm-prod",
+			providers: { anthropic: { apiKey: pulumi.secret("anthropic-secret") } },
+			deployments: [
+				{
+					id: "anthropic-smart",
+					provider: "anthropic",
+					providerModel: "anthropic/claude-sonnet-4-20250514",
+				},
+			],
+			modelGroups: [{ name: "smart", deploymentIds: ["anthropic-smart"] }],
+			databaseUrl: pulumi.secret(
+				"postgresql://user:pass@34.162.159.18:5432/mydb?sslmode=require",
+			),
+			cloudSqlAuthProxy: {
+				connectionName: "my-project:us-east5:my-instance",
+				serviceAccountKey: pulumi.secret('{"type": "service_account"}'),
+				resources: {
+					requests: { cpu: "50m", memory: "64Mi" },
+					limits: { cpu: "200m", memory: "256Mi" },
+				},
+			},
+		});
+
+		await Promise.all([
+			resolveOutput(proxy.proxyUrl),
+			resolveOutput(proxy.deployment.id),
+			resolveOutput(proxy.cloudSqlSaKeySecret?.id),
+		]);
+
+		// SA key secret should be created.
+		const saKeySecret = findResource("sidecar-proxy-cloudsql-sa-key");
+		expect(saKeySecret?.type).toBe("kubernetes:core/v1:Secret");
+
+		// Runtime secret should have the rewritten DATABASE_URL pointing at localhost.
+		const runtimeSecret = findResource("sidecar-proxy-runtime");
+		const runtimeData = runtimeSecret?.inputs.stringData as {
+			value: Record<string, string>;
+		};
+		expect(runtimeData.value.DATABASE_URL).toBe(
+			"postgresql://user:pass@127.0.0.1:5432/mydb?sslmode=disable",
+		);
+
+		// Deployment should exist.
+		const deployment = findResource("sidecar-proxy-deployment");
+		expect(deployment?.type).toBe("kubernetes:apps/v1:Deployment");
+	});
+
 	it("can skip namespace creation", async () => {
 		const proxy = new LiteLLMProxy("shared-proxy", {
 			createNamespace: false,

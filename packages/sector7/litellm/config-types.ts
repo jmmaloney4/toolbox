@@ -128,6 +128,52 @@ export interface LiteLLMServiceSpec {
 	port?: number;
 }
 
+/**
+ * Cloud SQL Auth Proxy sidecar configuration.
+ *
+ * When provided, the proxy component injects a `cloud-sql-proxy` sidecar
+ * container that forwards a local port to the Cloud SQL instance via the
+ * Cloud SQL Auth Proxy. The DATABASE_URL is rewritten to point at
+ * `localhost:<proxyPort>` so the LiteLLM container connects through the
+ * sidecar instead of hitting the public IP directly.
+ *
+ * This eliminates the need for authorized networks and client certificates.
+ * Authentication is handled by the proxy using either a GCP service account
+ * key (via a Kubernetes secret) or IAM credentials.
+ */
+export interface CloudSqlAuthProxy {
+	/** Cloud SQL connection name: `project:region:instance`. */
+	connectionName: pulumi.Input<string>;
+
+	/**
+	 * Local port the auth proxy listens on inside the pod.
+	 * The DATABASE_URL host is rewritten to `127.0.0.1:<proxyPort>`.
+	 * @default 5432
+	 */
+	proxyPort?: number;
+
+	/** Container image for the Cloud SQL Auth Proxy. */
+	image?: pulumi.Input<string>;
+
+	/**
+	 * GCP service account key (JSON) for IAM authentication.
+	 * When provided, the key is stored in a Kubernetes secret and mounted
+	 * as an environment variable in the sidecar.
+	 *
+	 * If omitted, the sidecar relies on Workload Identity or the node's
+	 * default service account.
+	 */
+	serviceAccountKey?: pulumi.Input<string>;
+
+	/** Extra args passed to the cloud-sql-proxy binary. */
+	extraArgs?: pulumi.Input<pulumi.Input<string>[]>;
+
+	/** Resource requests/limits for the sidecar container. */
+	resources?: pulumi.Input<
+		import("@pulumi/kubernetes").types.input.core.v1.ResourceRequirements
+	>;
+}
+
 export interface LiteLLMProxyArgs {
 	namespace?: pulumi.Input<string>;
 	createNamespace?: boolean;
@@ -143,6 +189,7 @@ export interface LiteLLMProxyArgs {
 	observability?: LiteLLMObservabilityPolicy;
 	redis?: LiteLLMRedisPolicy;
 	service?: LiteLLMServiceSpec;
+	cloudSqlAuthProxy?: CloudSqlAuthProxy;
 	resources?: k8s.types.input.core.v1.ResourceRequirements;
 	extraLiteLLMSettings?: Record<string, unknown>;
 	extraGeneralSettings?: Record<string, unknown>;

@@ -1,6 +1,7 @@
 export { generateLiteLLMConfig } from "./config.ts";
 export type {
 	BuildLiteLLMTeamScopedModelGroupsArgs,
+	CloudSqlAuthProxy,
 	LiteLLMAdminTargetArgs,
 	LiteLLMApiKeyArgs,
 	LiteLLMGeneratedConfig,
