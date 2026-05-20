@@ -1,4 +1,4 @@
-name: '📦 pnpm'
+name: '📦 pnpm (dogfood)'
 on:
   workflow_dispatch:
   push:
