@@ -1,4 +1,4 @@
-name: '❄️ nix'
+name: '❄️ nix (dogfood)'
 on:
   workflow_dispatch:
   pull_request:
