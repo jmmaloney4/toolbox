@@ -69,7 +69,7 @@ function rewriteDatabaseUrlForProxy(
 ): string {
 	const rewritten = url.replace(
 		/(\/\/[^@]+@)([^:\/]+)(:\d+)?/,
-		`$1127.0.0.1:${proxyPort}`,
+		(_, prefix, _host, _port) => `${prefix}127.0.0.1:${proxyPort}`,
 	);
 	return rewritten.replace(/sslmode=[^&]+/, "sslmode=disable");
 }
